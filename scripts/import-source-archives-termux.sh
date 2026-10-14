@@ -16,7 +16,7 @@ need_pkg() {
 }
 if ! need_pkg git || ! need_pkg curl || ! need_pkg tar || ! need_pkg gh; then
   pkg update -y
-  pkg install -y git curl tar gh findutils grep coreutils
+  pkg install -y git curl tar gh findutils grep coreutils python
 fi
 
 mkdir -p "$WORK" "$ARCHIVES"
@@ -108,6 +108,27 @@ while IFS=$'\t' read -r name upstream sha; do
   else
     rm -rf "$dest"
   fi
+
+  # Remove the matching .gitmodules stanza too, so the repository no longer
+  # advertises a submodule after its real files have been imported.
+  if [ -f .gitmodules ]; then
+    python - "$dest" <<'PY'
+import pathlib, re, sys
+path = sys.argv[1]
+p = pathlib.Path(".gitmodules")
+text = p.read_text(encoding="utf-8") if p.exists() else ""
+blocks = re.split(r"(?=^\[submodule )", text, flags=re.MULTILINE)
+kept = []
+for block in blocks:
+    match = re.search(r"^\s*path\s*=\s*(.*?)\s*$", block, flags=re.MULTILINE)
+    if match and match.group(1) == path:
+        continue
+    kept.append(block)
+new_text = "".join(kept).strip()
+p.write_text((new_text + "\n") if new_text else "", encoding="utf-8")
+PY
+  fi
+
   mkdir -p "$(dirname "$dest")"
   mv "$stage" "$dest"
   rm -f "$ready"
