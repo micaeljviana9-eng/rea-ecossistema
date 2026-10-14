@@ -33,6 +33,8 @@ gh auth setup-git
 
 cd "$WORK/rea-ecossistema"
 git switch "$BRANCH"
+# Resume any commits left locally if a previous push was interrupted.
+git push origin "$BRANCH"
 mkdir -p "$TARGET"
 
 if [ -z "$(git config user.name || true)" ]; then
