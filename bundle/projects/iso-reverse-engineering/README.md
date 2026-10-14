@@ -52,6 +52,32 @@ Algumas destas são ferramentas auxiliares ou ambientes de análise, não analis
 - O importador identifica arquivos individuais acima de 95 MiB antes do envio; projetos assim ficam pendentes para tratamento separado. O GitHub rejeita arquivos individuais acima de 100 MiB no Git comum.
 - Antes de executar ferramentas, leia o README e a licença de cada projeto. Analise conteúdo suspeito em ambiente isolado.
 
+## Executar a importação pelo Termux
+
+O importador baixa snapshots de código-fonte fixados por commit, extrai os arquivos nas pastas correspondentes, remove os gitlinks convertidos e envia cada projeto como arquivos normais para o GitHub. Ele não coloca os snapshots compactados no repositório.
+
+Comece com um lote pequeno para confirmar que a autenticação e a conexão estão funcionando:
+
+```bash
+pkg update -y
+pkg install -y curl
+mkdir -p ~/rea-source-import
+curl -fL --retry 5 \
+  "https://raw.githubusercontent.com/micaeljviana9-eng/rea-ecossistema/main/scripts/import-source-archives-termux.sh" \
+  -o ~/rea-source-import/import-source-archives-termux.sh
+bash ~/rea-source-import/import-source-archives-termux.sh
+```
+
+Na primeira execução, o script pode instalar dependências e pedir para autenticar no GitHub com `gh auth login`. Faça a autenticação no próprio Termux; nunca compartilhe tokens no chat.
+
+Por padrão, cada execução importa até **3 projetos** e faz commit/push individual para poder retomar em caso de interrupção. Execute o mesmo comando novamente para continuar. Quando já tiver confirmado que o processo está funcionando, para tentar todos os restantes de uma vez use:
+
+```bash
+bash ~/rea-source-import/import-source-archives-termux.sh --all
+```
+
+O andamento fica em `SOURCE_IMPORT_STATUS.tsv`. Projetos que contêm arquivos individuais acima de 95 MiB ficam pendentes, pois o GitHub bloqueia arquivos com mais de 100 MiB no Git comum. O script lista esses arquivos e preserva a extração no aparelho para análise posterior.
+
 ## Progresso da importação
 
-O script cria `SOURCE_IMPORT_STATUS.tsv` com o nome, o repositório upstream e o commit de cada snapshot enviado. Se o arquivo ainda não existir, a importação pode não ter sido executada ou ainda não ter concluído nenhum projeto.
+O script cria `SOURCE_IMPORT_STATUS.tsv` com o nome, o repositório upstream e o commit de cada snapshot enviado. A contagem registrada diferencia projetos concluídos dos que ainda estão pendentes. Projetos com arquivos grandes ou pastas de destino já preenchidas precisam de revisão separada.
