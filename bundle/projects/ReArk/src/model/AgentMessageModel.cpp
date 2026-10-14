@@ -1,0 +1,204 @@
+#include "model/AgentMessageModel.h"
+
+AgentMessageModel::AgentMessageModel(QObject* parent)
+    : QAbstractListModel(parent)
+{
+}
+
+int AgentMessageModel::rowCount(const QModelIndex& parent) const
+{
+    if (parent.isValid()) {
+        return 0;
+    }
+    return messages_.size();
+}
+
+QVariant AgentMessageModel::data(const QModelIndex& index, int role) const
+{
+    if (!index.isValid() || index.row() < 0 || index.row() >= messages_.size()) {
+        return {};
+    }
+
+    const Message& message = messages_.at(index.row());
+    switch (role) {
+    case MessageRoleRole:
+        return message.role;
+    case MessageTextRole:
+    case Qt::DisplayRole:
+        return message.text;
+    case MessageReasoningTextRole:
+        return message.reasoningText;
+    case MessageStateRole:
+        return message.state;
+    case MessageTimeRole:
+        return message.time;
+    case MessageActivitiesRole:
+        return message.activities;
+    default:
+        return {};
+    }
+}
+
+QHash<int, QByteArray> AgentMessageModel::roleNames() const
+{
+    return {
+        { MessageRoleRole, "messageRole" },
+        { MessageTextRole, "messageText" },
+        { MessageReasoningTextRole, "messageReasoningText" },
+        { MessageStateRole, "messageState" },
+        { MessageTimeRole, "messageTime" },
+        { MessageActivitiesRole, "messageActivities" }
+    };
+}
+
+int AgentMessageModel::appendMessage(
+    const QString& role,
+    const QString& text,
+    const QString& state,
+    const QString& time)
+{
+    const int row = messages_.size();
+    beginInsertRows({}, row, row);
+    messages_.append(Message {
+        .role = role,
+        .text = text,
+        .reasoningText = {},
+        .state = state,
+        .time = time,
+        .activities = {}
+    });
+    endInsertRows();
+    return row;
+}
+
+void AgentMessageModel::clear()
+{
+    if (messages_.isEmpty()) {
+        return;
+    }
+
+    beginResetModel();
+    messages_.clear();
+    endResetModel();
+}
+
+void AgentMessageModel::removeMessage(int row)
+{
+    if (row < 0 || row >= messages_.size()) {
+        return;
+    }
+
+    beginRemoveRows({}, row, row);
+    messages_.removeAt(row);
+    endRemoveRows();
+}
+
+void AgentMessageModel::appendText(int row, const QString& text)
+{
+    if (text.isEmpty() || row < 0 || row >= messages_.size()) {
+        return;
+    }
+
+    messages_[row].text += text;
+    const QModelIndex changed = index(row);
+    emit dataChanged(changed, changed, { MessageTextRole, Qt::DisplayRole });
+}
+
+void AgentMessageModel::setText(int row, const QString& text)
+{
+    if (row < 0 || row >= messages_.size()) {
+        return;
+    }
+
+    if (messages_[row].text == text) {
+        return;
+    }
+
+    messages_[row].text = text;
+    const QModelIndex changed = index(row);
+    emit dataChanged(changed, changed, { MessageTextRole, Qt::DisplayRole });
+}
+
+void AgentMessageModel::appendReasoningText(int row, const QString& text)
+{
+    if (text.isEmpty() || row < 0 || row >= messages_.size()) {
+        return;
+    }
+
+    messages_[row].reasoningText += text;
+    const QModelIndex changed = index(row);
+    emit dataChanged(changed, changed, { MessageReasoningTextRole });
+}
+
+void AgentMessageModel::setReasoningText(int row, const QString& text)
+{
+    if (row < 0 || row >= messages_.size() || messages_[row].reasoningText == text) {
+        return;
+    }
+
+    messages_[row].reasoningText = text;
+    const QModelIndex changed = index(row);
+    emit dataChanged(changed, changed, { MessageReasoningTextRole });
+}
+
+void AgentMessageModel::clearReasoningText(int row)
+{
+    if (row < 0 || row >= messages_.size() || messages_[row].reasoningText.isEmpty()) {
+        return;
+    }
+
+    messages_[row].reasoningText.clear();
+    const QModelIndex changed = index(row);
+    emit dataChanged(changed, changed, { MessageReasoningTextRole });
+}
+
+void AgentMessageModel::setActivities(int row, const QVariantList& activities)
+{
+    if (row < 0 || row >= messages_.size()) {
+        return;
+    }
+
+    messages_[row].activities = activities;
+    const QModelIndex changed = index(row);
+    emit dataChanged(changed, changed, { MessageActivitiesRole });
+}
+
+void AgentMessageModel::finishStreaming(int row, const QString& fallbackText)
+{
+    if (row < 0 || row >= messages_.size()) {
+        return;
+    }
+
+    Message& message = messages_[row];
+    if (message.state != QStringLiteral("streaming")) {
+        return;
+    }
+
+    if (!fallbackText.isEmpty() && message.text.trimmed().isEmpty()) {
+        message.text = fallbackText;
+    }
+    message.reasoningText.clear();
+    message.state = QStringLiteral("done");
+
+    const QModelIndex changed = index(row);
+    emit dataChanged(
+        changed,
+        changed,
+        { MessageTextRole, MessageReasoningTextRole, MessageStateRole, Qt::DisplayRole });
+}
+
+void AgentMessageModel::failStreaming(int row)
+{
+    if (row < 0 || row >= messages_.size()) {
+        return;
+    }
+
+    Message& message = messages_[row];
+    if (message.state != QStringLiteral("streaming")) {
+        return;
+    }
+
+    message.state = QStringLiteral("error");
+    const QModelIndex changed = index(row);
+    emit dataChanged(changed, changed, { MessageStateRole });
+}

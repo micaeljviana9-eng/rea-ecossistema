@@ -1,0 +1,87 @@
+/*
+ *  Copyright (C) 2010 Ryszard Wiśniewski <brut.alll@gmail.com>
+ *  Copyright (C) 2010 Connor Tumbleson <connor.tumbleson@gmail.com>
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *       https://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
+package brut.androlib;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+
+import org.junit.*;
+import static org.junit.Assert.*;
+
+public class DecodeResourcesTest extends BaseTest {
+    private static final String TEST_APK = "issue1680.apk";
+
+    private static final byte[] XML_HEADER = {
+        0x3C, // <
+        0x3F, // ?
+        0x78, // x
+        0x6D, // m
+        0x6C, // l
+        0x20, // (empty)
+    };
+
+    @BeforeClass
+    public static void beforeClass() throws Exception {
+        copyResourceDir(DecodeResourcesTest.class, "issue1680", sTmpDir);
+    }
+
+    @Test
+    public void decodeResourcesNoneTest() throws Exception {
+        sConfig.setDecodeResources(Config.DecodeResources.NONE);
+
+        Path testApk = sTmpDir.resolve(TEST_APK);
+        Path testDir = sTmpDir.resolve(testApk.getFileName() + ".out.none");
+        new ApkDecoder(testApk, sConfig).decode(testDir);
+
+        // assert that manifest is not XML
+        assertFalse(Arrays.equals(XML_HEADER, readHeaderOfFile(testDir.resolve("AndroidManifest.xml"), 6)));
+
+        // assert that resources.arsc exists
+        assertTrue(Files.isRegularFile(testDir.resolve("resources.arsc")));
+    }
+
+    @Test
+    public void decodeResourcesFullTest() throws Exception {
+        sConfig.setDecodeResources(Config.DecodeResources.FULL);
+
+        Path testApk = sTmpDir.resolve(TEST_APK);
+        Path testDir = sTmpDir.resolve(testApk.getFileName() + ".out.full");
+        new ApkDecoder(testApk, sConfig).decode(testDir);
+
+        // assert that manifest is XML
+        assertTrue(Arrays.equals(XML_HEADER, readHeaderOfFile(testDir.resolve("AndroidManifest.xml"), 6)));
+
+        // assert that resources.arsc does not exist
+        assertFalse(Files.isRegularFile(testDir.resolve("resources.arsc")));
+    }
+
+    @Test
+    public void decodeResourcesOnlyManifestTest() throws Exception {
+        sConfig.setDecodeResources(Config.DecodeResources.ONLY_MANIFEST);
+
+        Path testApk = sTmpDir.resolve(TEST_APK);
+        Path testDir = sTmpDir.resolve(testApk.getFileName() + ".out.manifest");
+        new ApkDecoder(testApk, sConfig).decode(testDir);
+
+        // assert that manifest is XML
+        assertTrue(Arrays.equals(XML_HEADER, readHeaderOfFile(testDir.resolve("AndroidManifest.xml"), 6)));
+
+        // assert that resources.arsc exists
+        assertTrue(Files.isRegularFile(testDir.resolve("resources.arsc")));
+    }
+}

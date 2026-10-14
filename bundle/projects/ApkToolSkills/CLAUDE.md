@@ -1,0 +1,186 @@
+# AI-Apktool Skills
+
+AI-native Android reverse engineering skills for Claude Code. Provides 11 skills covering APK analysis, security auditing, code exploration, and more.
+
+## Quick Start
+
+```bash
+# Full analysis of an APK
+apktool analyze app.apk
+
+# Quick info
+apktool info app.apk
+
+# Security audit
+apktool security app.apk
+
+# Compare two versions
+apktool diff app_v1.apk app_v2.apk
+
+# Search for patterns
+apktool search app.apk "password" -t strings
+
+# Generate AI prompts
+apktool ai app.apk -a security-review
+
+# JSON help catalog
+apktool help --format=json
+```
+
+## Skills
+
+| Skill | Description | When to Use |
+|-------|-------------|-------------|
+| `quick-analysis` | Fast APK assessment | First encounter with an APK |
+| `security-audit` | Comprehensive security audit | Vulnerability assessment, OWASP compliance |
+| `compare` | Version comparison | Checking changes between app versions |
+| `reverse` | Full reverse engineering | Deep analysis, modification, malware investigation |
+| `reference` | CLI command reference | Looking up exact syntax or output format |
+| `decode-build` | Decode & build workflow | Decoding APK, rebuilding, framework management |
+| `dex-deep-dive` | DEX deep analysis | Class/method/field exploration, inheritance tracing |
+| `network-analysis` | Network communication analysis | Finding endpoints, URLs, cleartext traffic |
+| `malware-hunt` | Malware indicator hunting | Suspicious APK investigation, malicious patterns |
+| `resource-explorer` | Resource & file exploration | Resources, locales, assets, file structure |
+| `signing-verify` | Signing verification | Certificate analysis, signing scheme assessment |
+
+## CLI Command Reference
+
+### Core Commands
+| Command | Description |
+|---------|-------------|
+| `decode` / `d` | Decode APK to smali/resources |
+| `build` / `b` | Build APK from decoded directory |
+| `install-framework` / `if` | Install framework APK |
+| `clean-frameworks` / `cf` | Clean framework files |
+| `list-frameworks` / `lf` | List framework files |
+| `publicize-resources` / `pr` | Make resources public in ARSC |
+
+### Analysis Commands (JSON output)
+| Command | Description | Key Fields |
+|---------|-------------|------------|
+| `info` | APK metadata summary | package, version, SDK, component counts |
+| `manifest` | Full AndroidManifest.xml | permissions, components, flags |
+| `permissions` | Permission list | all declared permissions |
+| `activities` | Activity components | name, exported, intentFilters |
+| `services` | Service components | name, exported, intentFilters |
+| `receivers` | BroadcastReceiver components | name, exported, intentFilters |
+| `providers` | ContentProvider components | name, exported, intentFilters |
+| `components` | All components in one | activities, services, receivers, providers |
+| `sdk-info` | SDK version requirements | minSdk, targetSdk, maxSdk |
+| `resources` | Resource table summary | typeCounts, locales, totalEntries |
+| `security` | Security report + risk score | dangerousPermissions, riskScore(0-100) |
+| `api-surface` | Exported components + intent filters | totalExportedComponents |
+| `signing` | APK signing certificate | subject, fingerprints, signing schemes |
+| `strings` | Extract strings from APK | all strings with pattern filter |
+| `dex-list` | List DEX files | dexCount, dexFiles |
+| `locales` | Supported locales | locale strings from resource table |
+| `native-libs` | Native libraries | architectures, libsByArch |
+| `dex-info` | Per-DEX statistics | classes, methods, fields per DEX |
+| `apk-info` | Decoded APK metadata | version, sdkInfo, usesFramework, featureFlags |
+| `resource-packages` | Resource package groups | packageGroups, packageGroupCount |
+| `lib-frame-packages` | Shared library and framework package IDs | libPackageIds, framePackageIds |
+| `uses-libs` | Shared libraries used | usesLibraries[] |
+| `manifest-flags` | Manifest security flags | debuggable, allowBackup, usesCleartextTraffic, networkSecurityConfig |
+| `version` | APK version info | packageName, versionCode, versionName |
+| `apk-version` | APK version info (alias) | packageName, versionCode, versionName |
+| `file-list` | APK file listing | totalFiles, totalSize, entries[] |
+| `file-hash` | APK file hashes | sha256, sha1, md5 |
+| `class-info` | DEX class details | superClass, methods[], fields[], interfaces[] |
+| `class-list` | List all DEX class names | totalClasses, classes[] |
+| `method-search` | Search method signatures by regex | totalMatches, methods[{className, methodName, returnType}] |
+| `field-search` | Search field names by regex | totalMatches, fields[{className, fieldName, type}] |
+| `asset-list` | List assets/ directory files | hasAssets, totalAssets, assets[] |
+| `dex-strings` | Extract all DEX strings | totalStrings, strings[] |
+| `permission-detail` | Permission danger level analysis | dangerousCount, normalCount, customCount, permissions[] |
+| `inheritance` | Class inheritance chain | className, inheritanceChain[] |
+| `manifest-xml` | Full decoded AndroidManifest.xml text | manifestXml |
+| `analyze` | Comprehensive one-shot analysis | all of the above combined |
+
+### Search Commands
+| Command | Description |
+|---------|-------------|
+| `search` | Search strings/classes/methods by regex (`-t strings|classes|methods`) |
+| `strings` | Extract strings with optional pattern filter (`-p pattern`) |
+
+### Diff & Structure Commands
+| Command | Description |
+|---------|-------------|
+| `diff` | Compare two APKs (permissions, components, version changes) |
+| `structure` | Code structure overview (classes, methods, fields, packages) |
+
+### AI & Service Commands
+| Command | Description |
+|---------|-------------|
+| `ai` | Generate LLM-ready prompts (`-a explain|security-review|summarize`) |
+| `serve` | Start HTTP API server (`-p port`, default 8080) |
+
+## Output Format
+
+All analysis commands output JSON to stdout. Use `jq` or similar tools to parse:
+
+```bash
+apktool info app.apk | jq '.packageName'
+apktool security app.apk | jq '.riskScore'
+apktool api-surface app.apk | jq '.exportedActivities[].name'
+apktool ai app.apk -a context | jq '.'
+```
+
+## HTTP API Endpoints (serve command)
+
+### Analysis Endpoints (GET)
+- `/api/v1/health` — Health check
+- `/api/v1/info?apk=<path>` — APK metadata
+- `/api/v1/manifest?apk=<path>` — AndroidManifest.xml
+- `/api/v1/permissions?apk=<path>` — Permissions list
+- `/api/v1/activities?apk=<path>` — Activities
+- `/api/v1/services?apk=<path>` — Services
+- `/api/v1/receivers?apk=<path>` — Broadcast receivers
+- `/api/v1/providers?apk=<path>` — Content providers
+- `/api/v1/components?apk=<path>` — All components
+- `/api/v1/sdk-info?apk=<path>` — SDK versions
+- `/api/v1/resources?apk=<path>` — Resource summary
+- `/api/v1/security?apk=<path>` — Security report
+- `/api/v1/api-surface?apk=<path>` — Exported components
+- `/api/v1/signing?apk=<path>` — Signing info
+- `/api/v1/structure?apk=<path>` — Code structure
+- `/api/v1/analyze?apk=<path>` — Full analysis
+- `/api/v1/ai?apk=<path>&action=<explain|security-review|summarize|context>` — AI prompts/context
+- `/api/v1/search?apk=<path>&type=<type>&pattern=<pattern>` — Search
+- `/api/v1/strings?apk=<path>&pattern=<pattern>` — String extraction
+- `/api/v1/dex-list?apk=<path>` — DEX file list
+- `/api/v1/locales?apk=<path>` — Supported locales
+- `/api/v1/native-libs?apk=<path>` — Native libraries
+- `/api/v1/dex-info?apk=<path>` — Per-DEX statistics
+- `/api/v1/apk-info?dir=<path>` — Decoded APK metadata
+- `/api/v1/resource-packages?apk=<path>` — Resource package groups
+- `/api/v1/lib-frame-packages?apk=<path>` — Shared library and framework package IDs
+- `/api/v1/uses-libs?apk=<path>` — Shared libraries used
+- `/api/v1/manifest-flags?apk=<path>` — Manifest security flags
+- `/api/v1/version?apk=<path>` — APK version info
+- `/api/v1/file-list?apk=<path>` — APK file listing
+- `/api/v1/file-hash?apk=<path>` — APK file hashes
+- `/api/v1/class-info?apk=<path>&class=<name>` — DEX class details
+- `/api/v1/class-list?apk=<path>` — List all class names
+- `/api/v1/method-search?apk=<path>&pattern=<pattern>` — Search method signatures
+- `/api/v1/field-search?apk=<path>&pattern=<pattern>` — Search field names
+- `/api/v1/asset-list?apk=<path>` — List assets directory
+- `/api/v1/dex-strings?apk=<path>` — Extract DEX strings
+- `/api/v1/permission-detail?apk=<path>` — Detailed permission analysis
+- `/api/v1/inheritance?apk=<path>&class=<name>` — Class inheritance chain
+- `/api/v1/manifest-xml?apk=<path>` — Full decoded manifest XML
+- `/api/v1/diff?apk1=<path>&apk2=<path>` — APK comparison
+- `/api/v1/list-frameworks` — List frameworks
+
+### Operational Endpoints (POST)
+- `/api/v1/decode?apk=<path>&output=<dir>` — Decode APK
+- `/api/v1/build?dir=<path>&output=<apk>` — Build APK
+- `/api/v1/install-framework?apk=<path>` — Install framework
+- `/api/v1/clean-frameworks` — Clean frameworks
+- `/api/v1/publicize-resources?arsc=<path>` — Publicize resources
+
+## Build
+
+```bash
+./gradlew build shadowJar
+# Then use: apktool <command>
+```

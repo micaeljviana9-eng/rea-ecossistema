@@ -1,0 +1,63 @@
+---
+name: compare
+description: Diffs two versions of the same APK — added/removed permissions, components, DEX files, native libs, version codes, and signer changes. Use this whenever the user has two APKs or app versions and wants to know what changed, what's new, what was removed, or whether a release introduced a regression or new attack surface.
+---
+
+# APK Version Comparison
+
+Workflow for comparing two versions of an Android APK to identify differences.
+
+## When to Use
+
+- Checking what changed between app versions
+- Verifying security fixes were applied
+- Tracking new permissions or components
+- Pre-release regression testing
+
+## Prerequisites
+
+The unified `apktool` CLI must be on your PATH. Build it from source with `./gradlew build shadowJar` (the `./apktool` wrapper invokes the resulting jar). All analysis commands print JSON to stdout; run `apktool help --format=json` for the full machine-readable command catalog.
+
+## Workflow
+
+### Step 1: Quick Diff
+
+```bash
+apktool diff <old-apk> <new-apk>
+```
+
+Review: `addedPermissions[]`, `removedPermissions[]`, `addedActivities[]`, `removedActivities[]`, `addedServices[]`, `addedDexFiles[]`, `addedNativeLibs[]`, `versionCodeChange`, `versionNameChange`, `targetSdkChange`
+
+### Step 2: Detailed Analysis
+
+```bash
+apktool security <old-apk> > old_security.json
+apktool security <new-apk> > new_security.json
+apktool api-surface <old-apk> > old_surface.json
+apktool api-surface <new-apk> > new_surface.json
+apktool structure <old-apk> > old_structure.json
+apktool structure <new-apk> > new_structure.json
+```
+
+### Step 3: Identify Key Changes
+
+Focus on: New Permissions, New Exported Components, Native Library Changes, DEX Changes, Target SDK Change, Risk Score Delta.
+
+### Step 4: Search for Specific Changes
+
+```bash
+apktool search <new-apk> "changelog|whats.?new|updated" -t strings
+apktool search <new-apk> "NewFeature|UpdatedActivity" -t classes
+
+# Compare signing certificates
+apktool signing <old-apk> > old_signing.json
+apktool signing <new-apk> > new_signing.json
+
+# Compare file hashes
+apktool file-hash <old-apk> > old_hash.json
+apktool file-hash <new-apk> > new_hash.json
+```
+
+---
+
+> **Exact syntax & fields:** for any command's full options, output fields, or HTTP endpoint, use the **`reference`** skill — it keeps the full tables in on-demand `references/` files.

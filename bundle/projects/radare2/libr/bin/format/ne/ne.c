@@ -1,0 +1,679 @@
+/* radare - LGPL - Copyright 2019-2025 - GustavoLCR */
+
+#include "ne.h"
+
+static bool ne_header_at(RBuffer *buf, ut64 offset) {
+	ut64 bufsz = r_buf_size (buf);
+	if (offset > bufsz || bufsz - offset <= 26) {
+		return false;
+	}
+	ut8 magic[2];
+	return r_buf_read_at (buf, offset, magic, sizeof (magic)) == sizeof (magic)
+		&& !memcmp (magic, "NE", sizeof (magic));
+}
+
+bool r_bin_ne_get_header_offset(RBuffer *buf, R_OUT ut32 *offset) {
+	if (!buf || !offset || r_buf_size (buf) < 0x40) {
+		return false;
+	}
+	ut32 candidate = r_buf_read_le32_at (buf, 0x3c);
+	if (ne_header_at (buf, candidate)) {
+		*offset = candidate;
+		return true;
+	}
+	ut16 legacy = candidate;
+	if (legacy != candidate && ne_header_at (buf, legacy)) {
+		*offset = legacy;
+		return true;
+	}
+	return false;
+}
+
+static char *__get_target_os(r_bin_ne_obj_t *bin) {
+	const int targetOS = (bin->ne_header) ? bin->ne_header->targOS: 0;
+	switch (targetOS) {
+	case 1:
+		return "OS/2";
+	case 2:
+		return "Windows";
+	case 3:
+		return "European MS-DOS 4.x";
+	case 4:
+		return "Windows 386";
+	case 5:
+		return "BOSS (Borland Operating System Services)";
+	default:
+		return "Unknown";
+	}
+}
+
+static int __translate_perms(int flags) {
+	int perms = 0;
+	if (flags & IS_RX) {
+		if (flags & IS_DATA) {
+			perms = R_PERM_R;
+		} else {
+			perms = R_PERM_X;
+		}
+	}
+	if (!perms) {
+		perms = R_PERM_RWX;
+	}
+	return perms;
+}
+
+static char *pascalstr_at(RBuffer *buf, ut64 offset, ut64 end, R_OUT ut8 * R_NULLABLE size_out) {
+	if (offset >= end) {
+		return NULL;
+	}
+	ut8 size = r_buf_read8_at (buf, offset);
+	if (!size || size > end - offset - 1) {
+		return NULL;
+	}
+	char *str = malloc ((ut64)size + 1);
+	if (!str) {
+		return NULL;
+	}
+	if (r_buf_read_at (buf, offset + 1, (ut8 *)str, size) != size) {
+		free (str);
+		return NULL;
+	}
+	str[size] = 0;
+	if (size_out) {
+		*size_out = size;
+	}
+	return str;
+}
+
+static char *__func_name_from_ord(const char *module, ut16 ordinal) {
+	if (!module) {
+		return NULL;
+	}
+	char *lower_module = strdup (module);
+	r_str_case (lower_module, false);
+	char *pfx = r_sys_prefix (NULL);
+	char *path = r_str_newf (R_JOIN_4_PATHS ("%s", R2_SDB_FORMAT, "dll", "%s.sdb"), pfx, lower_module);
+	free (pfx);
+	free (lower_module);
+	char *name = NULL;
+	if (r_file_exists (path)) {
+		Sdb *sdb = sdb_new (NULL, path, 0);
+		const char *value = sdb_const_getf (sdb, NULL, "%d", ordinal);
+		name = value? strdup (value): NULL;
+		sdb_free (sdb);
+	}
+	if (!name) {
+		name = r_str_newf ("%d", ordinal);
+	}
+	free (path);
+	return name;
+}
+
+bool r_bin_ne_load_segments(r_bin_ne_obj_t *bin, RVecRBinSection *segments) {
+	int i;
+	if (!bin || !bin->segment_entries || !bin->ne_header || !segments) {
+		return false;
+	}
+	RVecRBinSection_clear (segments);
+	for (i = 0; i < bin->ne_header->SegCount; i++) {
+		RBinSection *bs = RVecRBinSection_emplace_back (segments);
+		NE_image_segment_entry *se = &bin->segment_entries[i];
+		bs->size = se->length;
+		bs->vsize = se->minAllocSz ? se->minAllocSz : 64000;
+		bs->bits = R_SYS_BITS_PACK (16);
+		bs->is_data = se->flags & IS_DATA;
+		bs->perm = __translate_perms (se->flags);
+		bs->paddr = (ut64)se->offset * bin->alignment;
+		bs->name = r_str_newf ("%s.%" PFMT64d, se->flags & IS_MOVEABLE ? "MOVEABLE" : "FIXED", bs->paddr);
+		bs->is_segment = true;
+	}
+	return true;
+}
+
+static bool ne_has_symbol_at(RVecRBinSymbol *vec, ut64 paddr) {
+	RBinSymbol *s;
+	R_VEC_FOREACH (vec, s) {
+		if (s->paddr == paddr) {
+			return true;
+		}
+	}
+	return false;
+}
+
+void r_bin_ne_load_symbols(r_bin_ne_obj_t *bin, RVecRBinSymbol *symbols) {
+	if (!bin->ne_header) {
+		return;
+	}
+	ut64 bufsz = r_buf_size (bin->buf);
+	ut64 off = (ut64)bin->ne_header->ResidNamTable + bin->header_offset;
+	RList *entries = r_bin_ne_get_entrypoints (bin);
+	bool resident = true, first = true;
+	while (entries) {
+		if (off >= bufsz) {
+			break;
+		}
+		ut8 sz = r_buf_read8_at (bin->buf, off);
+		if (!sz) {
+			first = true;
+			if (resident) {
+				resident = false;
+				off = bin->ne_header->OffStartNonResTab;
+				if (off >= bufsz || !r_buf_read8_at (bin->buf, off)) {
+					break;
+				}
+			} else {
+				break;
+			}
+		}
+		char *name = pascalstr_at (bin->buf, off, bufsz, &sz);
+		if (!name) {
+			break;
+		}
+		off += (ut64)sz + 1;
+		if (bufsz - off < sizeof (ut16)) {
+			free (name);
+			break;
+		}
+		ut16 entry_off = r_buf_read_le16_at (bin->buf, off);
+		off += sizeof (ut16);
+		RBinSymbol *sym = RVecRBinSymbol_emplace_back (symbols);
+		sym->name = r_bin_name_new_from (name);
+		if (!first) {
+			sym->bind = R_BIN_BIND_GLOBAL_STR;
+		}
+		RBinAddr *entry = r_list_get_n (entries, entry_off);
+		sym->paddr = entry? entry->paddr: -1;
+		sym->ordinal = entry_off;
+		first = false;
+	}
+	RListIter *it;
+	RBinAddr *en;
+	int i = 1;
+	r_list_foreach (entries, it, en) {
+		if (!ne_has_symbol_at (symbols, en->paddr)) {
+			RBinSymbol *sym = RVecRBinSymbol_emplace_back (symbols);
+			sym->name = r_bin_name_new_from (r_str_newf ("entry%d", i - 1));
+			sym->paddr = en->paddr;
+			sym->bind = R_BIN_BIND_GLOBAL_STR;
+			sym->ordinal = i;
+		}
+		i++;
+	}
+	r_list_free (entries);
+}
+
+static char *__resource_type_str(int type) {
+	static const char *names[] = {
+		/*  0 */ NULL,
+		/*  1 */ "CURSOR",
+		/*  2 */ "BITMAP",
+		/*  3 */ "ICON",
+		/*  4 */ "MENU",
+		/*  5 */ "DIALOG",
+		/*  6 */ "STRING",
+		/*  7 */ "FONTDIR",
+		/*  8 */ "FONT",
+		/*  9 */ "ACCELERATOR",
+		/* 10 */ "RCDATA",
+		/* 11 */ "MESSAGETABLE",
+		/* 12 */ "GROUP_CURSOR",
+		/* 13 */ NULL,
+		/* 14 */ "GROUP_ICON",
+		/* 15 */ "NAMETABLE",
+		/* 16 */ "VERSION",
+		/* 17 */ "DLGINCLUDE",
+		/* 18 */ NULL,
+		/* 19 */ "PLUGPLAY",
+		/* 20 */ "VXD",
+		/* 21 */ "ANICURSOR",
+		/* 22 */ "ANIICON",
+		/* 23 */ "HTML",
+		/* 24 */ "MANIFEST"
+	};
+	if ((unsigned)type < (sizeof names / sizeof names[0]) && names[type]) {
+		return strdup (names[type]);
+	}
+	return r_str_newf("UNKNOWN (%d)", type);
+}
+
+static void __free_resource_entry(void *entry) {
+	r_ne_resource_entry *en = (r_ne_resource_entry *)entry;
+	free (en->name);
+	free (en);
+}
+
+static void __free_resource(void *resource) {
+	r_ne_resource *res = (r_ne_resource *)resource;
+	free (res->name);
+	r_list_free (res->entry);
+	free (res);
+}
+
+static bool __ne_get_resources(r_bin_ne_obj_t *bin) {
+	if (!bin || !bin->ne_header) {
+		return false;
+	}
+	if (!bin->resources) {
+		bin->resources = r_list_newf (__free_resource);
+		if (!bin->resources) {
+			return false;
+		}
+	}
+	ut64 bufsz = r_buf_size (bin->buf);
+	ut64 resoff = (ut64)bin->ne_header->ResTableOffset + bin->header_offset;
+	ut64 resend = (ut64)bin->ne_header->ResidNamTable + bin->header_offset;
+	if (!bin->ne_header->ResTableOffset || !bin->ne_header->ResidNamTable
+		|| resoff >= resend || resend > bufsz || resend - resoff < sizeof (ut16)) {
+		return true;
+	}
+	ut16 alignment = r_buf_read_le16_at (bin->buf, resoff);
+	if (alignment >= sizeof (ut64) * 8) {
+		return false;
+	}
+	ut64 shift_limit = bufsz >> alignment;
+	ut64 off = resoff + 2;
+	while (off <= resend && resend - off >= sizeof (NE_image_typeinfo_entry)) {
+		NE_image_typeinfo_entry ti = {0};
+		if (r_buf_fread_at (bin->buf, off, (ut8 *)&ti, "2si", 1) != sizeof (ti)) {
+			return false;
+		}
+		if (!ti.rtTypeID) {
+			return true;
+		}
+		off += sizeof (NE_image_typeinfo_entry);
+		if (ti.rtResourceCount > (resend - off) / sizeof (NE_image_nameinfo_entry)) {
+			return false;
+		}
+		r_ne_resource *res = R_NEW0 (r_ne_resource);
+		res->entry = r_list_newf (__free_resource_entry);
+		if (!res->entry) {
+			free (res);
+			return false;
+		}
+		if (ti.rtTypeID & 0x8000) {
+			res->type_id = ti.rtTypeID & ~0x8000;
+			res->name = __resource_type_str (res->type_id);
+		} else if (ti.rtTypeID < resend - resoff) {
+			res->named = true;
+			res->name = pascalstr_at (bin->buf, resoff + ti.rtTypeID, resend, NULL);
+		} else {
+			__free_resource (res);
+			return false;
+		}
+		if (!res->name) {
+			__free_resource (res);
+			return false;
+		}
+		int i;
+		for (i = 0; i < ti.rtResourceCount; i++) {
+			NE_image_nameinfo_entry ni = {0};
+			if (r_buf_fread_at (bin->buf, off, (ut8 *)&ni, "6s", 1) != sizeof (ni)) {
+				__free_resource (res);
+				return false;
+			}
+			off += sizeof (NE_image_nameinfo_entry);
+			if (ni.rnOffset > shift_limit || ni.rnLength > shift_limit) {
+				continue;
+			}
+			r_ne_resource_entry *ren = R_NEW0 (r_ne_resource_entry);
+			ren->offset = (ut64)ni.rnOffset << alignment;
+			ren->size = (ut64)ni.rnLength << alignment;
+			ren->flags = ni.rnFlags;
+			if (ni.rnID & 0x8000) {
+				ren->id = ni.rnID & ~0x8000;
+				ren->name = r_str_newf ("%d", ren->id);
+			} else {
+				// Offset to resident name table
+				ren->named = true;
+				if (ni.rnID >= resend - resoff) {
+					free (ren);
+					continue;
+				}
+				ren->name = pascalstr_at (bin->buf, resoff + ni.rnID, resend, NULL);
+			}
+			if (ren->offset > bufsz || ren->size > bufsz - ren->offset || !ren->name) {
+				__free_resource_entry (ren);
+				continue;
+			}
+			r_list_append (res->entry, ren);
+		}
+		if (r_list_empty (res->entry)) {
+			__free_resource (res);
+		} else {
+			r_list_append (bin->resources, res);
+		}
+	}
+	return true;
+}
+
+void r_bin_ne_load_imports(r_bin_ne_obj_t *bin, RVecRBinImport *vec) {
+	if (!bin->ne_header) {
+		return;
+	}
+	ut64 bufsz = r_buf_size (bin->buf);
+	ut64 off = (ut64)bin->ne_header->ImportNameTable + bin->header_offset + 1;
+	RVecRBinImport_reserve (vec, bin->ne_header->ModRefs);
+	int i;
+	for (i = 0; i < bin->ne_header->ModRefs; i++) {
+		ut8 sz;
+		char *name = pascalstr_at (bin->buf, off, bufsz, &sz);
+		if (!name) {
+			break;
+		}
+		RBinImport *imp = RVecRBinImport_emplace_back (vec);
+		imp->name = r_bin_name_new_from (name);
+		imp->ordinal = i + 1;
+		off += (ut64)sz + 1;
+	}
+}
+
+RList *r_bin_ne_get_entrypoints(r_bin_ne_obj_t *bin) {
+	if (!bin->entry_table || !bin->ne_header) {
+		return NULL;
+	}
+	RList *entries = r_list_newf (free);
+	if (bin->ne_header->csEntryPoint) {
+		RBinAddr *entry = R_NEW0 (RBinAddr);
+		if (!entry) {
+			r_list_free (entries);
+			return NULL;
+		}
+		entry->bits = 16;
+		ut32 entry_cs = bin->ne_header->csEntryPoint;
+		if (entry_cs > 0 && entry_cs <= bin->ne_header->SegCount) {
+			NE_image_segment_entry *se = &bin->segment_entries[entry_cs - 1];
+			entry->paddr = bin->ne_header->ipEntryPoint + (ut64)se->offset * bin->alignment;
+		} else {
+			entry->paddr = bin->ne_header->ipEntryPoint;
+		}
+
+		r_list_append (entries, entry);
+	}
+	int off = 0;
+	ut64 tableat = (ut64)bin->header_offset + bin->ne_header->EntryTableOffset;
+	while (off < bin->ne_header->EntryTableLength) {
+		if (tableat + off >= r_buf_size (bin->buf)) {
+			break;
+		}
+		ut8 bundle_length = *(ut8 *)(bin->entry_table + off);
+		if (!bundle_length) {
+			break;
+		}
+		off++;
+		ut8 bundle_type = *(ut8 *)(bin->entry_table + off);
+		off++;
+		int i;
+		for (i = 0; i < bundle_length; i++) {
+			if (tableat + off + 4 >= r_buf_size (bin->buf)) {
+				break;
+			}
+			RBinAddr *entry = R_NEW0 (RBinAddr);
+			if (!entry) {
+				r_list_free (entries);
+				return NULL;
+			}
+			off++;
+			if (!bundle_type) { // Skip
+				off--;
+				free (entry);
+				break;
+			} else if (bundle_type == 0xff) { // moveable
+				off += 2;
+				ut8 segnum = *(bin->entry_table + off);
+				off++;
+				if (off > bin->ne_header->EntryTableLength) {
+					free (entry);
+					break;
+				}
+				ut16 segoff = r_read_le16 (bin->entry_table + off);
+				if (segnum > 0 && segnum < bin->ne_header->SegCount) {
+					entry->paddr = (ut64)bin->segment_entries[segnum - 1].offset * bin->alignment + segoff;
+				}
+			} else { // Fixed
+				if (off + 2 >= bin->ne_header->EntryTableLength) {
+					free (entry);
+					break;
+				}
+				ut16 delta = r_read_le16 (bin->entry_table + off);
+				if (bundle_type < bin->ne_header->SegCount) {
+					entry->paddr = (ut64)bin->segment_entries[bundle_type - 1].offset
+						* bin->alignment + delta;
+				}
+			}
+			off += 2;
+			r_list_append (entries, entry);
+		}
+	}
+	return entries;
+}
+
+RVecRBinReloc *r_bin_ne_get_relocs(r_bin_ne_obj_t *bin, RVecRBinSymbol *symbols, RVecRBinSection *sections) {
+	if (!bin || !bin->ne_header || !sections || RVecRBinSection_empty (sections)) {
+		return NULL;
+	}
+	if (!symbols) {
+		return NULL;
+	}
+	ut64 bufsz = r_buf_size (bin->buf);
+	RList *entries = r_bin_ne_get_entrypoints (bin);
+	if (!entries) {
+		return NULL;
+	}
+
+	ut16 *modref = calloc (bin->ne_header->ModRefs, sizeof (ut16));
+	if (!modref) {
+		r_list_free (entries);
+		return NULL;
+	}
+	r_buf_fread_at (bin->buf, (ut64)bin->ne_header->ModRefTable + bin->header_offset, (ut8 *)modref, "s", bin->ne_header->ModRefs);
+
+	RVecRBinReloc *relocs = RVecRBinReloc_new ();
+	if (!relocs) {
+		free (modref);
+		r_list_free (entries);
+		return NULL;
+	}
+
+	RBinSection *seg;
+	size_t index;
+	for (index = 0; index < RVecRBinSection_length (sections) && index < bin->ne_header->SegCount; index++) {
+		seg = RVecRBinSection_at (sections, index);
+		if (!(bin->segment_entries[index].flags & RELOCINFO)) {
+			continue;
+		}
+		ut32 off = seg->paddr + seg->size;
+		ut32 start = off;
+		ut16 length = r_buf_read_le16_at (bin->buf, off);
+		if (!length) {
+			continue;
+		}
+		off += 2;
+		// size_t buf_size = r_buf_size (bin->buf);
+		while (off < start + length * sizeof (NE_image_reloc_item)) {
+			// && off + sizeof (NE_image_reloc_item) < buf_size)
+			NE_image_reloc_item rel = {0};
+			if (r_buf_fread_at (bin->buf, off, (ut8 *)&rel, "2c3s", 1) < 1) {
+				free (modref);
+				r_list_free (entries);
+				RVecRBinReloc_free (relocs);
+				return NULL;
+			}
+			RBinReloc *reloc = RVecRBinReloc_emplace_back (relocs);
+			reloc->paddr = seg->paddr + rel.offset;
+			reloc->ntype = rel.type;
+			switch (rel.type) {
+			case LOBYTE:
+				reloc->type = R_BIN_RELOC_8;
+				break;
+			case SEL_16:
+			case OFF_16:
+				reloc->type = R_BIN_RELOC_16;
+				break;
+			case POI_32:
+			case OFF_32:
+				reloc->type = R_BIN_RELOC_32;
+				break;
+			case POI_48:
+				reloc->type = R_BIN_RELOC_64;
+				break;
+			}
+
+			ut64 offset;
+			if (rel.flags & (IMPORTED_ORD | IMPORTED_NAME)) {
+				RBinImport *imp = R_NEW0 (RBinImport);
+				char *name = NULL;
+				if (rel.index > bin->ne_header->ModRefs) {
+					name = r_str_newf ("UnknownModule%d_%x", rel.index, off); // ????
+				} else if (rel.index > 0) {
+					offset = (ut64)bin->header_offset + bin->ne_header->ImportNameTable + modref[rel.index - 1];
+					name = pascalstr_at (bin->buf, offset, bufsz, NULL);
+				}
+				if (rel.flags & IMPORTED_ORD) {
+					imp->ordinal = rel.func_ord;
+					char *fname = __func_name_from_ord (name, rel.func_ord);
+					imp->name = r_bin_name_new_from (r_str_newf ("%s.%s", r_str_get (name), r_str_get (fname)));
+					free (fname);
+				} else {
+					offset = (ut64)bin->header_offset + bin->ne_header->ImportNameTable + rel.name_off;
+					char *func = pascalstr_at (bin->buf, offset, bufsz, NULL);
+					imp->name = r_bin_name_new_from (r_str_newf ("%s.%s", r_str_get (name), r_str_get (func)));
+					free (func);
+				}
+				free (name);
+				reloc->import = imp;
+			} else if (rel.flags & OSFIXUP) {
+				// TODO
+			} else {
+				if (strstr (seg->name, "FIXED")) {
+					RBinSection *s = RVecRBinSection_at (sections, rel.segnum - 1);
+					if (s) {
+						offset = s->paddr + rel.segoff;
+					} else {
+						offset = -1;
+					}
+				} else {
+					RBinAddr *entry = r_list_get_n (entries, rel.entry_ordinal - 1);
+					if (entry) {
+						offset = entry->paddr;
+					} else {
+						offset = -1;
+					}
+				}
+				reloc->addend = offset;
+				RBinSymbol *sym;
+				R_VEC_FOREACH (symbols, sym) {
+					if (sym->paddr == reloc->addend) {
+						reloc->symbol = sym;
+						break;
+					}
+				}
+			}
+
+			if (rel.flags & ADDITIVE) {
+				reloc->additive = 1;
+			} else {
+				RBitset *visited = r_bitset_new ();
+				if (r_bitset_set (visited, rel.offset)) {
+					while (reloc->paddr <= bufsz && bufsz - reloc->paddr >= sizeof (ut16)) {
+						offset = r_buf_read_le16_at (bin->buf, reloc->paddr);
+						if (offset == UT16_MAX || !r_bitset_set (visited, offset)) {
+							break;
+						}
+						if (seg->paddr > bufsz || offset > bufsz - seg->paddr) {
+							break;
+						}
+						ut64 next_paddr = seg->paddr + offset;
+						if (bufsz - next_paddr < sizeof (ut16)) {
+							break;
+						}
+						// emplace may realloc: re-fetch the previous reloc by index
+						const size_t prev = RVecRBinReloc_length (relocs) - 1;
+						RBinReloc *next = RVecRBinReloc_emplace_back (relocs);
+						reloc = RVecRBinReloc_at (relocs, prev);
+						*next = *reloc;
+						if (next->import) {
+							next->import = r_bin_import_clone (next->import);
+						}
+						next->paddr = next_paddr;
+						reloc = next;
+					}
+				}
+				r_bitset_free (visited);
+			}
+
+			off += sizeof (NE_image_reloc_item);
+		}
+	}
+	free (modref);
+	r_list_free (entries);
+	return relocs;
+}
+
+void __init(RBuffer *buf, r_bin_ne_obj_t *bin) {
+	bin->buf = buf;
+	if (!r_bin_ne_get_header_offset (buf, &bin->header_offset)) {
+		return;
+	}
+	bin->ne_header = R_NEW0 (NE_image_header);
+	if (r_buf_fread_at (buf, bin->header_offset, (ut8 *)bin->ne_header, "4c2si4c4si8si3s2c3s2c", 1) < 1) {
+		R_FREE (bin->ne_header);
+		return;
+	}
+	if (bin->ne_header->FileAlnSzShftCnt > 15) {
+		bin->ne_header->FileAlnSzShftCnt = 15;
+	}
+	ut64 from = (ut64)bin->ne_header->ModRefTable + bin->header_offset;
+	ut64 bufsz = r_buf_size (bin->buf);
+	if (from >= bufsz) {
+		bin->ne_header->ModRefs = 0;
+	} else {
+		ut64 left = bufsz - from;
+		if (bin->ne_header->ModRefs * sizeof (ut16) > left) {
+			bin->ne_header->ModRefs = left / sizeof (ut16);
+		}
+	}
+	bin->alignment = 1 << bin->ne_header->FileAlnSzShftCnt;
+	if (!bin->alignment) {
+		bin->alignment = 1 << 9;
+	}
+	bin->os = __get_target_os (bin);
+
+	ut64 offset = (ut64)bin->ne_header->SegTableOffset + bin->header_offset;
+	size_t size = bin->ne_header->SegCount * sizeof (NE_image_segment_entry);
+	if (offset >= r_buf_size (bin->buf)) {
+		return;
+	}
+	ut64 remaining = r_buf_size (bin->buf) - offset;
+	size = R_MIN (remaining, size);
+	bin->ne_header->SegCount = size / sizeof (NE_image_segment_entry); // * sizeof (NE_image_segment_entry);
+	bin->segment_entries = calloc (1, size);
+	if (size >= remaining) {
+		bin->ne_header->SegCount = size / sizeof (NE_image_segment_entry);
+	}
+	if (!bin->segment_entries) {
+		return;
+	}
+	r_buf_fread_at (buf, offset, (ut8 *)bin->segment_entries, "4s", bin->ne_header->SegCount);
+	bin->entry_table = calloc (4, bin->ne_header->EntryTableLength);
+	if (!bin->entry_table) {
+		R_FREE (bin->segment_entries);
+		return;
+	}
+	r_buf_read_at (buf, (ut64)bin->header_offset + bin->ne_header->EntryTableOffset, bin->entry_table, bin->ne_header->EntryTableLength);
+	__ne_get_resources (bin);
+}
+
+void r_bin_ne_free(r_bin_ne_obj_t *bin) {
+	r_list_free (bin->resources);
+	free (bin->entry_table);
+	free (bin->ne_header);
+	free (bin->resident_name_table);
+	free (bin->segment_entries);
+	free (bin);
+}
+
+r_bin_ne_obj_t *r_bin_ne_new_buf(RBuffer *buf, bool verbose) {
+	r_bin_ne_obj_t *bin = R_NEW0 (r_bin_ne_obj_t);
+	__init (buf, bin);
+	return bin;
+}

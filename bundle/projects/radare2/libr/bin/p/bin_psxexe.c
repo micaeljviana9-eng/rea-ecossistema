@@ -1,0 +1,100 @@
+/* radare - LGPL - Copyright 2015-2023 - Dax89, pancake */
+
+#include <r_bin.h>
+#include "../i/private.h"
+#include "psxexe/psxexe.h"
+
+static bool check(RBinFile *bf, RBuffer *b) {
+	ut8 magic[PSXEXE_ID_LEN];
+	if (r_buf_read_at (b, 0, magic, sizeof (magic)) == PSXEXE_ID_LEN) {
+		return !memcmp (magic, PSXEXE_ID, PSXEXE_ID_LEN);
+	}
+	return false;
+}
+
+static bool load(RBinFile *bf, RBuffer *b, ut64 loadaddr) {
+	return check (bf, b);
+}
+
+static RBinInfo* info(RBinFile* bf) {
+	psxexe_header psxheader = {{0}};
+	if (r_buf_read_at (bf->buf, 0, (ut8*)&psxheader, sizeof (psxexe_header)) < sizeof (psxexe_header)) {
+		R_LOG_ERROR ("Truncated Header");
+		return NULL;
+	}
+	RBinInfo *ret = R_NEW0 (RBinInfo);
+	ret->file = strdup (bf->file);
+	ret->type = strdup ("Sony PlayStation 1 Executable");
+	ret->machine = strdup ("Sony PlayStation 1");
+	ret->os = strdup ("psx");
+	ret->arch = strdup ("mips");
+	ret->bits = 32;
+	ret->has_va = true;
+	return ret;
+}
+
+static bool sections_vec(RBinFile *bf) {
+	psxexe_header psxheader = {0};
+	if (r_buf_fread_at (bf->buf, 0, (ut8*)&psxheader, "8c17i", 1) != sizeof (psxexe_header)) {
+		R_LOG_ERROR ("Truncated Header");
+		return false;
+	}
+	RVecRBinSection_clear (&bf->bo->sections_vec);
+	ut64 sz = r_buf_size (bf->buf);
+	RBinSection *sect = RVecRBinSection_emplace_back (&bf->bo->sections_vec);
+	sect->name = strdup ("TEXT");
+	sect->paddr = PSXEXE_TEXTSECTION_OFFSET;
+	sect->size = sz - PSXEXE_TEXTSECTION_OFFSET;
+	sect->vaddr = psxheader.t_addr;
+	sect->vsize = psxheader.t_size;
+	sect->perm = R_PERM_RX;
+	sect->add = true;
+	sect->has_strings = true;
+
+	return true;
+}
+
+static RList* entries(RBinFile* bf) {
+	psxexe_header psxheader;
+	if (r_buf_fread_at (bf->buf, 0, (ut8*)&psxheader, "8c17i", 1) != sizeof (psxexe_header)) {
+		R_LOG_ERROR ("PSXEXE Header truncated");
+		return NULL;
+	}
+	RList *ret = r_list_new ();
+	if (!ret) {
+		return NULL;
+	}
+	RBinAddr *addr = R_NEW0 (RBinAddr);
+	addr->paddr = (psxheader.pc0 - psxheader.t_addr) + PSXEXE_TEXTSECTION_OFFSET;
+	addr->vaddr = psxheader.pc0;
+	r_list_append (ret, addr);
+	return ret;
+}
+
+static RVecRBinString *strings(RBinFile* bf) {
+	// hardcode minstrlen = 20
+	return r_bin_raw_strings (bf, 20);
+}
+
+RBinPlugin r_bin_plugin_psxexe = {
+	.meta = {
+		.name = "psxexe",
+		.author = "Dax89",
+		.desc = "Sony PlayStation 1 Executable",
+		.license = "LGPL-3.0-only",
+	},
+	.load = &load,
+	.check = &check,
+	.info = &info,
+	.sections_vec = &sections_vec,
+	.entries = &entries,
+	.strings = &strings,
+};
+
+#ifndef R2_PLUGIN_INCORE
+R_API RLibStruct radare_plugin = {
+	.type = R_LIB_TYPE_BIN,
+	.data = &r_bin_plugin_psxexe,
+	.version = R2_VERSION
+};
+#endif

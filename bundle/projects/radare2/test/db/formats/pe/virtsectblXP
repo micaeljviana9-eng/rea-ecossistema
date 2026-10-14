@@ -1,0 +1,22 @@
+NAME=PE: corkami virtsectblXP.exe - open
+FILE=bins/pe/virtsectblXP.exe
+ARGS=-A
+CMDS=q!
+EXPECT=<<EOF
+EOF
+RUN
+
+# merged: PE: corkami virtsectblXP.exe - pi 1
+NAME=PE: corkami virtsectblXP.exe - entrypoint
+FILE=bins/pe/virtsectblXP.exe
+CMDS=<<EOF
+s
+?e --
+pi 1
+EOF
+EXPECT=<<EOF
+0x400138
+--
+push 0x400150
+EOF
+RUN

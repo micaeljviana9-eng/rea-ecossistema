@@ -1,0 +1,2565 @@
+NAME=add zero, zero, 5
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=5
+wx 20000200
+aei
+aeim
+aeip
+aes
+ar zero
+EOF
+EXPECT=<<EOF
+0x00000000
+EOF
+RUN
+
+NAME=add a1, zero, 5
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=5
+wx 20280200
+aei
+aeim
+aeip
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0x00000005
+EOF
+RUN
+
+NAME=add a1, 0xFFFFFFFF, 5
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0xFFFFFFFF
+ar v1=0x5
+wx 20284300
+aei
+aeim
+aeip
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0x00000004
+EOF
+RUN
+
+NAME=addi zero, zero, 5
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+wx 05000020
+aei
+aeim
+aeip
+aes
+ar zero
+EOF
+EXPECT=<<EOF
+0x00000000
+EOF
+RUN
+
+NAME=addi a1, zero, 5
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=5
+wx 05000520
+aei
+aeim
+aeip
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0x00000005
+EOF
+RUN
+
+NAME=addi a1, zero, -5
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=5
+wx fbff0520
+aei
+aeim
+aeip
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0xfffffffb
+EOF
+RUN
+
+NAME=addi a1, 6, -5
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=6
+wx fbff4520
+aei
+aeim
+aeip
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0x00000001
+EOF
+RUN
+
+NAME=addu zero, zero, 5
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=5
+wx 21000200
+aei
+aeim
+aeip
+aes
+ar zero
+EOF
+EXPECT=<<EOF
+0x00000000
+EOF
+RUN
+
+NAME=addu a1, zero, 5
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=5
+wx 21280200
+aei
+aeim
+aeip
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0x00000005
+EOF
+RUN
+
+NAME=addu a1, 0xFFFFFFFF, 5
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0xFFFFFFFF
+ar v1=0x5
+wx 21284300
+aei
+aeim
+aeip
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0x00000004
+EOF
+RUN
+
+NAME=addiu zero, zero, 5
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+wx 05000024
+aei
+aeim
+aeip
+aes
+ar zero
+EOF
+EXPECT=<<EOF
+0x00000000
+EOF
+RUN
+
+NAME=addiu a1, zero, 5
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=5
+wx 05000524
+aei
+aeim
+aeip
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0x00000005
+EOF
+RUN
+
+NAME=addiu a1, zero, -5
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=5
+wx fbff0524
+aei
+aeim
+aeip
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0xfffffffb
+EOF
+RUN
+
+NAME=addiu a1, 6, -5
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=6
+wx fbff4524
+aei
+aeim
+aeip
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0x00000001
+EOF
+RUN
+
+NAME=sub zero, 5, 1
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=5
+ar v1=1
+wx 22004300
+aei
+aeim
+aeip
+aes
+ar zero
+EOF
+EXPECT=<<EOF
+0x00000000
+EOF
+RUN
+
+NAME=sub a1, 1, 5
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=1
+ar v1=5
+wx 22284300
+aei
+aeim
+aeip
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0xfffffffc
+EOF
+RUN
+
+NAME=sub a1, 0xFFFFFFFF, 5
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0xFFFFFFFF
+ar v1=0x5
+wx 22284300
+aei
+aeim
+aeip
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0xfffffffa
+EOF
+RUN
+
+NAME=subu a1, 1, 5
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=1
+ar v1=5
+wx 23284300
+aei
+aeim
+aeip
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0xfffffffc
+EOF
+RUN
+
+NAME=subu a1, 0xFFFFFFFF, 5
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0xFFFFFFFF
+ar v1=0x5
+wx 23284300
+aei
+aeim
+aeip
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0xfffffffa
+EOF
+RUN
+
+NAME=and a1, 0xFFFFFFFF, 0x10101010
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0xffffffff
+ar v1=0x10101010
+wx 24284300
+aei
+aeim
+aeip
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0x10101010
+EOF
+RUN
+
+NAME=andi a1, 0xFFFFFFFF, 0xFFFF
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0xffffffff
+wx ffff4530
+aei
+aeim
+aeip
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0x0000ffff
+EOF
+RUN
+
+NAME=andi a1, 0xFFFFFFFF, 1
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0xffffffff
+wx 01004530
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0x00000001
+EOF
+RUN
+
+NAME=or zero, zero, 0x10101010
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x10101010
+wx 25000200
+aes
+ar zero
+EOF
+EXPECT=<<EOF
+0x00000000
+EOF
+RUN
+
+NAME=or a1, zero, 0x10101010
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x10101010
+wx 25280200
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0x10101010
+EOF
+RUN
+
+NAME=or a1, 0x01010111, 0x10101010
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v1=0x01010111
+ar v0=0x10101010
+wx 25284300
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0x11111111
+EOF
+RUN
+
+NAME=ori zero, zero, 0xFFFF
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+wx ffff0034
+aes
+ar zero
+EOF
+EXPECT=<<EOF
+0x00000000
+EOF
+RUN
+
+NAME=ori a1, zero, 0xFFFF
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+wx ffff0534
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0x0000ffff
+EOF
+RUN
+
+NAME=ori a1, 0xFFFF0000, 1
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0xffff0000
+wx 01004534
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0xffff0001
+EOF
+RUN
+
+NAME=xor zero, zero, 0x10101010
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x10101010
+wx 26000200
+aes
+ar zero
+EOF
+EXPECT=<<EOF
+0x00000000
+EOF
+RUN
+
+NAME=xor a1, zero, 0x10101010
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x10101010
+wx 26280200
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0x10101010
+EOF
+RUN
+
+NAME=xor a1, 0x01010111, 0x10101010
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x01010111
+ar v1=0x10101010
+wx 26284300
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0x11111101
+EOF
+RUN
+
+NAME=xori zero, zero, 0xFFFF
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+wx ffff0038
+aes
+ar zero
+EOF
+EXPECT=<<EOF
+0x00000000
+EOF
+RUN
+
+NAME=xori a1, zero, 0xFFFF
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+wx ffff0538
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0x0000ffff
+EOF
+RUN
+
+NAME=xori a1, 0xFFFF0000, 1
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0xffff0000
+wx 01004538
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0xffff0001
+EOF
+RUN
+
+NAME=xori a1, 0xFFFF00FF, 0xF1
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0xffff00ff
+wx f1004538
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0xffff000e
+EOF
+RUN
+
+NAME=nor zero, zero, 0x10101010
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x10101010
+wx 27000200
+aes
+ar zero
+EOF
+EXPECT=<<EOF
+0x00000000
+EOF
+RUN
+
+NAME=nor a1, zero, 0x10101010
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x10101010
+wx 27280200
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0xefefefef
+EOF
+RUN
+
+NAME=nor a1, 0x10101010, 0xFFFF0000
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x10101010
+ar v1=0xffff0000
+wx 27284300
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0x0000efef
+EOF
+RUN
+
+NAME=nor a1, 0xfffffffe, 0xfffffffe
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+e cfg.bigendian=True
+ar > /dev/null
+ar v0=-2
+wx 00422827
+aes
+ar a1
+EOF
+EXPECT=<<EOF
+0x00000001
+EOF
+RUN
+
+NAME=lh v1, (v0)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x00000004
+s 4
+wx aabbccdd00004384
+s 8
+aei
+aeim
+aeip
+aes
+ar v1
+EOF
+EXPECT=<<EOF
+0xffffbbaa
+EOF
+RUN
+
+NAME=lh v1, -2(v0)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x00000006
+s 4
+wx aabbccddfeff4384
+s 8
+aei
+aeim
+aeip
+aes
+ar v1
+EOF
+EXPECT=<<EOF
+0xffffbbaa
+EOF
+RUN
+
+NAME=lh v1, 2(v0)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x00000000
+wx aabbccdd02004384
+s 4
+aei
+aeim
+aeip
+aes
+ar v1
+EOF
+EXPECT=<<EOF
+0xffffddcc
+EOF
+RUN
+
+NAME=lw v1, (v0)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x00000004
+s 4
+wx aabbccdd112233440000438c
+s +8
+aei
+aeim
+aeip
+aes
+ar v1
+EOF
+EXPECT=<<EOF
+0xddccbbaa
+EOF
+RUN
+
+NAME=lw v1, -4(v0)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x00000008
+s 0x4
+wx aabbccdd11223344fcff438c
+s +8
+aei
+aeim
+aeip
+aes
+ar v1
+EOF
+EXPECT=<<EOF
+0xddccbbaa
+EOF
+RUN
+
+NAME=lw v1, 4(v0)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x00000000
+wx aabbccdd112233440400438c
+s 8
+aei
+aeim
+aeip
+aes
+ar v1
+EOF
+EXPECT=<<EOF
+0x44332211
+EOF
+RUN
+
+NAME=sw v0, 0(v1)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x11aa22bb
+ar v1=0x10
+s 4
+wx 000062ac
+aei
+aeim
+aeip
+aes
+p8 4 @ 0x10
+EOF
+EXPECT=<<EOF
+bb22aa11
+EOF
+RUN
+
+NAME=sw v0, -4(v1)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x11aa22bb
+ar v1=0x14
+s 4
+wx fcff62ac
+aei
+aeim
+aeip
+aes
+p8 4 @ 0x10
+EOF
+EXPECT=<<EOF
+bb22aa11
+EOF
+RUN
+
+NAME=sh v0, 0(v1)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x11aa22bb
+ar v1=0x10
+wx 00000000000062a4
+s 4
+aei
+aeim
+aeip
+aes
+p8 4 @ 0x10
+EOF
+EXPECT=<<EOF
+bb220000
+EOF
+RUN
+
+NAME=sh v0, 2(v1)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x11aa22bb
+ar v1=0x10
+wx 00000000020062a4
+s 4
+aei
+aeim
+aeip
+aes
+p8 4 @ 0x12
+EOF
+EXPECT=<<EOF
+bb220000
+EOF
+RUN
+
+NAME=sb v0, 0(v1)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x11aa22bb
+ar v1=0x10
+wx 00000000000062a0
+s 4
+aei
+aeim
+aeip
+aes
+p8 4 @ 0x10
+EOF
+EXPECT=<<EOF
+bb000000
+EOF
+RUN
+
+NAME=sb v0, 3(v1)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x11aa22bb
+ar v1=0
+wx 00000000030062a0
+s 4
+aei
+aeim
+aeip
+aes
+p8 5 @ 0
+EOF
+EXPECT=<<EOF
+000000bb03
+EOF
+RUN
+
+NAME=sll v0, v0, 16
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x0001ffff
+wx 00140200
+aes
+ar v0
+EOF
+EXPECT=<<EOF
+0xffff0000
+EOF
+RUN
+
+NAME=sllv v0, v0, v1
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x0001ffff
+ar v1=16
+wx 04106200
+aes
+ar v0
+EOF
+EXPECT=<<EOF
+0xffff0000
+EOF
+RUN
+
+NAME=mult v0, v1
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x00112233
+ar v1=0x44556677
+wx 18004300
+aes
+ar hi
+ar lo
+EOF
+EXPECT=<<EOF
+0x000492cc
+0xc28637b5
+EOF
+RUN
+
+NAME=mult v1, v0
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x00112233
+ar v1=0x44556677
+wx 18004300
+aes
+ar hi
+ar lo
+EOF
+EXPECT=<<EOF
+0x000492cc
+0xc28637b5
+EOF
+RUN
+
+NAME=mul s0, a0, v0
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+wx 02808270
+ar > /dev/null
+ar a0=21
+ar v0=12
+aes
+ar s0
+ar > /dev/null
+ar a0=0x44556677
+ar v0=0x00112233
+aeip
+aes
+ar s0
+EOF
+EXPECT=<<EOF
+0x000000fc
+0xc28637b5
+EOF
+RUN
+
+NAME=mflo v0
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x00112233
+ar lo=0xffffffff12345678
+wx 12100000
+aes
+ar v0
+EOF
+EXPECT=<<EOF
+0x12345678
+EOF
+RUN
+
+NAME=mfhi v0
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x00112233
+ar hi=0xffffffff12345678
+wx 10100000
+aes
+ar v0
+EOF
+EXPECT=<<EOF
+0x12345678
+EOF
+RUN
+
+NAME=mflo zero
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar lo=0xffffffff12345678
+wx 12100000
+aes
+ar zero
+EOF
+EXPECT=<<EOF
+0x00000000
+EOF
+RUN
+
+NAME=mfhi zero
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar hi=0xffffffff12345678
+wx 10100000
+aes
+ar zero
+EOF
+EXPECT=<<EOF
+0x00000000
+EOF
+RUN
+
+NAME=mtlo v0
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x00112233
+ar lo=0xffffffff12345678
+wx 13004000
+aes
+ar lo
+EOF
+EXPECT=<<EOF
+0x00112233
+EOF
+RUN
+
+NAME=mthi v0
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x00112233
+ar hi=0xffffffff12345678
+wx 11004000
+aes
+ar hi
+EOF
+EXPECT=<<EOF
+0x00112233
+EOF
+RUN
+
+NAME=mthi v0 (negative)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0xffffffff
+ar hi=0xffffffff12345678
+wx 11004000
+aes
+ar hi
+EOF
+EXPECT=<<EOF
+0xffffffff
+EOF
+RUN
+
+NAME=bne v0, v1, 0x3c (not taken)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x00112233
+ar v1=0x00112233
+wx 0e004314
+aep 0
+aes
+ar pc
+EOF
+EXPECT=<<EOF
+0x00000004
+EOF
+RUN
+
+NAME=bne v0, v1, 0x3c (taken)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x00222233
+ar v1=0x00112233
+wx 0e004314
+aes
+ar pc
+EOF
+EXPECT=<<EOF
+0x0000003c
+EOF
+RUN
+
+NAME=beq v0, v1, 0x3c (not taken)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x00222233
+ar v1=0x00112233
+wx 0e004310
+aes
+ar pc
+EOF
+EXPECT=<<EOF
+0x00000004
+EOF
+RUN
+
+NAME=beq v0, v1, 0x3c (taken)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x00112233
+ar v1=0x00112233
+wx 0e004310
+aes
+ar pc
+EOF
+EXPECT=<<EOF
+0x0000003c
+EOF
+RUN
+
+NAME=bnez s4, 0xc (not taken)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar s4=0x00000000
+wx 02008016
+aes
+ar pc
+EOF
+EXPECT=<<EOF
+0x00000004
+EOF
+RUN
+
+NAME=bnez s4, 0xc (taken)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar s4=0x00112233
+wx 02008016
+aes
+ar pc
+EOF
+EXPECT=<<EOF
+0x0000000c
+EOF
+RUN
+
+NAME=blez v0, 0x3c (not taken)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x00000001
+wx 0e004018
+aes
+ar pc
+EOF
+EXPECT=<<EOF
+0x00000004
+EOF
+RUN
+
+NAME=blez v0, 0x3c (taken)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0xfffffffc
+wx 0e004018
+aes
+ar pc
+EOF
+EXPECT=<<EOF
+0x0000003c
+EOF
+RUN
+
+NAME=blez zero, 0x3c (taken)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+wx 0e000018
+aes
+ar pc
+EOF
+EXPECT=<<EOF
+0x0000003c
+EOF
+RUN
+
+NAME=bgez v0, 0x3c (taken)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x00000001
+wx 0e004104
+aes
+ar pc
+EOF
+EXPECT=<<EOF
+0x0000003c
+EOF
+RUN
+
+NAME=bgez v0, 0x3c (not taken)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0xfffffffc
+wx 0e004104
+aes
+ar pc
+EOF
+EXPECT=<<EOF
+0x00000004
+EOF
+RUN
+
+NAME=bgez zero, 0x3c (taken)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+wx 0e000104
+aes
+ar pc
+EOF
+EXPECT=<<EOF
+0x0000003c
+EOF
+RUN
+
+NAME=bltz v0, 0x3c (not taken)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x00000001
+wx 0e004004
+aes
+ar pc
+EOF
+EXPECT=<<EOF
+0x00000004
+EOF
+RUN
+
+NAME=bltz v0, 0x3c (taken)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0xfffffffc
+wx 0e004004
+aes
+ar pc
+EOF
+EXPECT=<<EOF
+0x0000003c
+EOF
+RUN
+
+NAME=bltz zero, 0x3c (not taken)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+wx 0e000004
+aes
+ar pc
+EOF
+EXPECT=<<EOF
+0x00000004
+EOF
+RUN
+
+NAME=bgtz v0, 0x3c (taken)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0x00000001
+wx 0e00401c
+aes
+ar pc
+EOF
+EXPECT=<<EOF
+0x0000003c
+EOF
+RUN
+
+NAME=bgtz v0, 0x3c (not taken)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0xfffffffc
+wx 0e00401c
+aes
+ar pc
+EOF
+EXPECT=<<EOF
+0x00000004
+EOF
+RUN
+
+NAME=bgtz zero, 0x3c (not taken)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+wx 0e00001c
+aes
+ar pc
+EOF
+EXPECT=<<EOF
+0x00000004
+EOF
+RUN
+
+NAME=jal 16
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+wx 0400000c
+aes
+ar pc
+ar ra
+EOF
+EXPECT=<<EOF
+0x00000010
+0x00000008
+EOF
+RUN
+
+NAME=jalr t9
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar t9=16
+wx 09f82003
+aes
+ar pc
+ar ra
+EOF
+EXPECT=<<EOF
+0x00000010
+0x00000008
+EOF
+RUN
+
+NAME=jalr t4, t9
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar t9=16
+wx 09602003
+aes
+ar pc
+ar t4
+EOF
+EXPECT=<<EOF
+0x00000010
+0x00000008
+EOF
+RUN
+
+NAME=jalr t4, t9 (invalid delay instruction)
+FILE=malloc://8
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar t9=16
+wx 09602003f673643
+aes
+ar pc
+ar t4
+EOF
+EXPECT=<<EOF
+0x00000010
+0x00000008
+EOF
+RUN
+
+NAME=slt s0, v0, v1 (1<2=1)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=1
+ar v1=2
+wx 2a804300
+aes
+ar s0
+EOF
+EXPECT=<<EOF
+0x00000001
+EOF
+RUN
+
+NAME=slt s0, v0, v1 (0<0=0)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0
+ar v1=0
+wx 2a804300
+aes
+ar s0
+EOF
+EXPECT=<<EOF
+0x00000000
+EOF
+RUN
+
+NAME=slt s0, v0, v1 (2<1=0)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=2
+ar v1=1
+wx 2a804300
+aes
+ar s0
+EOF
+EXPECT=<<EOF
+0x00000000
+EOF
+RUN
+
+NAME=slt s0, v0, v1 (-1<1=1)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=-1
+ar v1=1
+wx 2a804300
+aes
+ar s0
+EOF
+EXPECT=<<EOF
+0x00000001
+EOF
+RUN
+
+NAME=sltu s0, v0, v1 (0xffffffff<1=0)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0xffffffff
+ar v1=1
+wx 2b804300
+aes
+ar s0
+EOF
+EXPECT=<<EOF
+0x00000000
+EOF
+RUN
+
+NAME=sltu s0, v0, v1 (0<0xffffffff=1)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v0=0
+ar v1=0xffffffff
+wx 2b804300
+aes
+ar s0
+EOF
+EXPECT=<<EOF
+0x00000001
+EOF
+RUN
+
+NAME=negu v1, v0 (neg -1 = 1)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v1=0
+ar v0=-1
+wx 23180200
+aes
+ar v1
+EOF
+EXPECT=<<EOF
+0x00000001
+EOF
+RUN
+
+NAME=negu v1, v0 (neg 1 = -1)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v1=0
+ar v0=1
+wx 23180200
+aes
+ar v1
+EOF
+EXPECT=<<EOF
+0xffffffff
+EOF
+RUN
+
+NAME=negu v1, v0 (neg 3497 = -3497)
+FILE=malloc://0x200
+CMDS=<<EOF
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar v1=0
+ar v0=3497
+wx 23180200
+aes
+ar v1
+EOF
+EXPECT=<<EOF
+0xfffff257
+EOF
+RUN
+
+NAME=negative mem reference
+FILE=malloc://0x200
+ARGS=-m 0x410984
+CMDS=<<EOF
+e io.va=true
+e asm.arch=mips
+e asm.bits=32
+e cfg.bigendian=true
+aei
+aeim
+aeip
+ar > /dev/null
+ar t9=0
+ar gp=0
+wx 3c1c0042279c89408f99805011223344
+aes
+aes
+aes
+ar t9
+EOF
+EXPECT=<<EOF
+0x11223344
+EOF
+RUN
+
+NAME=complex function
+FILE=malloc://0x800
+ARGS=-m 0x0040092c
+CMDS=<<EOF
+e io.va=true
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar t9=0
+ar v0=14
+ar a0=0x00400a7c
+ar fp=0x00401000
+wx 2000c2af1c00c0af42000010250820001c00c28f3000c38f25082000211062000000428025082000410042282e004014250820001c00c28f3000c38f250820002110620000004280250820007b00422825004010250820001c00c28f3000c38f25082000211062000000428025082000610042281f004014250820001c00c28f3000c38f250820002110620000004280250820007b00422819004010250820001c00c28f3000c38f25082000211062001c00c38f3000c48f25082000211883000000638025082000ff006330e0ff6324ff006330001e0300031e0300000043a008000010250820001800c0a30500001025082000250820000200001025082000250820001c00c28f25082000010042241c00c2af2000c28f25082000ffff43241c00c28f250820002a104300b8ff4014250820001800c29321e8c0032c00bf8f2800be8f3000bd270800e00325082000736c6f77646f776e776f6d616e00
+wx 7c0a4000 @ 0x00401030
+wx 0d000000 @ 0x00401020
+aeip
+aesu 0x00400a74
+s 0x00400a7c
+psz
+EOF
+EXPECT=<<EOF
+SLOWDOWNWOMAN
+EOF
+RUN
+
+NAME=complex function 2
+FILE=malloc://0x800
+ARGS=-m 0x0040092c
+CMDS=<<EOF
+e io.va=true
+e asm.arch=mips
+e asm.bits=32
+ar > /dev/null
+ar t9=0
+ar v0=14
+ar a0=0x00400a7c
+ar fp=0x00401000
+wx 2000c2af1c00c0af42000010250820001c00c28f3000c38f25082000211062000000428025082000410042282e004014250820001c00c28f3000c38f250820002110620000004280250820007b00422825004010250820001c00c28f3000c38f25082000211062000000428025082000610042281f004014250820001c00c28f3000c38f250820002110620000004280250820007b00422819004010250820001c00c28f3000c38f25082000211062001c00c38f3000c48f25082000211883000000638025082000ff006330e0ff6324ff006330001e0300031e0300000043a008000010250820001800c0a30500001025082000250820000200001025082000250820001c00c28f25082000010042241c00c2af2000c28f25082000ffff43241c00c28f250820002a104300b8ff4014250820001800c29321e8c0032c00bf8f2800be8f3000bd270800e003250820006e336d342f707230626c336d3400
+wx 7c0a4000 @ 0x00401030
+wx 0d000000 @ 0x00401020
+aeip
+aesu 0x00400a74
+s 0x00400a7c
+psz
+EOF
+EXPECT=<<EOF
+N3M4/PR0BL3M4
+EOF
+RUN
+
+NAME=complex function 3
+FILE=malloc://0x800
+ARGS=-m 0x00400ac0
+CMDS=<<EOF
+e io.va=true
+e asm.arch=mips
+e asm.bits=32
+aeim
+ar > /dev/null
+ar v0=8
+ar a0=0x00400b48
+ar fp=0x00401000
+wx 2000c2af1800c0af0e000010250820001800c28f3000c38f2508200021106200000042801c00c38f25082000211062001c00c2af1800c28f25082000010042241800c2af2000c28f25082000ffff43241800c28f250820002a104300ecff4014250820001c00c28f250820002134423821e8c0032c00bf8f2800be8f3000bd270800e003250820004449474954414c00
+wx 480b4000 @ 0x00401030
+wx 08000000 @ 0x00401020
+aesu 0x00400b40
+ar v0
+EOF
+EXPECT=<<EOF
+0x000035df
+EOF
+RUN
+
+NAME=asm.emu with meta
+FILE=bins/elf/analysis/crackmips
+CMDS=<<EOF
+s 0x00400820
+e anal.hasnext=true
+af
+e asm.emu=true
+e emu.write=true
+e anal.fixed.gp=false
+e asm.lines.bb=false
+e asm.lines.fcn=false
+e asm.imm.str=false
+aei
+aeim
+pdf~0x00400828[7]
+?e ---
+s 0x00400828
+pdf~0x00400828[7]
+EOF
+EXPECT=<<EOF
+---
+0x422884
+EOF
+RUN
+
+NAME=mips linux syscall
+FILE=bins/elf/syscall_mips
+CMDS=<<EOF
+s entry0
+aei
+aeip
+6aes
+as
+EOF
+EXPECT=<<EOF
+0xfa4 = write (1, "Hello, world!.", 15)
+EOF
+RUN
+
+NAME=mips.gnu slt signed vs sltu unsigned
+FILE=malloc://32
+ARGS=-a mips.gnu -b 32
+CMDS=<<EOF
+aei
+wx 2a402a01
+ar t1=0xffffffff
+ar t2=1
+ar pc=0
+s 0
+aes
+ar t0
+wx 2b402a01
+ar t1=0xffffffff
+ar t2=1
+ar pc=0
+s 0
+aes
+ar t0
+wx 2a402a01
+ar t1=5
+ar t2=3
+ar pc=0
+s 0
+aes
+ar t0
+EOF
+EXPECT=<<EOF
+0x00000001
+0x00000000
+0x00000000
+EOF
+RUN
+
+NAME=mips.gnu slti signed vs sltiu unsigned
+FILE=malloc://32
+ARGS=-a mips.gnu -b 32
+CMDS=<<EOF
+aei
+wx 01002829
+ar t1=0xffffffff
+ar pc=0
+s 0
+aes
+ar t0
+wx 0500282d
+ar t1=3
+ar pc=0
+s 0
+aes
+ar t0
+EOF
+EXPECT=<<EOF
+0x00000001
+0x00000001
+EOF
+RUN
+
+
+NAME=mips mult signed hi vs multu unsigned hi
+FILE=malloc://32
+ARGS=-a mips -b 32
+CMDS=<<EOF
+aei
+wx 18000901
+ar t0=0xffffffff
+ar t1=2
+ar pc=0
+s 0
+aes
+ar hi
+ar lo
+wx 19000901
+ar t0=0xffffffff
+ar t1=2
+ar pc=0
+s 0
+aes
+ar hi
+ar lo
+EOF
+EXPECT=<<EOF
+0xffffffff
+0xfffffffe
+0x00000001
+0xfffffffe
+EOF
+RUN
+
+NAME=mips srav arithmetic variable shift
+FILE=malloc://32
+ARGS=-a mips -b 32
+CMDS=<<EOF
+aei
+wx 07402a01
+ar t2=0x80000000
+ar t1=4
+ar pc=0
+s 0
+aes
+ar t0
+ao 1~type[1]
+EOF
+EXPECT=<<EOF
+0xf8000000
+sar
+EOF
+RUN
+
+NAME=mips.gnu mult signed hi and add overflow decode with hi lo registers
+FILE=malloc://32
+ARGS=-a mips.gnu -b 32
+CMDS=<<EOF
+aei
+wx 18000901
+ar t0=0xffffffff
+ar t1=2
+ar pc=0
+aes
+ar hi
+ar lo
+wx 19000901
+ar t0=0xffffffff
+ar t1=2
+ar pc=0
+aes
+ar hi
+ar lo
+wx 20108500
+ao 1~mnemonic
+ar a0=5
+ar a1=3
+ar pc=0
+aes
+ar v0
+wx 12480000
+ar pc=0
+aes
+ar t1
+EOF
+EXPECT=<<EOF
+0xffffffff
+0xfffffffe
+0x00000001
+0xfffffffe
+mnemonic: add
+0x00000008
+0xfffffffe
+EOF
+RUN
+
+NAME=mips.gnu jal writes the link register and branches to the target
+FILE=malloc://0x200
+ARGS=-a mips.gnu -b 32
+CMDS=<<EOF
+ar > /dev/null
+wx 0400000c
+aes
+ar pc
+ar ra
+EOF
+EXPECT=<<EOF
+0x00000010
+0x00000008
+EOF
+RUN
+
+NAME=mips bgezal links ra unconditionally (not taken still links)
+FILE=malloc://0x200
+ARGS=-a mips -b 32
+CMDS=<<EOF
+ar > /dev/null
+wx 0f001105
+ar t0=0xffffffff
+ar ra=0
+ar pc=0
+s 0
+2aes
+ar pc
+ar ra
+EOF
+EXPECT=<<EOF
+0x00000008
+0x00000008
+EOF
+RUN
+
+NAME=mips bltzal links ra unconditionally (not taken still links)
+FILE=malloc://0x200
+ARGS=-a mips -b 32
+CMDS=<<EOF
+ar > /dev/null
+wx 0f001005
+ar t0=1
+ar ra=0
+ar pc=0
+s 0
+2aes
+ar pc
+ar ra
+EOF
+EXPECT=<<EOF
+0x00000008
+0x00000008
+EOF
+RUN
+
+NAME=mips bgezal branches and links when taken
+FILE=malloc://0x200
+ARGS=-a mips -b 32
+CMDS=<<EOF
+ar > /dev/null
+wx 0f001105
+ar t0=1
+ar ra=0
+ar pc=0
+s 0
+aes
+ar pc
+ar ra
+EOF
+EXPECT=<<EOF
+0x00000040
+0x00000008
+EOF
+RUN
+
+NAME=mips.gnu bgez branches to the decoded target
+FILE=malloc://0x200
+ARGS=-a mips.gnu -b 32
+CMDS=<<EOF
+ar > /dev/null
+wx 0f000105
+ar t0=1
+ar pc=0
+s 0
+aes
+ar pc
+EOF
+EXPECT=<<EOF
+0x00000040
+EOF
+RUN
+
+NAME=mips.gnu bltz branches to the decoded target
+FILE=malloc://0x200
+ARGS=-a mips.gnu -b 32
+CMDS=<<EOF
+ar > /dev/null
+wx 0f000005
+ar t0=0xffffffffffffffff
+ar pc=0
+s 0
+aes
+ar pc
+EOF
+EXPECT=<<EOF
+0x00000040
+EOF
+RUN
+
+NAME=mips.gnu bltzal emits esil, links ra and branches
+FILE=malloc://0x200
+ARGS=-a mips.gnu -b 32
+CMDS=<<EOF
+ar > /dev/null
+wx 0f001005
+ar t0=0xffffffffffffffff
+ar ra=0
+ar pc=0
+s 0
+aes
+ar pc
+ar ra
+EOF
+EXPECT=<<EOF
+0x00000040
+0x00000008
+EOF
+RUN
+
+NAME=mips.gnu bgezal links ra even when the branch is not taken
+FILE=malloc://0x200
+ARGS=-a mips.gnu -b 32
+CMDS=<<EOF
+ar > /dev/null
+wx 0f001105
+ar t0=0xffffffffffffffff
+ar ra=0
+ar pc=0
+s 0
+2aes
+ar pc
+ar ra
+EOF
+EXPECT=<<EOF
+0x00000008
+0x00000008
+EOF
+RUN
+
+NAME=sllv and srlv use only the low five bits of the count register
+FILE=malloc://32
+ARGS=-a mips -b 32
+CMDS=<<EOF
+aei
+wx 04404901
+ar t1=0x80000005
+ar t2=33
+ar pc=0
+s 0
+aes
+ar t0
+wx 06404901
+ar t1=0x80000000
+ar t2=33
+ar pc=0
+s 0
+aes
+ar t0
+EOF
+EXPECT=<<EOF
+0x0000000a
+0x40000000
+EOF
+RUN
+
+NAME=mips.gnu sra shifts the value by the count instead of masking one with the other
+FILE=malloc://32
+ARGS=-a mips.gnu -b 32
+CMDS=<<EOF
+aei
+wx 03410900
+ar t1=0x80000000
+ar pc=0
+s 0
+aes
+ar t0
+EOF
+EXPECT=<<EOF
+0xf8000000
+EOF
+RUN
+
+NAME=lb and lh sign-extend while lbu and lhu do not
+FILE=malloc://0x200
+ARGS=-a mips -b 32
+CMDS=<<EOF
+ar > /dev/null
+s 4
+wx 84ff0000
+ar t3=4
+wx 00006881 @ 8
+s 8
+aei
+aeim
+aeip
+aes
+ar t0
+wx 00006885 @ 8
+ar pc=8
+s 8
+aes
+ar t0
+wx 00006891 @ 8
+ar pc=8
+s 8
+aes
+ar t0
+wx 00006895 @ 8
+ar pc=8
+s 8
+aes
+ar t0
+EOF
+EXPECT=<<EOF
+0xffffff84
+0xffffff84
+0x00000084
+0x0000ff84
+EOF
+RUN
+
+NAME=mips.gnu lh reads a halfword and not a byte
+FILE=malloc://0x200
+ARGS=-a mips.gnu -b 32
+CMDS=<<EOF
+ar > /dev/null
+s 4
+wx 34120000
+ar t3=4
+wx 00006885 @ 8
+s 8
+aei
+aeim
+aeip
+aes
+ar t0
+EOF
+EXPECT=<<EOF
+0x00001234
+EOF
+RUN
+
+NAME=mips lwl and lwr merge the addressed bytes into the register
+FILE=malloc://0x200
+ARGS=-a mips -b 32 -e cfg.bigendian=true
+CMDS=<<EOF
+ar > /dev/null
+wx 11223344 @ 4
+aei
+aeim
+s 8
+ar t3=4
+wx 89680001 @ 8
+ar t0=0xaabbccdd
+ar pc=8
+aes
+ar t0
+wx 99680001 @ 8
+ar t0=0xaabbccdd
+ar pc=8
+aes
+ar t0
+wx 89680003 @ 8
+ar t0=0xaabbccdd
+ar pc=8
+aes
+ar t0
+wx 99680003 @ 8
+ar t0=0xaabbccdd
+ar pc=8
+aes
+ar t0
+EOF
+EXPECT=<<EOF
+0x223344dd
+0xaabb1122
+0x44bbccdd
+0x11223344
+EOF
+RUN
+
+NAME=mips swl and swr write only the addressed bytes
+FILE=malloc://0x200
+ARGS=-a mips -b 32 -e cfg.bigendian=true
+CMDS=<<EOF
+ar > /dev/null
+aei
+aeim
+s 8
+ar t3=4
+ar t1=0x55667788
+wx 11223344 @ 4
+wx a9690001 @ 8
+ar pc=8
+aes
+p8 4 @ 4
+wx 11223344 @ 4
+wx b9690001 @ 8
+ar pc=8
+aes
+p8 4 @ 4
+wx 11223344 @ 4
+wx a9690003 @ 8
+ar pc=8
+aes
+p8 4 @ 4
+wx 11223344 @ 4
+wx b9690003 @ 8
+ar pc=8
+aes
+p8 4 @ 4
+EOF
+EXPECT=<<EOF
+11556677
+77883344
+11223355
+55667788
+EOF
+RUN
+
+NAME=mips counts the unaligned bytes from the other end when little endian
+FILE=malloc://0x200
+ARGS=-a mips -b 32
+CMDS=<<EOF
+ar > /dev/null
+wx 11223344 @ 4
+aei
+aeim
+s 8
+ar t3=4
+ar t1=0x55667788
+wx 01006889 @ 8
+ar t0=0xaabbccdd
+ar pc=8
+aes
+ar t0
+wx 01006899 @ 8
+ar t0=0xaabbccdd
+ar pc=8
+aes
+ar t0
+wx 11223344 @ 4
+wx 010069a9 @ 8
+ar pc=8
+aes
+p8 4 @ 4
+wx 11223344 @ 4
+wx 010069b9 @ 8
+ar pc=8
+aes
+p8 4 @ 4
+EOF
+EXPECT=<<EOF
+0x2211ccdd
+0xaa443322
+66553344
+11887766
+EOF
+RUN
+
+NAME=mips.gnu decodes the unaligned word loads and stores
+FILE=malloc://0x200
+ARGS=-a mips.gnu -b 32 -e cfg.bigendian=true
+CMDS=<<EOF
+ar > /dev/null
+wx 11223344 @ 4
+aei
+aeim
+s 8
+ar t3=4
+wx 89680001 @ 8
+ar t0=0xaabbccdd
+ar pc=8
+aes
+ar t0
+wx 11223344 @ 4
+wx a9690001 @ 8
+ar t1=0x55667788
+ar pc=8
+aes
+p8 4 @ 4
+ao 1~type
+EOF
+EXPECT=<<EOF
+0x223344dd
+11556677
+type: store
+EOF
+RUN
+
+NAME=mips.gnu rotr and rotrv rotate instead of shifting
+FILE=malloc://32
+ARGS=-a mips.gnu -b 32
+CMDS=<<EOF
+aei
+wx 02412900
+ar t1=0x12345678
+ar pc=0
+s 0
+aes
+ar t0
+wx 46404901
+ar t1=0x12345678
+ar t2=4
+ar pc=0
+s 0
+aes
+ar t0
+wx 02410900
+ar t1=0x12345678
+ar pc=0
+s 0
+aes
+ar t0
+EOF
+EXPECT=<<EOF
+0x81234567
+0x81234567
+0x01234567
+EOF
+RUN
+
+NAME=mips.gnu sll keeps its result inside 32 bits
+FILE=malloc://32
+ARGS=-a mips.gnu -b 32
+CMDS=<<EOF
+aei
+wx 00410900
+ar t1=0x87654321
+ar pc=0
+s 0
+aes
+ar t0
+EOF
+EXPECT=<<EOF
+0x76543210
+EOF
+RUN
+
+NAME=rotr and rotrv rotate the low word
+FILE=malloc://32
+ARGS=-a mips -b 32
+CMDS=<<EOF
+aei
+wx 02412900
+ar t1=0x12345678
+ar pc=0
+s 0
+aes
+ar t0
+wx 46404901
+ar t2=4
+ar pc=0
+s 0
+aes
+ar t0
+EOF
+EXPECT=<<EOF
+0x81234567
+0x81234567
+EOF
+RUN
+
+NAME=the ext and ins bitfield forms
+FILE=malloc://32
+ARGS=-a mips -b 32
+CMDS=<<EOF
+aei
+wx 0039287d
+ar t1=0x89abcdef
+ar pc=0
+s 0
+aes
+ar t0
+wx 0459287d
+ar t0=0xffffffff
+ar t1=0
+ar pc=0
+s 0
+aes
+ar t0
+EOF
+EXPECT=<<EOF
+0x000000de
+0xfffff00f
+EOF
+RUN
+
+NAME=seb, seh and wsbh
+FILE=malloc://32
+ARGS=-a mips -b 32
+CMDS=<<EOF
+aei
+wx 2044097c
+ar t1=0x000000f6
+ar pc=0
+s 0
+aes
+ar t0
+wx 2046097c
+ar t1=0x00008056
+ar pc=0
+s 0
+aes
+ar t0
+wx a040097c
+ar t1=0x12345678
+ar pc=0
+s 0
+aes
+ar t0
+EOF
+EXPECT=<<EOF
+0xfffffff6
+0xffff8056
+0x34127856
+EOF
+RUN
+
+NAME=div, divu, madd and msub write hi and lo
+FILE=malloc://32
+ARGS=-a mips -b 32
+CMDS=<<EOF
+aei
+wx 1a002a01
+ar t1=0xfffffff9
+ar t2=2
+ar pc=0
+s 0
+aes
+ar lo
+ar hi
+wx 1b002a01
+ar pc=0
+s 0
+aes
+ar lo
+ar hi
+wx 00002a71
+ar hi=1
+ar lo=5
+ar pc=0
+s 0
+aes
+ar hi
+ar lo
+wx 04002a71
+ar hi=1
+ar lo=5
+ar pc=0
+s 0
+aes
+ar hi
+ar lo
+EOF
+EXPECT=<<EOF
+0xfffffffd
+0xffffffff
+0x7ffffffc
+0x00000001
+0x00000000
+0xfffffff7
+0x00000001
+0x00000013
+EOF
+RUN
+
+NAME=maddu and msubu accumulate the unsigned product
+FILE=malloc://32
+ARGS=-a mips -b 32
+CMDS=<<EOF
+aei
+wx 01002a71
+ar t1=0xffffffff
+ar t2=2
+ar hi=1
+ar lo=5
+ar pc=0
+s 0
+aes
+ar hi
+ar lo
+wx 05002a71
+ar hi=1
+ar lo=5
+ar pc=0
+s 0
+aes
+ar hi
+ar lo
+EOF
+EXPECT=<<EOF
+0x00000003
+0x00000003
+0xffffffff
+0x00000007
+EOF
+RUN

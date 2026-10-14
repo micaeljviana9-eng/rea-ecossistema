@@ -1,0 +1,89 @@
+NAME="pcap info"
+FILE=bins/pcap/sample0.pcap
+CMDS=i~format,bintype,class,abi,endian
+EXPECT=<<EOF
+format   pcap
+bintype  v2.4
+class    tcpdump
+abi      pcap
+endian   little
+EOF
+RUN
+
+NAME="pcap file header"
+ARGS=-a x86 -b 64
+FILE=bins/pcap/sample0.pcap
+CMDS=<<EOF
+pd 1
+EOF
+EXPECT=<<EOF
+            ;-- tcpdump capture file - version 2.4 (Ethernet, capture length 262144):
+            0x00000000      d4             invalid
+EOF
+RUN
+
+NAME="pcap frame header"
+ARGS=-a x86 -b 64
+FILE=bins/pcap/sample0.pcap
+CMDS=<<EOF
+s 0x18
+pd 1
+EOF
+EXPECT=<<EOF
+            ;-- 0x18: Frame 1, 74 bytes on wire, 74 bytes captured:
+            0x00000018      3e87ce         xchg esi, ecx
+EOF
+RUN
+
+NAME="pcap ethernet header"
+ARGS=-a x86 -b 64
+FILE=bins/pcap/sample0.pcap
+CMDS=<<EOF
+s 0x28
+pd 1
+EOF
+EXPECT=<<EOF
+            ;-- 0x28: Ethernet, Src: 00:00:00:00:00:00, Dst: 00:00:00:00:00:00:
+            0x00000028      0000           add byte [rax], al
+EOF
+RUN
+
+NAME="pcap ipv4 header"
+ARGS=-a x86 -b 64
+FILE=bins/pcap/sample0.pcap
+CMDS=<<EOF
+s 0x36
+pd 1
+EOF
+EXPECT=<<EOF
+            ;-- 0x36: IPV4, Src: 127.0.0.1, Dst: 127.0.0.1:
+            0x00000036      450000         add byte [r8], r8b
+EOF
+RUN
+
+NAME="pcap tcp header"
+ARGS=-a x86 -b 64
+FILE=bins/pcap/sample0.pcap
+CMDS=<<EOF
+s 0x4a
+pd 1
+EOF
+EXPECT=<<EOF
+            ;-- 0x4a: Transmission Control Protocol, Src Port: 58728, Dst port: 8888, Len: 0:
+            0x0000004a      e568           in eax, 0x68
+EOF
+RUN
+
+NAME="pcap tcp string data"
+ARGS=-a x86 -b 64
+FILE=bins/pcap/sample0.pcap
+CMDS=<<EOF
+s 0x3f3
+pd 2
+EOF
+EXPECT=<<EOF
+            ;-- str._qSupported:multiprocess_swbreak_hwbreak_qRelocInsn_fork_events_vfork_events_exec_events_vContSupported_QThreadEvents_no_resumed_xmlRegistersi3866am:
+            0x000003f3     .string "\xd0\x98$qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+;fork-events+;vfork-events+;exec-events+;vContSupported+;QThreadEvents+;no-resumed+;xmlRegisters=i386#6am" ; len=163
+            0x00000496      ce             invalid
+EOF
+RUN

@@ -1,0 +1,238 @@
+NAME=p= pr[23] p8 p[bB] pr* pk pK on empty range
+FILE=malloc://1024
+CMDS=<<EOF
+p= 0
+?e ---
+p=b 0
+?e ---
+p=d 0
+?e ---
+p=e 0
+?e ---
+p=p 0
+?e ---
+pr2 0
+?e ---
+pr3 0
+?e ---
+p8 0
+?e ---
+pb 0
+?e ---
+pB 0
+?e ---
+pr 0
+?e ---
+prx 0
+?e ---
+prl 0
+?e ---
+prg 0
+?e ---
+pk 0
+?e ---
+pK 0
+EOF
+EXPECT=<<EOF
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+EOF
+RUN
+
+NAME=px* on empty range
+FILE=malloc://1024
+CMDS=<<EOF
+px 0
+?e ---
+px/ 0
+?e ---
+pxa 0
+?e ---
+pxA 0
+?e ---
+pxb 0
+?e ---
+pxd1 0
+?e ---
+pxd2 0
+?e ---
+pxd4 0
+?e ---
+pxe 0
+?e ---
+pxh 0
+?e ---
+pxH 0
+?e ---
+pxl 0
+?e ---
+pxo 0
+?e ---
+pxq 0
+?e ---
+pxQ 0
+?e ---
+pxr 0
+?e ---
+pxs 0
+?e ---
+pxw 0
+?e ---
+pxW 0
+EOF
+EXPECT=<<EOF
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+EOF
+RUN
+
+NAME=pc* on empty range
+FILE=malloc://1024
+CMDS=<<EOF
+pc 0
+?e ---
+pc* 0
+?e ---
+pcw 0
+?e ---
+pcd 0
+?e ---
+pca 0
+?e ---
+pcs 0
+?e ---
+pcS 0
+?e ---
+pcJ 0
+?e ---
+pcp 0
+EOF
+EXPECT=<<EOF
+---
+---
+---
+---
+---
+---
+---
+---
+EOF
+RUN
+
+NAME=pd* pi* ps* pu* pz on empty range (with aa for pdc/pdr/pdf)
+FILE=malloc://1024
+CMDS=<<EOF
+aa
+pd 0
+?e ---
+pD 0
+?e ---
+pda 0
+?e ---
+pdj 0
+?e ---
+pdi 0
+?e ---
+pdl 0
+?e ---
+pds 0
+?e ---
+pdt 0
+?e ---
+pi 0
+?e ---
+pid 0
+?e ---
+pie 0
+?e ---
+pI 0
+?e ---
+pId 0
+?e ---
+ps 0
+?e ---
+psi 0
+?e ---
+psb 0
+?e ---
+psx 0
+?e ---
+psz 0
+?e ---
+psp 0
+?e ---
+psu 0
+?e ---
+psw 0
+?e ---
+pu 0
+?e ---
+puw 0
+?e ---
+pz 0
+?e ---
+pdc 0
+?e ---
+pdr 0
+?e ---
+pdf 0
+EOF
+EXPECT=<<EOF
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+---
+EOF
+RUN

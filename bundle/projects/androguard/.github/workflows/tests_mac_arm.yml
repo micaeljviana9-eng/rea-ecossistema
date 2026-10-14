@@ -1,0 +1,33 @@
+name: Tests (macOS ARM)
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: unittest
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install
+        run: |
+          brew install libmagic
+          python -m pip install --upgrade pip
+          export PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
+          pip install -e .
+
+      - name: Run tests
+        run: python -m unittest discover -s tests -p 'test_*.py' -v

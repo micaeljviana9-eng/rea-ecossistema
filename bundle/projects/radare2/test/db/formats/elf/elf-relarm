@@ -1,0 +1,359 @@
+NAME=ELF: arm relocs
+FILE=bins/elf/analysis/arm-relocs
+CMDS=<<EOF
+ir*~reloc?
+ir*~!1
+EOF
+EXPECT=<<EOF
+11
+fs relocs
+'f reloc.r0 4 0x08000034
+'f reloc.r2 4 0x0800003c
+'f reloc.r3 4 0x08000040
+'f reloc.r4 4 0x08000044
+'f reloc.r0 4 0x0800004c
+'f reloc.r2 4 0x08000054
+'f reloc.r3 4 0x08000058
+'f reloc.r4 4 0x0800005c
+'@0x8000060'wv8 0xffffffffffffffff
+EOF
+RUN
+
+NAME=ELF: arm relocs bin.cache patching
+ARGS=-e bin.cache=true
+FILE=bins/elf/analysis/arm-relocs
+CMDS=<<EOF
+s 0x0800004c
+pd 4
+EOF
+EXPECT=<<EOF
+            0x0800004c      c10000eb       bl reloc.r0
+            0x08000050      c10000eb       bl reloc.r1
+            0x08000054      c10000eb       bl reloc.r2
+            0x08000058      c10000eb       bl reloc.r3
+EOF
+RUN
+
+NAME=ELF: ir* prints a reloc slot shared by two relocs once
+FILE=bins/elf/analysis/arm-relocs
+ARGS=-e bin.relocs.apply=true
+CMDS=<<EOF
+ir*
+ir~r0?
+f-*
+.ir*
+fs relocs
+f
+EOF
+EXPECT=<<EOF
+fs relocs
+'@0x8000060'wv8 0x8000358
+'f reloc.r0 4 0x08000358
+'@0x08000358'Cd 4
+'f reloc.r1 4 0x0800035c
+'@0x0800035c'Cd 4
+'f reloc.r2 4 0x08000360
+'@0x08000360'Cd 4
+'f reloc.r3 4 0x08000364
+'@0x08000364'Cd 4
+'f reloc.r4 4 0x08000368
+'@0x08000368'Cd 4
+2
+0x08000358 4 reloc.r0
+0x0800035c 4 reloc.r1
+0x08000360 4 reloc.r2
+0x08000364 4 reloc.r3
+0x08000368 4 reloc.r4
+EOF
+RUN
+
+NAME=ELF: arm relocs ir* shared slot under bin.cache
+FILE=bins/elf/analysis/arm-relocs
+ARGS=-e bin.cache=true -e bin.relocs.apply=false
+CMDS=ir*~reloc.r0?
+EXPECT=<<EOF
+1
+EOF
+RUN
+
+NAME=ELF: thumb-bits arm gets pointer-sized import slots
+FILE=bins/arm/elf/hello_world
+ARGS=-e bin.relocs.apply=true
+CMDS=<<EOF
+om~.got.r2[5,7]
+pv4 @ 0x11024
+pv4 @ 0x11028
+pv4 @ 0x1102c
+EOF
+EXPECT=<<EOF
+0x00011048 0x00011063
+0x00011048
+0x0001105c
+0x00011054
+EOF
+RUN
+
+NAME=ELF: arm-mode import slots keep their stride
+FILE=bins/elf/libcurl.so.4.2.0
+ARGS=-e bin.relocs.apply=true
+CMDS=<<EOF
+om~.got.r2[5,7]
+EOF
+EXPECT=<<EOF
+0x0004d528 0x0004d78f
+EOF
+RUN
+
+NAME=ELF: arm thumb relocs keep a valid branch when applied
+FILE=bins/elf/analysis/arm-relocs
+ARGS=-e bin.relocs.apply=true
+CMDS=<<EOF
+pi 5 @ 0x08000034
+EOF
+EXPECT=<<EOF
+bl reloc.r0
+bl reloc.r1
+bl reloc.r2
+bl reloc.r3
+bl reloc.r4
+EOF
+RUN
+
+NAME=ELF: arm thumb movw, movt and beq.w relocs are applied
+FILE=bins/elf/arm-thumb-movw.o
+ARGS=-e bin.relocs.apply=true
+CMDS=<<EOF
+pi 5 @ sym.f
+p8 16 @ sym.f
+EOF
+EXPECT=<<EOF
+movw r0, 0xe0
+movt r0, 0x800
+beq.w reloc.ext2
+b.w reloc.ext2
+bx lr
+40f2e000c0f6000000f0528000f050b8
+EOF
+RUN
+
+NAME=ELF: arm thumb movw relocs keep their bytes when not applied
+FILE=bins/elf/arm-thumb-movw.o
+ARGS=-e bin.relocs.apply=false
+CMDS=<<EOF
+p8 16 @ sym.f
+EOF
+EXPECT=<<EOF
+40f20000c0f200003ff4feaffff7febf
+EOF
+RUN
+
+NAME=ELF: big-endian thumb movw/movt addend, rd and beq.w j1/j2 split
+FILE=bins/elf/arm-thumb-movw-be.o
+ARGS=-e bin.relocs.apply=true
+CMDS=<<EOF
+pi 5 @ sym.f
+p8 16 @ sym.f
+pi 2 @ sym.g
+p8 8 @ sym.g
+EOF
+EXPECT=<<EOF
+movw r0, 0x1c8
+movt r0, 0x800
+bne.w sym.back
+beq.w 0x80441d0
+bx lr
+f24010c8f6c00000f47faff9f004a0c5
+movw r3, 0x5a
+movt r3, 0x800
+f240035af6c00300
+EOF
+RUN
+
+NAME=ELF: thumb movw/movt sign-extend the rel addend, beq.w reaches 1MB only
+FILE=bins/elf/arm-thumb-movw-addend.o
+ARGS=-e bin.relocs.apply=true
+CMDS=<<EOF
+pi 2 @ sym.f
+pi 1 @ sym.f+12
+p8 16 @ sym.f
+EOF
+EXPECT=<<EOF
+movw r0, 0xffec
+movt r0, 0x7ff
+beq.w 0x80a00f4
+4ff6ec70c0f2ff703ff0ffaf20f05888
+EOF
+RUN
+
+NAME=ELF: arm lazy jump slots take the symbol, not the plt0 word
+FILE=bins/elf/libcurl.so.4.2.0
+ARGS=-e bin.relocs.apply=true
+CMDS=<<EOF
+pv4 @ 0x4cb08
+pv4 @ 0x4cb0c
+pv4 @ 0x4c218
+pv4 @ 0x4c748
+EOF
+EXPECT=<<EOF
+0x0004d528
+0x00036d40
+0x000088b8
+0x0000f5f0
+EOF
+RUN
+
+NAME=ELF: ppc relocs
+FILE=bins/elf/hello.ppc
+CMDS=<<EOF
+ii
+ir
+s main
+af
+pdsf
+EOF
+EXPECT=<<EOF
+nth vaddr      bind   type   lib name
+-------------------------------------
+1   ---------- GLOBAL FUNC       printf
+2   ---------- WEAK   NOTYPE     __gmon_start__
+3   ---------- GLOBAL FUNC       __libc_start_main
+vaddr      paddr      type   ntype name
+---------------------------------------
+0x10020008 0x00010008 ADD_32 20    __gmon_start__
+0x10020064 0x10020064 ADD_32 21    printf
+0x1002006c 0x1002006c ADD_32 21    __gmon_start__
+0x10020074 0x10020074 ADD_32 21    __libc_start_main
+0x100004a0 str.Simple_PPC_program.
+0x100004a4 reloc.printf
+0x100004a4 "Simple PPC program."
+EOF
+RUN
+
+NAME=ELF: arm sh relocs
+ARGS=-e bin.relocs.apply=true
+FILE=bins/elf/r2pay-arm32.so
+CMDS=<<EOF
+ir*~reloc?
+s section..init_array
+pd 10
+?e --
+pv4 @ 0xb5b84
+pv4 @ 0xb5e10
+pv4 @ 0xb5c4c
+EOF
+EXPECT=<<EOF
+366
+            ;-- section..init_array:
+            0x000b58c4      .dword 0x00004561 ; sym..datadiv_decode1794556967687044894; RELOC 32 .datadiv_decode1794556967687044894 @ 0x00004560 ; [15] -rw- section size 364 named .init_array
+            0x000b58c8      .dword 0x00004571 ; sym..datadiv_decode12875440098136793118; RELOC 32 .datadiv_decode12875440098136793118 @ 0x00004570
+            0x000b58cc      .dword 0x00098029 ; sym..datadiv_decode11893604691534341392; RELOC 32 .datadiv_decode11893604691534341392 @ 0x00098028
+            0x000b58d0      .dword 0x00008115 ; entry.init0            ; RELOC 32 
+            0x000b58d4      .dword 0x00055049 ; entry.init1            ; RELOC 32 
+            0x000b58d8      .dword 0x00098b45 ; sym..datadiv_decode668687990735969933; RELOC 32 .datadiv_decode668687990735969933 @ 0x00098b44
+            0x000b58dc      .dword 0x00098b49 ; sym..datadiv_decode16868916699024037624; RELOC 32 .datadiv_decode16868916699024037624 @ 0x00098b48
+            0x000b58e0      .dword 0x00098b4d ; sym..datadiv_decode12802097292201864397; RELOC 32 .datadiv_decode12802097292201864397 @ 0x00098b4c
+            0x000b58e4      .dword 0x00098b51 ; sym..datadiv_decode12428479046606065387; RELOC 32 .datadiv_decode12428479046606065387 @ 0x00098b50
+            0x000b58e8      .dword 0x00098b55 ; sym..datadiv_decode7496105736011033460; RELOC 32 .datadiv_decode7496105736011033460 @ 0x00098b54
+--
+0x00004565
+0x00004561
+0x00143838
+EOF
+RUN
+
+NAME=ELF: arm relocs against a thumb function set its thumb bit where ld does
+ARGS=-e bin.relocs.apply=true
+FILE=bins/elf/arm-thumb-bit.o
+CMDS=<<EOF
+pv4 @ 0x08000050
+pv4 @ 0x08000058
+pv4 @ 0x0800005c
+pi 1 @ sym.armf
+pi 1 @ sym.armf+8
+?e --
+pi 1 @ sym.caller
+pi 1 @ sym.armf+4
+pv2 @ 0x08000054
+pv4 @ 0x08000060
+EOF
+EXPECT=<<EOF
+0x0800003d
+0xffffffe5
+0x0800003d
+movw r0, 0x3d
+movw r1, 0xffed
+--
+bl sym.tf
+movt r0, 0x800
+0x003c
+0x00000010
+EOF
+RUN
+
+NAME=ELF: arm jump_slot against an arm-mode function stays even
+ARGS=-e bin.relocs.apply=true
+FILE=bins/elf/libarm.so
+CMDS=<<EOF
+pv4 @ 0x41e9c
+EOF
+EXPECT=<<EOF
+0x0003d618
+EOF
+RUN
+
+NAME=ELF: arm sh unpatched relocs
+ARGS=-e bin.relocs.apply=false
+FILE=bins/elf/r2pay-arm32.so
+CMDS=<<EOF
+ir*~reloc?
+s section..init_array
+pd 10
+EOF
+EXPECT=<<EOF
+366
+            ;-- section..init_array:
+            0x000b58c4      .dword 0x00000000                          ; RELOC 32 .datadiv_decode1794556967687044894 @ 0x00004560 ; [15] -rw- section size 364 named .init_array
+            0x000b58c8      .dword 0x00000000                          ; RELOC 32 .datadiv_decode12875440098136793118 @ 0x00004570
+            0x000b58cc      .dword 0x00000000                          ; RELOC 32 .datadiv_decode11893604691534341392 @ 0x00098028
+            0x000b58d0      .dword 0x00008115 ; entry.init0            ; RELOC 32 
+            0x000b58d4      .dword 0x00055049 ; entry.init1            ; RELOC 32 
+            0x000b58d8      .dword 0x00000000                          ; RELOC 32 .datadiv_decode668687990735969933 @ 0x00098b44
+            0x000b58dc      .dword 0x00000000                          ; RELOC 32 .datadiv_decode16868916699024037624 @ 0x00098b48
+            0x000b58e0      .dword 0x00000000                          ; RELOC 32 .datadiv_decode12802097292201864397 @ 0x00098b4c
+            0x000b58e4      .dword 0x00000000                          ; RELOC 32 .datadiv_decode12428479046606065387 @ 0x00098b50
+            0x000b58e8      .dword 0x00000000                          ; RELOC 32 .datadiv_decode7496105736011033460 @ 0x00098b54
+EOF
+RUN
+
+NAME=ELF: arm64 sh relocs
+ARGS=-e bin.relocs.apply=true
+FILE=bins/elf/r2pay-arm64.so
+CMDS=<<EOF
+ir*~reloc?
+s section..init_array
+pd 10
+EOF
+EXPECT=<<EOF
+264
+            ;-- section..init_array:
+            ;-- segment.LOAD1:
+            ;-- reloc..datadiv_decode9958896245423089702:
+            0x00126510      .qword 0x0000000000005a6c ; sym..datadiv_decode9958896245423089702; RELOC 64 .datadiv_decode9958896245423089702 @ 0x00005a6c ; [13] -rw- section size 728 named .init_array
+            ;-- reloc..datadiv_decode10476194973746341988:
+            0x00126518      .qword 0x0000000000005a80 ; sym..datadiv_decode10476194973746341988; RELOC 64 .datadiv_decode10476194973746341988 @ 0x00005a80
+            ;-- reloc..datadiv_decode16323044921667855934:
+            0x00126520      .qword 0x00000000000efddc ; sym..datadiv_decode16323044921667855934; RELOC 64 .datadiv_decode16323044921667855934 @ 0x000efddc
+            0x00126528      .qword 0x0000000000009080 ; entry.init0    ; RELOC 64 
+            0x00126530      .qword 0x0000000000077d14 ; entry.init1    ; RELOC 64 
+            ;-- reloc..datadiv_decode667225052219618748:
+            0x00126538      .qword 0x00000000000f22e0 ; sym..datadiv_decode667225052219618748; RELOC 64 .datadiv_decode667225052219618748 @ 0x000f22e0
+            ;-- reloc..datadiv_decode8132880250332170398:
+            0x00126540      .qword 0x00000000000f22e4 ; sym..datadiv_decode8132880250332170398; RELOC 64 .datadiv_decode8132880250332170398 @ 0x000f22e4
+            ;-- reloc..datadiv_decode3655886617018729963:
+            0x00126548      .qword 0x00000000000f22e8 ; sym..datadiv_decode3655886617018729963; RELOC 64 .datadiv_decode3655886617018729963 @ 0x000f22e8
+            ;-- reloc..datadiv_decode16406252260792032531:
+            0x00126550      .qword 0x00000000000f22ec ; sym..datadiv_decode16406252260792032531; RELOC 64 .datadiv_decode16406252260792032531 @ 0x000f22ec
+            ;-- reloc..datadiv_decode13403071575248320347:
+            0x00126558      .qword 0x00000000000f22f0 ; sym..datadiv_decode13403071575248320347; RELOC 64 .datadiv_decode13403071575248320347 @ 0x000f22f0
+EOF
+RUN

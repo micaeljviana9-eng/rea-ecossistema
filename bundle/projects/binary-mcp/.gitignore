@@ -1,0 +1,103 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+ENV/
+env/
+.venv
+
+# Secrets and configs (use .env.example as template)
+.env
+.env.local
+.env.*.local
+.env.bak*
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Linting
+.ruff_cache/
+
+# MCP and Ghidra
+.ghidra_mcp_cache/
+ghidra_projects/
+*.gpr
+*.rep/
+
+# Compiled binaries
+samples/*.exe
+samples/*.elf
+samples/test_malware
+samples/a.out
+
+# Logs and errors
+*.log
+logs/
+errors/
+
+# Temporary files
+*.tmp
+*.temp
+*.json.bak
+temp_analysis_*.json
+
+# Backups
+*.md.bak
+
+# uv
+.python-version
+
+# Claude
+.claude/
+
+# Security reviews (internal only)
+security/
+DEVELOPMENT_ROADMAP.md
+WINDBG_INTEGRATION_PLAN.md
+AUDIT.md
+
+# Stray mock-cache trees. `MagicMock.__fspath__()` returns a plausible
+# relative path rather than raising, so a mocked cache_dir can become a real
+# directory if any code path creates one. The code no longer does; this is the
+# tripwire, because these names contain characters Windows cannot check out.
+MagicMock/
+
+# TLS trust anchor for the remote x64dbg bridge. Host-specific and pulled from
+# the debugger VM, so it never belongs in the tree.
+obsidian-cert.pem

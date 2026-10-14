@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+# Cancel any in-progress run for the same branch/PR when a new commit lands.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  java:
+    name: Test Java
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '25'
+          cache: maven
+      - name: Install jadx-all 1.5.6 into local Maven repository
+        run: |
+          set -euo pipefail
+          readonly JADX_VERSION=1.5.6
+          readonly JADX_ZIP_SHA256=545ea2be9c242511bc145755cf4bda2485ade42966e096f8b4d3da2a230e8974
+          curl -fsSL "https://github.com/skylot/jadx/releases/download/v${JADX_VERSION}/jadx-${JADX_VERSION}.zip" -o /tmp/jadx.zip
+          echo "${JADX_ZIP_SHA256}  /tmp/jadx.zip" | sha256sum --check --status
+          unzip -q /tmp/jadx.zip -d /tmp/jadx
+          JADX_ALL="$(find /tmp/jadx/lib -type f -name 'jadx-*-all.jar' -print -quit)"
+          test -n "${JADX_ALL}"
+          mvn -q install:install-file \
+            -Dfile="${JADX_ALL}" \
+            -DgroupId=io.github.skylot \
+            -DartifactId=jadx-all \
+            -Dversion="${JADX_VERSION}" \
+            -Dpackaging=jar
+      - run: mvn test
+
+  gateway:
+    name: Test gateway (non-live)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: gateway/uv.lock
+      - run: uv sync --locked --all-extras --dev
+        working-directory: gateway
+      # pyproject.toml excludes tests/integration, which require a live Java backend.
+      - run: uv run pytest
+        working-directory: gateway
+
+  image:
+    name: Build fused Docker image (amd64, no push)
+    runs-on: ubuntu-latest
+    needs: [java, gateway, cli]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64
+          # Build only — no push, no local load. Catches Dockerfile breakage.
+          push: false
+          load: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  cli:
+    name: Test and build delamain-cli (release)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tools/delamain-cli
+      - run: cargo test --manifest-path tools/delamain-cli/Cargo.toml
+      - run: cargo build --release --manifest-path tools/delamain-cli/Cargo.toml

@@ -1,0 +1,82 @@
+NAME=pdf dwarf
+FILE=bins/elf/analysis/main
+CMDS=<<EOF
+fs *
+f~str.
+EOF
+EXPECT=<<EOF
+0x004005c4 12 str.Hello_World
+EOF
+RUN
+
+NAME=iz (utf-16)
+FILE=bins/elf/analysis/hello-utf-16
+CMDS=<<EOF
+iz~Hello
+s sym.main
+af
+pdf~str.Hello
+EOF
+EXPECT=<<EOF
+0   0x000005e8 0x004005e8 11  24   .rodata utf16le Hello World
+|           0x0040052e      48c745f8e8..   mov qword [var_8h], str.Hello_World ; 0x4005e8 ; "Hello World"
+EOF
+RUN
+
+NAME=iz (utf-32)
+FILE=bins/elf/analysis/hello-utf-32
+CMDS=<<EOF
+iz~Hello
+s sym.main
+af
+pdf~str.Hello
+EOF
+EXPECT=<<EOF
+0   0x000005e8 0x004005e8 11  48   .rodata utf32le Hello World
+|           0x0040052e      48c745f8e8..   mov qword [var_8h], str.Hello_World ; 0x4005e8 ; "Hello World"
+EOF
+RUN
+
+NAME=iz (utf-16le)
+FILE=bins/elf/analysis/hello-utf-16le
+CMDS=<<EOF
+iz~Hello
+s sym.main
+af
+pdf~str.Hello
+EOF
+EXPECT=<<EOF
+0   0x000005e4 0x004005e4 12  26   .rodata utf16le Hello World\n
+|           0x0040052e      48c745f8e4..   mov qword [var_8h], str.Hello_World_n ; 0x4005e4 ; "Hello World\n"
+EOF
+RUN
+
+NAME=iz (utf-32le)
+FILE=bins/elf/analysis/hello-utf-32le
+CMDS=<<EOF
+iz~Hello
+s sym.main
+af
+pdf~str.Hello
+EOF
+EXPECT=<<EOF
+0   0x000005e8 0x004005e8 12  52   .rodata utf32le Hello World\n
+|           0x0040052e      48c745f8e8..   mov qword [var_8h], str.Hello_World_n ; 0x4005e8 ; "Hello World\n"
+EOF
+RUN
+
+NAME=iz
+FILE=bins/elf/analysis/hello-utf-16
+CMDS=iz~Hello
+EXPECT=<<EOF
+0   0x000005e8 0x004005e8 11  24   .rodata utf16le Hello World
+EOF
+RUN
+
+NAME=iz
+FILE=bins/elf/analysis/hello-utf-32
+CMDS=iz~Hello
+EXPECT=<<EOF
+0   0x000005e8 0x004005e8 11  48   .rodata utf32le Hello World
+EOF
+RUN

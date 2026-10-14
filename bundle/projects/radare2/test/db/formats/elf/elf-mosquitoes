@@ -1,0 +1,13 @@
+NAME=mosquitoes ii
+FILE=bins/elf/mosquito-ppc64le
+CMDS=<<EOF
+ii~?
+ii~unlink
+ii~stderr
+EOF
+EXPECT=<<EOF
+58
+1   0x10002ae0 GLOBAL FUNC       unlink
+25  0x10014040 GLOBAL OBJ        stderr
+EOF
+RUN

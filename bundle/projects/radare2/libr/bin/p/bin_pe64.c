@@ -1,0 +1,752 @@
+/* radare - LGPL - Copyright 2009-2025 - nibble, pancake */
+
+#define R_BIN_PE64 1
+#include "bin_pe.inc.c"
+
+static bool check(RBinFile *bf, RBuffer *b) {
+	ut64 length = r_buf_size (b);
+	if (length <= 0x3d) {
+		return false;
+	}
+	ut16 idx = r_buf_read_le16_at (b, 0x3c);
+	if (idx + 26 < length) {
+		/* Here PE signature for usual PE files
+		 * and PL signature for Phar Lap TNT DOS extender 32bit executables
+		 */
+		ut8 buf[2];
+		r_buf_read_at (b, 0, buf, sizeof (buf));
+		if (!memcmp (buf, "MZ", 2)) {
+			r_buf_read_at (b, idx, buf, sizeof (buf));
+			// TODO: Add one more indicator, to prevent false positives
+			// if (!memcmp (buf, "PL", 2)) { return true; }
+			if (!memcmp (buf, "PE", 2)) {
+				r_buf_read_at (b, idx + 0x18, buf, sizeof (buf));
+				return !memcmp (buf, "\x0b\x02", 2);
+			}
+		}
+	}
+	return false;
+}
+
+static RList *fields(RBinFile *bf) {
+	RList *ret  = r_list_new ();
+
+	#define ROWL(nam,siz,val,fmt) \
+		r_list_append (ret, r_bin_field_new (addr, addr, val, siz, nam, NULL, fmt, false));
+
+	struct PE_(r_bin_pe_obj_t) * bin = bf->bo->bin_obj;
+	ut64 addr = bin->rich_header_offset ? bin->rich_header_offset : 128;
+
+	RListIter *it;
+	Pe_image_rich_entry *rich;
+	r_list_foreach (bin->rich_entries, it, rich) {
+		r_list_append (ret, r_bin_field_new (addr, addr, 0, 0, "RICH_ENTRY_NAME", rich->productName, "s", false));
+		ROWL ("RICH_ENTRY_ID", 2, rich->productId, "x"); addr += 2;
+		ROWL ("RICH_ENTRY_VERSION", 2, rich->minVersion, "x"); addr += 2;
+		ROWL ("RICH_ENTRY_TIMES", 4, rich->timesUsed, "x"); addr += 4;
+	}
+
+	ROWL ("Signature", 4, bin->nt_headers->Signature, "x"); addr += 4;
+	ROWL ("Machine", 2, bin->nt_headers->file_header.Machine, "x"); addr += 2;
+	ROWL ("NumberOfSections", 2, bin->nt_headers->file_header.NumberOfSections, "x"); addr += 2;
+	ROWL ("TimeDateStamp", 4, bin->nt_headers->file_header.TimeDateStamp, "x"); addr += 4;
+	ROWL ("PointerToSymbolTable", 4, bin->nt_headers->file_header.PointerToSymbolTable, "x"); addr += 4;
+	ROWL ("NumberOfSymbols ", 4, bin->nt_headers->file_header.NumberOfSymbols, "x"); addr += 4;
+	ROWL ("SizeOfOptionalHeader", 2, bin->nt_headers->file_header.SizeOfOptionalHeader, "x"); addr += 2;
+	ROWL ("Characteristics", 2, bin->nt_headers->file_header.Characteristics, "x"); addr += 2;
+	ROWL ("Magic", 2, bin->nt_headers->optional_header.Magic, "x"); addr += 2;
+	ROWL ("MajorLinkerVersion", 1, bin->nt_headers->optional_header.MajorLinkerVersion, "x"); addr += 1;
+	ROWL ("MinorLinkerVersion", 1, bin->nt_headers->optional_header.MinorLinkerVersion, "x"); addr += 1;
+	ROWL ("SizeOfCode", 4, bin->nt_headers->optional_header.SizeOfCode, "x"); addr += 4;
+	ROWL ("SizeOfInitializedData", 4, bin->nt_headers->optional_header.SizeOfInitializedData, "x"); addr += 4;
+	ROWL ("SizeOfUninitializedData", 4, bin->nt_headers->optional_header.SizeOfUninitializedData, "x"); addr += 4;
+	ROWL ("AddressOfEntryPoint", 4, bin->nt_headers->optional_header.AddressOfEntryPoint, "x"); addr += 4;
+	ROWL ("BaseOfCode", 4, bin->nt_headers->optional_header.BaseOfCode, "x"); addr += 4;
+	ROWL ("ImageBase", 4, bin->nt_headers->optional_header.ImageBase, "x"); addr += 4;
+	ROWL ("SectionAlignment", 4, bin->nt_headers->optional_header.SectionAlignment, "x"); addr += 4;
+	ROWL ("FileAlignment", 4, bin->nt_headers->optional_header.FileAlignment, "x"); addr += 4;
+	ROWL ("MajorOperatingSystemVersion", 2, bin->nt_headers->optional_header.MajorOperatingSystemVersion, "x"); addr += 2;
+	ROWL ("MinorOperatingSystemVersion", 2, bin->nt_headers->optional_header.MinorOperatingSystemVersion, "x"); addr += 2;
+	ROWL ("MajorImageVersion", 2, bin->nt_headers->optional_header.MajorImageVersion, "x"); addr += 2;
+	ROWL ("MinorImageVersion", 2, bin->nt_headers->optional_header.MinorImageVersion, "x"); addr += 2;
+	ROWL ("MajorSubsystemVersion", 2, bin->nt_headers->optional_header.MajorSubsystemVersion, "x"); addr += 2;
+	ROWL ("MinorSubsystemVersion", 2, bin->nt_headers->optional_header.MinorSubsystemVersion, "x"); addr += 2;
+	ROWL ("Win32VersionValue", 4, bin->nt_headers->optional_header.Win32VersionValue, "x"); addr += 4;
+	ROWL ("SizeOfImage", 4, bin->nt_headers->optional_header.SizeOfImage, "x"); addr += 4;
+	ROWL ("SizeOfHeaders", 4, bin->nt_headers->optional_header.SizeOfHeaders, "x"); addr += 4;
+	ROWL ("CheckSum", 4, bin->nt_headers->optional_header.CheckSum, "x"); addr += 4;
+	ROWL ("Subsystem",24, bin->nt_headers->optional_header.Subsystem, "x"); addr += 2;
+	ROWL ("DllCharacteristics", 2, bin->nt_headers->optional_header.DllCharacteristics, "x"); addr += 2;
+	ROWL ("SizeOfStackReserve", 4, bin->nt_headers->optional_header.SizeOfStackReserve, "x"); addr += 4;
+	ROWL ("SizeOfStackCommit", 4, bin->nt_headers->optional_header.SizeOfStackCommit, "x"); addr += 4;
+	ROWL ("SizeOfHeapReserve", 4, bin->nt_headers->optional_header.SizeOfHeapReserve, "x"); addr += 4;
+	ROWL ("SizeOfHeapCommit", 4, bin->nt_headers->optional_header.SizeOfHeapCommit, "x"); addr += 4;
+	ROWL ("LoaderFlags", 4, bin->nt_headers->optional_header.LoaderFlags, "x"); addr += 4;
+	ROWL ("NumberOfRvaAndSizes", 4, bin->nt_headers->optional_header.NumberOfRvaAndSizes, "x"); addr += 4;
+
+	int i;
+	ut64 tmp = addr;
+	for (i = 0; i < PE_IMAGE_DIRECTORY_ENTRIES - 1; i++) {
+		if (bin->nt_headers->optional_header.DataDirectory[i].VirtualAddress ||
+			bin->nt_headers->optional_header.DataDirectory[i].Size) {
+			addr = tmp + i*8;
+			switch (i) {
+			case PE_IMAGE_DIRECTORY_ENTRY_EXPORT:
+				ROWL ("IMAGE_DIRECTORY_ENTRY_EXPORT", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].VirtualAddress, "x");
+				addr += 4;
+				ROWL ("SIZE_IMAGE_DIRECTORY_ENTRY_EXPORT", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].Size, "x");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_IMPORT:
+				ROWL ("IMAGE_DIRECTORY_ENTRY_IMPORT", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].VirtualAddress, "x");
+				addr += 4;
+				ROWL ("SIZE_IMAGE_DIRECTORY_ENTRY_IMPORT", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].Size, "x");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_RESOURCE:
+				ROWL ("IMAGE_DIRECTORY_ENTRY_RESOURCE", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].VirtualAddress, "x");
+				addr += 4;
+				ROWL ("SIZE_IMAGE_DIRECTORY_ENTRY_RESOURCE", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].Size, "x");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_EXCEPTION:
+				ROWL ("IMAGE_DIRECTORY_ENTRY_EXCEPTION", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].VirtualAddress, "x");
+				addr += 4;
+				ROWL ("SIZE_IMAGE_DIRECTORY_ENTRY_EXCEPTION", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].Size, "x");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_SECURITY:
+				ROWL ("IMAGE_DIRECTORY_ENTRY_SECURITY", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].VirtualAddress, "x");
+				addr += 4;
+				ROWL ("SIZE_IMAGE_DIRECTORY_ENTRY_SECURITY", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].Size, "x");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_BASERELOC:
+				ROWL ("IMAGE_DIRECTORY_ENTRY_BASERELOC", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].VirtualAddress, "x");
+				addr += 4;
+				ROWL ("SIZE_IMAGE_DIRECTORY_ENTRY_BASERELOC", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].Size, "x");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_DEBUG:
+				ROWL ("IMAGE_DIRECTORY_ENTRY_DEBUG", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].VirtualAddress, "x");
+				addr += 4;
+				ROWL ("SIZE_IMAGE_DIRECTORY_ENTRY_DEBUG", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].Size, "x");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_COPYRIGHT:
+				ROWL ("IMAGE_DIRECTORY_ENTRY_COPYRIGHT", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].VirtualAddress, "x");
+				addr += 4;
+				ROWL ("SIZE_IMAGE_DIRECTORY_ENTRY_COPYRIGHT", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].Size, "x");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_GLOBALPTR:
+				ROWL ("IMAGE_DIRECTORY_ENTRY_GLOBALPTR", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].VirtualAddress, "x");
+				addr += 4;
+				ROWL ("SIZE_IMAGE_DIRECTORY_ENTRY_GLOBALPTR", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].Size, "x");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_TLS:
+				ROWL ("IMAGE_DIRECTORY_ENTRY_TLS", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].VirtualAddress, "x");
+				addr += 4;
+				ROWL ("SIZE_IMAGE_DIRECTORY_ENTRY_TLS", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].Size, "x");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG:
+				ROWL ("IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].VirtualAddress, "x");
+				addr += 4;
+				ROWL ("SIZE_IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].Size, "x");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT:
+				ROWL ("IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].VirtualAddress, "x");
+				addr += 4;
+				ROWL ("SIZE_IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].Size, "x");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_IAT:
+				ROWL ("IMAGE_DIRECTORY_ENTRY_IAT", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].VirtualAddress, "x");
+				addr += 4;
+				ROWL ("SIZE_IMAGE_DIRECTORY_ENTRY_IAT", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].Size, "x");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT:
+				ROWL ("IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].VirtualAddress, "x");
+				addr += 4;
+				ROWL ("SIZE_IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].Size, "x");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR:
+				ROWL ("IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].VirtualAddress, "x");
+				addr += 4;
+				ROWL ("SIZE_IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR", 4, \
+				bin->nt_headers->optional_header.DataDirectory[i].Size, "x");
+				break;
+			}
+		}
+	}
+
+	return ret;
+}
+
+static char *header(RBinFile *bf, int mode) {
+	struct PE_(r_bin_pe_obj_t) * bin = bf->bo->bin_obj;
+	RStrBuf *sb = r_strbuf_new ("");
+#define p(f,...) r_strbuf_appendf (sb, f, ##__VA_ARGS__)
+	p ("PE file header:\n");
+	p ("IMAGE_NT_HEADERS\n");
+	p ("  Signature : 0x%x\n", bin->nt_headers->Signature);
+	p ("IMAGE_FILE_HEADERS\n");
+	p ("  Machine : 0x%x\n", bin->nt_headers->file_header.Machine);
+	p ("  NumberOfSections : 0x%x\n", bin->nt_headers->file_header.NumberOfSections);
+	p ("  TimeDateStamp : 0x%x\n", bin->nt_headers->file_header.TimeDateStamp);
+	p ("  PointerToSymbolTable : 0x%x\n", bin->nt_headers->file_header.PointerToSymbolTable);
+	p ("  NumberOfSymbols : 0x%x\n", bin->nt_headers->file_header.NumberOfSymbols);
+	p ("  SizeOfOptionalHeader : 0x%x\n", bin->nt_headers->file_header.SizeOfOptionalHeader);
+	p ("  Characteristics : 0x%x\n", bin->nt_headers->file_header.Characteristics);
+	p ("IMAGE_OPTIONAL_HEADERS\n");
+	p ("  Magic : 0x%x\n", bin->nt_headers->optional_header.Magic);
+	p ("  MajorLinkerVersion : 0x%x\n", bin->nt_headers->optional_header.MajorLinkerVersion);
+	p ("  MinorLinkerVersion : 0x%x\n", bin->nt_headers->optional_header.MinorLinkerVersion);
+	p ("  SizeOfCode : 0x%x\n", bin->nt_headers->optional_header.SizeOfCode);
+	p ("  SizeOfInitializedData : 0x%x\n", bin->nt_headers->optional_header.SizeOfInitializedData);
+	p ("  SizeOfUninitializedData : 0x%x\n", bin->nt_headers->optional_header.SizeOfUninitializedData);
+	p ("  AddressOfEntryPoint : 0x%x\n", bin->nt_headers->optional_header.AddressOfEntryPoint);
+	p ("  BaseOfCode : 0x%x\n", bin->nt_headers->optional_header.BaseOfCode);
+	p ("  ImageBase : 0x%"PFMT64x"\n", bin->nt_headers->optional_header.ImageBase);
+	p ("  SectionAlignment : 0x%x\n", bin->nt_headers->optional_header.SectionAlignment);
+	p ("  FileAlignment : 0x%x\n", bin->nt_headers->optional_header.FileAlignment);
+	p ("  MajorOperatingSystemVersion : 0x%x\n", bin->nt_headers->optional_header.MajorOperatingSystemVersion);
+	p ("  MinorOperatingSystemVersion : 0x%x\n", bin->nt_headers->optional_header.MinorOperatingSystemVersion);
+	p ("  MajorImageVersion : 0x%x\n", bin->nt_headers->optional_header.MajorImageVersion);
+	p ("  MinorImageVersion : 0x%x\n", bin->nt_headers->optional_header.MinorImageVersion);
+	p ("  MajorSubsystemVersion : 0x%x\n", bin->nt_headers->optional_header.MajorSubsystemVersion);
+	p ("  MinorSubsystemVersion : 0x%x\n", bin->nt_headers->optional_header.MinorSubsystemVersion);
+	p ("  Win32VersionValue : 0x%x\n", bin->nt_headers->optional_header.Win32VersionValue);
+	p ("  SizeOfImage : 0x%x\n", bin->nt_headers->optional_header.SizeOfImage);
+	p ("  SizeOfHeaders : 0x%x\n", bin->nt_headers->optional_header.SizeOfHeaders);
+	p ("  CheckSum : 0x%x\n", bin->nt_headers->optional_header.CheckSum);
+	p ("  Subsystem : 0x%x\n", bin->nt_headers->optional_header.Subsystem);
+	p ("  DllCharacteristics : 0x%x\n", bin->nt_headers->optional_header.DllCharacteristics);
+	p ("  SizeOfStackReserve : 0x%"PFMT64x"\n", bin->nt_headers->optional_header.SizeOfStackReserve);
+	p ("  SizeOfStackCommit : 0x%"PFMT64x"\n", bin->nt_headers->optional_header.SizeOfStackCommit);
+	p ("  SizeOfHeapReserve : 0x%"PFMT64x"\n", bin->nt_headers->optional_header.SizeOfHeapReserve);
+	p ("  SizeOfHeapCommit : 0x%"PFMT64x"\n", bin->nt_headers->optional_header.SizeOfHeapCommit);
+	p ("  LoaderFlags : 0x%x\n", bin->nt_headers->optional_header.LoaderFlags);
+	p ("  NumberOfRvaAndSizes : 0x%x\n", bin->nt_headers->optional_header.NumberOfRvaAndSizes);
+	RListIter *it;
+	Pe_image_rich_entry *entry;
+	p ("RICH_FIELDS\n");
+	r_list_foreach (bin->rich_entries, it, entry) {
+		p ("  Product: %d Name: %s Version: %d Times: %d\n", entry->productId, entry->productName, entry->minVersion, entry->timesUsed);
+	}
+	int i;
+	for (i = 0; i < PE_IMAGE_DIRECTORY_ENTRIES - 1; i++) {
+		if (bin->nt_headers->optional_header.DataDirectory[i].VirtualAddress ||
+			bin->nt_headers->optional_header.DataDirectory[i].Size) {
+			switch (i) {
+			case PE_IMAGE_DIRECTORY_ENTRY_EXPORT:
+				p ("IMAGE_DIRECTORY_ENTRY_EXPORT\n");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_IMPORT:
+				p ("IMAGE_DIRECTORY_ENTRY_IMPORT\n");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_RESOURCE:
+				p ("IMAGE_DIRECTORY_ENTRY_RESOURCE\n");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_EXCEPTION:
+				p ("IMAGE_DIRECTORY_ENTRY_EXCEPTION\n");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_SECURITY:
+				p ("IMAGE_DIRECTORY_ENTRY_SECURITY\n");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_BASERELOC:
+				p ("IMAGE_DIRECTORY_ENTRY_BASERELOC\n");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_DEBUG:
+				p ("IMAGE_DIRECTORY_ENTRY_DEBUG\n");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_COPYRIGHT:
+				p ("IMAGE_DIRECTORY_ENTRY_COPYRIGHT\n");
+				p ("IMAGE_DIRECTORY_ENTRY_ARCHITECTURE\n");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_GLOBALPTR:
+				p ("IMAGE_DIRECTORY_ENTRY_GLOBALPTR\n");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_TLS:
+				p ("IMAGE_DIRECTORY_ENTRY_TLS\n");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG:
+				p ("IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG\n");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT:
+				p ("IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT\n");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_IAT:
+				p ("IMAGE_DIRECTORY_ENTRY_IAT\n");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT:
+				p ("IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT\n");
+				break;
+			case PE_IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR:
+				p ("IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR\n");
+				break;
+			}
+			p ("  VirtualAddress : 0x%x\n", bin->nt_headers->optional_header.DataDirectory[i].VirtualAddress);
+			p ("  Size : 0x%x\n", bin->nt_headers->optional_header.DataDirectory[i].Size);
+		}
+	}
+#undef p
+	return r_strbuf_drain (sb);
+}
+
+extern struct r_bin_write_t r_bin_write_pe64;
+
+static bool read_at_checked(RIO *io, ut64 addr, ut8 *buf, int size) {
+	// r_io_read_at succeeds on unmapped areas by filling the gaps with
+	// io.Oxff, so ensure the range lives inside the binary before reading
+	if (addr > UT64_MAX - size) {
+		return false;
+	}
+	if (!r_io_is_valid_offset (io, addr, 0) || !r_io_is_valid_offset (io, addr + size - 1, 0)) {
+		return false;
+	}
+	return r_io_read_at (io, addr, buf, size);
+}
+
+static bool read_u32_at(RIO *io, ut64 addr, ut32 *out) {
+	ut8 buf[sizeof (ut32)];
+	if (!read_at_checked (io, addr, buf, sizeof (buf))) {
+		return false;
+	}
+	*out = r_read_le32 (buf);
+	return true;
+}
+
+static bool read_runtime_function_at(RIO *io, ut64 addr, PE64_RUNTIME_FUNCTION *rfcn) {
+	ut8 buf[sizeof (*rfcn)];
+	if (!read_at_checked (io, addr, buf, sizeof (buf))) {
+		return false;
+	}
+	rfcn->BeginAddress = r_read_le32 (buf);
+	rfcn->EndAddress = r_read_le32 (buf + sizeof (ut32));
+	rfcn->UnwindData = r_read_le32 (buf + sizeof (ut32) * 2);
+	return true;
+}
+
+static bool read_unwind_info_at(RIO *io, ut64 addr, PE64_UNWIND_INFO *info) {
+	ut8 buf[offsetof (PE64_UNWIND_INFO, UnwindCode)];
+	if (!read_at_checked (io, addr, buf, sizeof (buf))) {
+		return false;
+	}
+	info->Version = buf[0] & 7;
+	info->Flags = buf[0] >> 3;
+	info->SizeOfProlog = buf[1];
+	info->CountOfCodes = buf[2];
+	info->FrameRegister = buf[3] & 0xf;
+	info->FrameOffset = buf[3] >> 4;
+	return true;
+}
+
+static bool read_scope_record_at(RIO *io, ut64 addr, PE64_SCOPE_RECORD *scope) {
+	ut8 buf[sizeof (*scope)];
+	if (!read_at_checked (io, addr, buf, sizeof (buf))) {
+		return false;
+	}
+	scope->BeginAddress = r_read_le32 (buf);
+	scope->EndAddress = r_read_le32 (buf + sizeof (ut32));
+	scope->HandlerAddress = r_read_le32 (buf + sizeof (ut32) * 2);
+	scope->JumpTarget = r_read_le32 (buf + sizeof (ut32) * 3);
+	return true;
+}
+
+#define PE64_UNWIND_CHAIN_LIMIT 32
+#define PE64_SCOPE_LIMIT 0x10000
+// magic numbers of the MSVC FuncInfo structure used by __CxxFrameHandler3
+#define PE64_CXX_MAGIC_MIN 0x19930520
+#define PE64_CXX_MAGIC_MAX 0x19930522
+
+static inline bool is_cxx_magic(ut32 magic) {
+	return magic >= PE64_CXX_MAGIC_MIN && magic <= PE64_CXX_MAGIC_MAX;
+}
+
+// read the name of an RTTI type descriptor: `struct { void *vft; void *spare; char name[]; }`
+static char *read_type_descriptor_name(RBinFile *bf, RIO *io, ut64 addr) {
+	char name[256];
+	size_t i;
+	for (i = 0; i < sizeof (name) - 1; i++) {
+		ut8 ch;
+		if (!read_at_checked (io, addr + 16 + i, &ch, 1) || !ch) {
+			break;
+		}
+		name[i] = (char)ch;
+	}
+	if (!i) {
+		return NULL;
+	}
+	name[i] = 0;
+	// type descriptor names look like `.?AVFoo@@`, demangle them when possible
+	char *dem = r_bin_demangle (bf, "msvc", name, addr, false);
+	if (R_STR_ISEMPTY (dem)) {
+		free (dem);
+		return strdup (name);
+	}
+	char *sp = strchr (dem, ' ');
+	if (sp && R_STR_ISNOTEMPTY (sp + 1)) {
+		char *res = strdup (sp + 1);
+		free (dem);
+		return res;
+	}
+	return dem;
+}
+
+// map the [low, high] state range of a try block into an address range using
+// the ip-to-state map of the function
+static bool cxx_state_range(const ut32 *ipmap, ut32 ip_count, ut64 baseAddr,
+		st32 low, st32 high, const PE64_RUNTIME_FUNCTION *rfcn, ut64 *from, ut64 *to) {
+	ut32 i;
+	bool found = false;
+	for (i = 0; i < ip_count; i++) {
+		const st32 state = (st32)ipmap[i * 2 + 1];
+		if (state >= low && state <= high) {
+			if (!found) {
+				*from = baseAddr + ipmap[i * 2];
+				found = true;
+			}
+		} else if (found) {
+			*to = baseAddr + ipmap[i * 2];
+			return *to > *from;
+		}
+	}
+	if (found) {
+		*to = baseAddr + rfcn->EndAddress;
+	}
+	return found && *to > *from;
+}
+
+// parse the MSVC FuncInfo of a __CxxFrameHandler3 protected function
+static void cxx_trycatch(RBinFile *bf, RIO *io, RVecRBinTrycatch *trycatch, ut64 baseAddr,
+		const PE64_RUNTIME_FUNCTION *rfcn, ut32 funcinfo) {
+	const ut64 fi = baseAddr + funcinfo;
+	ut32 try_count, try_map, ip_count, ip_map;
+	if (!read_u32_at (io, fi + 12, &try_count) || !read_u32_at (io, fi + 16, &try_map)
+			|| !read_u32_at (io, fi + 20, &ip_count) || !read_u32_at (io, fi + 24, &ip_map)) {
+		return;
+	}
+	if (!try_count || !try_map || !ip_count || !ip_map
+			|| try_count > 0x1000 || ip_count > 0x10000) {
+		return;
+	}
+	// IptoStateMapEntry: ip rva, state
+	ut32 *ipmap = calloc (ip_count, sizeof (ut32) * 2);
+	if (!ipmap) {
+		return;
+	}
+	ut32 i;
+	for (i = 0; i < ip_count; i++) {
+		const ut64 at = baseAddr + ip_map + (ut64)i * 8;
+		if (!read_u32_at (io, at, &ipmap[i * 2]) || !read_u32_at (io, at + 4, &ipmap[i * 2 + 1])) {
+			free (ipmap);
+			return;
+		}
+	}
+	const ut64 source = baseAddr + rfcn->BeginAddress;
+	for (i = 0; i < try_count; i++) {
+		// TryBlockMapEntry: tryLow, tryHigh, catchHigh, nCatches, dispHandlerArray
+		const ut64 tb = baseAddr + try_map + (ut64)i * 20;
+		ut32 try_low, try_high, catch_count, handlers;
+		if (!read_u32_at (io, tb, &try_low) || !read_u32_at (io, tb + 4, &try_high)
+				|| !read_u32_at (io, tb + 12, &catch_count) || !read_u32_at (io, tb + 16, &handlers)) {
+			break;
+		}
+		if (!catch_count || !handlers || catch_count > 0x100
+				|| (st32)try_low > (st32)try_high) {
+			continue;
+		}
+		ut64 from = 0, to = 0;
+		if (!cxx_state_range (ipmap, ip_count, baseAddr,
+				(st32)try_low, (st32)try_high, rfcn, &from, &to)) {
+			continue;
+		}
+		ut32 j;
+		for (j = 0; j < catch_count; j++) {
+			// HandlerType: adjectives, dispType, dispCatchObj, addressOfHandler, dispFrame
+			const ut64 ht = baseAddr + handlers + (ut64)j * 20;
+			ut32 type_rva, handler_rva;
+			if (!read_u32_at (io, ht + 4, &type_rva) || !read_u32_at (io, ht + 12, &handler_rva)) {
+				break;
+			}
+			if (!handler_rva) {
+				continue;
+			}
+			RBinTrycatch *tc = r_bin_trycatch_add (trycatch, source, from, to, baseAddr + handler_rva, 0);
+			if (!tc) {
+				break;
+			}
+			tc->kind = R_BIN_TRYCATCH_CATCH;
+			if (type_rva) {
+				tc->type = read_type_descriptor_name (bf, io, baseAddr + type_rva);
+			} else {
+				// a null type descriptor is `catch (...)`
+				tc->catch_all = true;
+			}
+		}
+	}
+	free (ipmap);
+}
+
+// parse the scope table of a __C_specific_handler protected function
+static void seh_trycatch(RIO *io, RVecRBinTrycatch *trycatch, ut64 baseAddr,
+		const PE64_RUNTIME_FUNCTION *rfcn, ut64 scopeTableOff) {
+	ut32 scope_count;
+	if (!read_u32_at (io, scopeTableOff, &scope_count)
+			|| !scope_count || scope_count > PE64_SCOPE_LIMIT) {
+		return;
+	}
+	const ut64 source = baseAddr + rfcn->BeginAddress;
+	ut64 scopeRecOff = scopeTableOff + sizeof (ut32);
+	ut32 i;
+	for (i = 0; i < scope_count; i++, scopeRecOff += sizeof (PE64_SCOPE_RECORD)) {
+		PE64_SCOPE_RECORD scope;
+		if (!read_scope_record_at (io, scopeRecOff, &scope)) {
+			return;
+		}
+		if (scope.BeginAddress > scope.EndAddress
+			|| scope.BeginAddress == UT32_MAX || scope.EndAddress == UT32_MAX
+			|| !scope.BeginAddress || !scope.EndAddress) {
+			return;
+		}
+		if (!(scope.BeginAddress >= rfcn->BeginAddress - 1 && scope.BeginAddress < rfcn->EndAddress
+			&& scope.EndAddress <= rfcn->EndAddress + 1 && scope.EndAddress > rfcn->BeginAddress)) {
+			continue;
+		}
+		const ut64 from = baseAddr + scope.BeginAddress;
+		const ut64 to = baseAddr + scope.EndAddress;
+		RBinTrycatch *tc;
+		if (scope.JumpTarget) {
+			// __except: HandlerAddress is the filter, 1 means EXCEPTION_EXECUTE_HANDLER
+			const ut64 filter = scope.HandlerAddress > 1? baseAddr + scope.HandlerAddress: 0;
+			tc = r_bin_trycatch_add (trycatch, source, from, to, baseAddr + scope.JumpTarget, filter);
+			if (tc) {
+				tc->kind = filter? R_BIN_TRYCATCH_FILTER: R_BIN_TRYCATCH_CATCH;
+			}
+		} else {
+			// __finally: HandlerAddress is the termination handler
+			if (!scope.HandlerAddress || scope.HandlerAddress == 1) {
+				continue;
+			}
+			tc = r_bin_trycatch_add (trycatch, source, from, to, baseAddr + scope.HandlerAddress, 0);
+			if (tc) {
+				tc->kind = R_BIN_TRYCATCH_FINALLY;
+			}
+		}
+		if (!tc) {
+			return;
+		}
+	}
+}
+
+// walk the exception directory collecting the SEH and C++ exception regions
+static RVecRBinTrycatch *trycatch(RBinFile *bf) {
+	RIO *io = bf->rbin->iob.io;
+	ut64 baseAddr = bf->bo->baddr;
+	ut64 offset;
+	ut32 c_handler = 0;
+
+	struct PE_(r_bin_pe_obj_t) * bin = bf->bo->bin_obj;
+	if (bin->trycatch_loaded) {
+		return &bin->trycatch;
+	}
+	// managed methods carry their own exception clauses
+	RVecRBinTrycatch *tcs = pe_trycatch (bf);
+	if (!tcs) {
+		return NULL;
+	}
+	if (!bin->nt_headers || bin->nt_headers->file_header.Machine != PE_IMAGE_FILE_MACHINE_AMD64) {
+		// The exception directory of ARM64 and other machines does not
+		// use the x86-64 RUNTIME_FUNCTION/UNWIND_INFO format parsed here
+		RVecRBinTrycatch_shrink_to_fit (tcs);
+		return tcs;
+	}
+	PE_(image_data_directory) *expdir = &bin->optional_header->DataDirectory[PE_IMAGE_DIRECTORY_ENTRY_EXCEPTION];
+	if (!expdir->Size) {
+		RVecRBinTrycatch_shrink_to_fit (tcs);
+		return tcs;
+	}
+	ut64 dirsize = expdir->Size;
+	const ut64 filesize = bin->b? r_buf_size (bin->b): 0;
+	if (dirsize > filesize) {
+		// RUNTIME_FUNCTION entries beyond the file contents can only be padding or garbage
+		dirsize = filesize;
+	}
+
+	for (offset = expdir->VirtualAddress; offset < (ut64)expdir->VirtualAddress + dirsize; offset += sizeof (PE64_RUNTIME_FUNCTION)) {
+		PE64_RUNTIME_FUNCTION rfcn;
+		bool suc = read_runtime_function_at (io, offset + baseAddr, &rfcn);
+		if (!suc || !rfcn.BeginAddress || rfcn.BeginAddress == UT32_MAX) {
+			// zero and ff-filled entries mark the end of the directory
+			break;
+		}
+		ut32 savedBeginOff = rfcn.BeginAddress;
+		ut32 savedEndOff = rfcn.EndAddress;
+		// Chained entries can form cycles in malformed binaries, so bound the walk
+		int chain = 0;
+		while (suc && rfcn.UnwindData & 1) {
+			if (chain++ >= PE64_UNWIND_CHAIN_LIMIT) {
+				suc = false;
+				break;
+			}
+			// XXX this ugly (int) cast is needed for MSVC for not to crash
+			int delta = (rfcn.UnwindData & (int)~1);
+			ut64 at = baseAddr + delta;
+			suc = read_runtime_function_at (io, at, &rfcn);
+		}
+		rfcn.BeginAddress = savedBeginOff;
+		rfcn.EndAddress = savedEndOff;
+		if (!suc) {
+			continue;
+		}
+		PE64_UNWIND_INFO info;
+		suc = read_unwind_info_at (io, rfcn.UnwindData + baseAddr, &info);
+		// UHANDLER shares the layout of EHANDLER, functions with a __finally
+		// and no __except only get the unwind handler flag
+		const ut8 handler_flags = PE64_UNW_FLAG_EHANDLER | PE64_UNW_FLAG_UHANDLER;
+		if (!suc || info.Version != 1
+				|| (!(info.Flags & handler_flags) && !(info.Flags & PE64_UNW_FLAG_CHAININFO))) {
+			continue;
+		}
+
+		ut32 sizeOfCodeEntries = info.CountOfCodes % 2 ? info.CountOfCodes + 1 : info.CountOfCodes;
+		sizeOfCodeEntries *= sizeof (PE64_UNWIND_CODE);
+		ut64 exceptionDataOff = baseAddr + rfcn.UnwindData + offsetof (PE64_UNWIND_INFO, UnwindCode) + sizeOfCodeEntries;
+
+		if (info.Flags & PE64_UNW_FLAG_CHAININFO) {
+			savedBeginOff = rfcn.BeginAddress;
+			savedEndOff = rfcn.EndAddress;
+			int chains = 0;
+			do {
+				if (chains++ >= PE64_UNWIND_CHAIN_LIMIT) {
+					suc = false;
+					break;
+				}
+				if (!read_runtime_function_at (io, exceptionDataOff, &rfcn)) {
+					break;
+				}
+				suc = read_unwind_info_at (io, rfcn.UnwindData + baseAddr, &info);
+				if (!suc || info.Version != 1) {
+					break;
+				}
+				int chain = 0;
+				while (suc && (rfcn.UnwindData & 1)) {
+					if (chain++ >= PE64_UNWIND_CHAIN_LIMIT) {
+						suc = false;
+						break;
+					}
+					// XXX this ugly (int) cast is needed for MSVC for not to crash
+					suc = read_runtime_function_at (io, baseAddr + ((int)rfcn.UnwindData & (int)~1), &rfcn);
+				}
+				if (!suc || info.Version != 1) {
+					break;
+				}
+				sizeOfCodeEntries = info.CountOfCodes % 2 ? info.CountOfCodes + 1 : info.CountOfCodes;
+				sizeOfCodeEntries *= sizeof (PE64_UNWIND_CODE);
+				exceptionDataOff = baseAddr + rfcn.UnwindData + offsetof (PE64_UNWIND_INFO, UnwindCode) + sizeOfCodeEntries;
+			} while (info.Flags & PE64_UNW_FLAG_CHAININFO);
+			if (!suc) {
+				continue;
+			}
+			if (!(info.Flags & handler_flags)) {
+				continue;
+			}
+			rfcn.BeginAddress = savedBeginOff;
+			rfcn.EndAddress = savedEndOff;
+		}
+
+		ut32 handler;
+		if (!read_u32_at (io, exceptionDataOff, &handler)) {
+			continue;
+		}
+		exceptionDataOff += sizeof (ut32);
+
+		if (handler != c_handler) {
+			// __CxxFrameHandler3 and __GSHandlerCheck_EH are followed by the
+			// rva of a FuncInfo structure describing the C++ try blocks
+			ut32 magic, rva_to_fcninfo;
+			if (read_u32_at (io, exceptionDataOff, &rva_to_fcninfo)
+					&& read_u32_at (io, baseAddr + rva_to_fcninfo, &magic)
+					&& is_cxx_magic (magic)) {
+				cxx_trycatch (bf, io, tcs, baseAddr, &rfcn, rva_to_fcninfo);
+				continue;
+			}
+		}
+		if (c_handler && c_handler != handler) {
+			continue;
+		}
+		const size_t before = RVecRBinTrycatch_length (tcs);
+		seh_trycatch (io, tcs, baseAddr, &rfcn, exceptionDataOff);
+		if (RVecRBinTrycatch_length (tcs) != before) {
+			// the language specific handler of this binary is now known
+			c_handler = handler;
+		}
+	}
+	RVecRBinTrycatch_shrink_to_fit (tcs);
+	return tcs;
+}
+
+RBinPlugin r_bin_plugin_pe64 = {
+	.meta = {
+		.name = "pe64",
+		.desc = "Portable Executable for 64 bit (PE32+)",
+		.author = "nibble,pancake",
+		.license = "LGPL-3.0-only",
+	},
+	.get_sdb = &get_sdb,
+	.get_name = &getname,
+	.get_offset = &getoffset,
+	.get_cc = &get_cc,
+	.load = &load,
+	.destroy = &destroy,
+	.check = &check,
+	.baddr = &baddr,
+	.binsym = &binsym,
+	.entries = &entries,
+	.sections_vec = &sections_vec,
+	.symbols_vec = &symbols_vec,
+	.imports_vec = &imports_vec,
+	.info = &info,
+	.header = &header,
+	.fields = &fields,
+	.classes = &classes,
+	.types = &types,
+	.strings = &strings,
+	.libs = &libs,
+	.relocs = &relocs,
+	.get_vaddr = &get_vaddr,
+	.trycatch = &trycatch,
+	.create = &create,
+	.write = &r_bin_write_pe64,
+	.hashes = &compute_hashes,
+	.load_resources = &load_resources
+};
+
+#ifndef R2_PLUGIN_INCORE
+R_API RLibStruct radare_plugin = {
+	.type = R_LIB_TYPE_BIN,
+	.data = &r_bin_plugin_pe64,
+	.version = R2_VERSION
+};
+#endif

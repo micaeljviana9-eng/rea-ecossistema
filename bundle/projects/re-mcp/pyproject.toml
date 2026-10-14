@@ -1,0 +1,91 @@
+[project]
+name = "re-mcp"
+version = "3.0.4.dev1"
+description = "Multi-backend reverse-engineering MCP server"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSE", "LICENSES/*"]
+authors = [
+    { name = "Joe T. Sylve, Ph.D.", email = "joe.sylve@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "re-mcp-core",
+    "re-mcp-ida",
+    "re-mcp-ghidra",
+]
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = []
+
+[tool.uv.workspace]
+members = [
+    "packages/re-mcp-core",
+    "packages/re-mcp-ida",
+    "packages/re-mcp-ghidra",
+]
+
+[tool.uv.sources]
+re-mcp-core = { workspace = true }
+re-mcp-ida = { workspace = true }
+re-mcp-ghidra = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "re-mcp-core",
+    "re-mcp-ida",
+    "re-mcp-ghidra",
+    "jsonschema>=4.20,<5",
+    "pre-commit>=4.5,<5",
+    "pytest>=9.0,<10",
+    "pytest-asyncio>=1.0,<2",
+    "ruff>=0.15,<0.16",
+]
+
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # Pyflakes
+    "W",    # pycodestyle warnings
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "C4",   # flake8-comprehensions
+    "RUF",  # Ruff-specific rules
+    "PIE",  # flake8-pie
+    "PLC",  # Pylint conventions
+    "PLE",  # Pylint errors
+    "PLW",  # Pylint warnings
+    "FURB", # refurb
+    "PERF", # perflint
+    "ASYNC", # flake8-async
+]
+ignore = [
+    "E501",    # line length handled by formatter
+    "UP035",   # don't force typing-extensions imports
+    "ASYNC222", # os.waitpid with WNOHANG is non-blocking
+    "ASYNC240", # os.path string ops (realpath/expanduser) don't do I/O
+]
+
+[tool.ruff.lint.isort]
+known-third-party = [
+    "fastmcp", "mcp",
+    "pyghidra", "ghidra", "java",
+    "idapro", "idc", "idautils",
+    "ida_auto", "ida_bytes", "ida_dirtree", "ida_diskio", "ida_entry",
+    "ida_enum", "ida_fixup", "ida_fpro", "ida_frame", "ida_funcs", "ida_gdl",
+    "ida_hexrays", "ida_ida", "ida_idaapi", "ida_idp", "ida_kernwin", "ida_lines",
+    "ida_loader", "ida_nalt", "ida_name", "ida_problems", "ida_range",
+    "ida_regfinder", "ida_search", "ida_segment", "ida_srclang", "ida_strlist",
+    "ida_struct", "ida_tryblks", "ida_typeinf", "ida_ua", "ida_undo", "ida_xref",
+]

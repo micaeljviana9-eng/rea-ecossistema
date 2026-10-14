@@ -1,0 +1,80 @@
+NAME=omb banks
+FILE=malloc://1024
+CMDS=<<EOF
+om
+omb+ map
+omb+ nomap
+omb=map
+ombg
+omb=nomap
+om
+omb=map
+om
+omb-*
+omb -1
+EOF
+EXPECT=<<EOF
+* 1 fd: 3 +0x00000000 0x00000000 - 0x000003ff rwx rwx
+* 1 fd: 3 +0x00000000 0x00000000 - 0x000003ff rwx rwx
+EOF
+EXPECT_ERR=<<EOF
+ERROR: Cannot find bank by id -1
+EOF
+RUN
+
+NAME=omb+
+FILE=malloc://1024
+CMDS=<<EOF
+omb+ one
+omb+ two
+omb
+EOF
+EXPECT=<<EOF
+* 0 default [ 1 ]
+- 1 one [ ]
+- 2 two [ ]
+EOF
+RUN
+
+NAME=omb rejects names as ids without changing banks
+FILE=malloc://1024
+CMDS=<<EOF
+omb+ one
+omb=one
+ombq
+omb one
+ombq
+omb
+EOF
+EXPECT=<<EOF
+1
+1
+- 0 default [ 1 ]
+* 1 one [ ]
+EOF
+EXPECT_ERR=<<EOF
+ERROR: omb expects a number, not a string
+EOF
+RUN
+
+NAME=omb subcommands help and missing args dont crash #26035
+FILE=malloc://1024
+CMDS=<<EOF
+omba?~omba
+ombd?~ombd
+ombg?~ombg
+om-*
+ombg
+omba
+ombd
+EOF
+EXPECT=<<EOF
+| omba [id]    adds a map to the bank
+| ombd [id]    delete a map from the bank
+| ombg         associate all maps to the current bank
+EOF
+EXPECT_ERR=<<EOF
+ERROR: Expect a mapid number
+ERROR: Expect a mapid number
+EOF
+RUN

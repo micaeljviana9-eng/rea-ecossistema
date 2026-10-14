@@ -1,0 +1,75 @@
+pub mod ailment;
+pub mod automaton;
+pub mod cfg_graph;
+pub mod claripy;
+pub mod function_graph;
+pub mod fuzzer;
+pub mod icicle;
+pub mod segmentlist;
+
+use pyo3::prelude::*;
+
+fn import_submodule<'py>(
+    py: Python<'py>,
+    m: &Bound<'py, PyModule>,
+    package: &str,
+    name: &str,
+    import_func: impl FnOnce(&Bound<'py, PyModule>) -> PyResult<()>,
+) -> PyResult<()> {
+    let submodule = PyModule::new(py, name)?;
+    import_func(&submodule)?;
+
+    // Add the submodule to sys.modules
+    let sys_modules = PyModule::import(py, "sys")?.getattr("modules")?;
+    sys_modules.set_item(format!("{package}.{name}"), submodule.clone())?;
+
+    m.add_submodule(&submodule)?;
+    Ok(())
+}
+
+#[pymodule]
+fn rustylib(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    import_submodule(m.py(), m, "angr.rustylib", "fuzzer", fuzzer::fuzzer)?;
+    import_submodule(m.py(), m, "angr.rustylib", "icicle", icicle::icicle)?;
+    import_submodule(
+        m.py(),
+        m,
+        "angr.rustylib",
+        "segmentlist",
+        segmentlist::segmentlist,
+    )?;
+    import_submodule(
+        m.py(),
+        m,
+        "angr.rustylib",
+        "automaton",
+        automaton::automaton,
+    )?;
+    import_submodule(m.py(), m, "angr.rustylib", "ailment", ailment::ailment)?;
+    import_submodule(
+        m.py(),
+        m,
+        "angr.rustylib",
+        "cfg_graph",
+        cfg_graph::cfg_graph,
+    )?;
+    import_submodule(
+        m.py(),
+        m,
+        "angr.rustylib",
+        "function_graph",
+        function_graph::function_graph,
+    )?;
+
+    let py = m.py();
+    let claripy_module = PyModule::new(py, "angr.rustylib.claripy")?;
+    claripy::claripy(py, &claripy_module)?;
+    PyModule::import(py, "sys")?
+        .getattr("modules")?
+        .set_item("angr.rustylib.claripy", claripy_module.clone())?;
+    m.add("claripy", claripy_module)?;
+
+    m.add_class::<segmentlist::Segment>()?;
+    m.add_class::<segmentlist::SegmentList>()?;
+    Ok(())
+}

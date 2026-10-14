@@ -1,0 +1,37 @@
+__pycache__/
+*.pyc
+*.pyo
+
+# mkdocs build artifacts
+docs/build
+docs/site
+
+.idea/
+
+*.o
+*.so
+
+androguard.egg-info/
+build/
+dist/
+
+# Files from tests
+test_session
+
+.eggs/
+ak_androguard.egg-info
+*.ag
+*.log
+*.db
+*.db-*
+*DS_Store*
+
+# Claude Code / analysis workspace artifacts
+.claude/settings.local.json
+workspace/samples/
+workspace/output/
+workspace/reports/
+workspace/mastg-validation/
+*.apk
+!tests/**/*.apk
+

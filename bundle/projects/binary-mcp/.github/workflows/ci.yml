@@ -1,0 +1,297 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.12']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v7
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        enable-cache: true
+
+    - name: Install dependencies
+      run: uv sync --extra dev
+
+    - name: Lint with ruff
+      run: |
+        uv run ruff check src/ tests/
+
+    - name: Run tests
+      run: |
+        uv run pytest --cov=src --cov-report=xml --cov-report=term -v
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      if: matrix.os == 'ubuntu-latest'
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  # Compile-check the x64dbg plugin and its HTTP server on every PR.
+  #
+  # Until this job existed, NO pull-request check built any of the C++. The only
+  # workflow that compiled it was release.yml, which triggers solely on a
+  # 'v*.*.*' tag -- so a compile error could not surface until someone cut a
+  # release, after merge. create-release depends on build-plugin, so such an
+  # error blocked the release rather than shipping a broken plugin, but it
+  # surfaced at the worst possible moment and after the offending change had
+  # already landed on main.
+  #
+  # This job deliberately BUILDS ONLY. Packaging, SHA256SUMS and artifact upload
+  # stay in release.yml; duplicating them here would mean two places to keep
+  # correct. Both architectures are built because the 32-bit target has caught
+  # size-assumption bugs that x64 alone does not -- its first run flagged 21
+  # C4477 format defects that were invisible on x64.
+  #
+  # WARNINGS ARE ERRORS here, via CMAKE_COMPILE_WARNING_AS_ERROR (CMake 3.24+,
+  # which maps to /WX for MSVC). Not -DCMAKE_CXX_FLAGS="/WX": that REPLACES the
+  # cache default rather than appending, dropping /EHsc among others, and
+  # plugin.cpp uses try/catch.
+  #
+  # This is the ONE deliberate difference from release.yml's otherwise identical
+  # build steps, so do not "fix" the divergence. The asymmetry is the point:
+  # a new warning (from an MSVC upgrade, say) should fail a PR, where someone
+  # can look at it, and NOT block cutting a release when you need to ship. If a
+  # toolchain bump ever reddens this job on an unrelated PR, that is this flag
+  # working as intended -- fix the warning, do not delete the gate.
+  build-plugin:
+    name: Build x64dbg Plugin (compile check)
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup CMake
+      uses: jwlawson/actions-setup-cmake@v2
+      with:
+        cmake-version: 'latest'
+
+    - name: Download x64dbg Plugin SDK
+      shell: pwsh
+      env:
+        # Authenticate the release lookup. Unauthenticated api.github.com calls
+        # are rate-limited per IP, and shared CI egress hits that limit -- which
+        # would show up as a red build job on an unrelated PR.
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $headers = @{
+          'Accept'        = 'application/vnd.github+json'
+          'Authorization' = "Bearer $env:GH_TOKEN"
+          'User-Agent'    = 'binary-mcp-ci'
+        }
+
+        Write-Host "Fetching latest x64dbg release info..."
+        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/x64dbg/x64dbg/releases/latest" -Headers $headers
+
+        Write-Host "Latest release: $($release.tag_name)"
+        $sdkAsset = $release.assets | Where-Object { $_.name -eq "x64dbg-pluginsdk.zip" }
+
+        if (-not $sdkAsset) {
+            Write-Error "x64dbg-pluginsdk.zip not found in latest release"
+            exit 1
+        }
+
+        Write-Host "Downloading official x64dbg plugin SDK..."
+        Invoke-WebRequest -Uri $sdkAsset.browser_download_url -OutFile sdk.zip
+
+        New-Item -ItemType Directory -Force -Path extern/x64dbg_sdk/pluginsdk
+        Expand-Archive -Path sdk.zip -DestinationPath extern/x64dbg_sdk/pluginsdk -Force
+        Write-Host "SDK ready at: extern/x64dbg_sdk/pluginsdk"
+
+    - name: Build x64 Plugin
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        Write-Host "Building 64-bit plugin..."
+        $sdkPath = "$env:GITHUB_WORKSPACE/extern/x64dbg_sdk"
+        cd src/engines/dynamic/x64dbg/plugin
+
+        New-Item -ItemType Directory -Force -Path build-x64
+        cd build-x64
+
+        cmake .. -A x64 `
+          -DX64DBG_SDK_PATH="$sdkPath" `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+        if ($LASTEXITCODE -ne 0) { throw "CMake configure failed for x64" }
+
+        cmake --build . --config Release
+        if ($LASTEXITCODE -ne 0) { throw "CMake build failed for x64" }
+
+        Write-Host "x64 plugin built successfully"
+
+    - name: Build x32 Plugin
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        Write-Host "Building 32-bit plugin..."
+        $sdkPath = "$env:GITHUB_WORKSPACE/extern/x64dbg_sdk"
+        cd src/engines/dynamic/x64dbg/plugin
+
+        New-Item -ItemType Directory -Force -Path build-x32
+        cd build-x32
+
+        cmake .. -A Win32 `
+          -DX64DBG_SDK_PATH="$sdkPath" `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+        if ($LASTEXITCODE -ne 0) { throw "CMake configure failed for x32" }
+
+        cmake --build . --config Release
+        if ($LASTEXITCODE -ne 0) { throw "CMake build failed for x32" }
+
+        Write-Host "x32 plugin built successfully"
+
+    # Why this job uploads at all, when the comment above says it builds only:
+    # the plugin half of a change cannot be tested without these three files,
+    # and the only other way to get them was a tag -- which publishes a
+    # release. Testing an unmerged branch should not need one. An artifact is
+    # scoped to this run, expires, and is downloadable only by people who can
+    # already see the repository, so install.ps1 and releases/latest are
+    # untouched.
+    #
+    # Packaging and SHA256SUMS still live in release.yml and are NOT duplicated
+    # here. This stages the same three files in the same layout so that
+    # "unzip, copy three files into x64dbg/plugins" is the identical procedure
+    # either way -- a test build that has to be assembled differently from the
+    # shipped one is testing something else.
+    - name: Stage plugin artifacts
+      shell: pwsh
+      env:
+        # On a pull_request event github.sha is the MERGE commit GitHub
+        # synthesises (head merged into base), which exists in no branch -- the
+        # first run of this job named its artifact after one, so the name
+        # pointed at a commit nobody could check out. head.sha is the commit
+        # that was actually pushed; it is empty on a push event, where
+        # github.sha is already right.
+        OBSIDIAN_BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $plugin = "src/engines/dynamic/x64dbg/plugin"
+        New-Item -ItemType Directory -Force -Path artifact/obsidian-plugins | Out-Null
+
+        # obsidian_server.exe comes from the x64 build, matching release.yml:
+        # it is a standalone process that talks to the plugin over a named
+        # pipe, so one build serves a 32- and a 64-bit debugger alike.
+        $files = @{
+          "$plugin/build-x64/Release/obsidian.dp64"        = "obsidian.dp64"
+          "$plugin/build-x32/Release/obsidian.dp32"        = "obsidian.dp32"
+          "$plugin/build-x64/Release/obsidian_server.exe"  = "obsidian_server.exe"
+        }
+        foreach ($src in $files.Keys) {
+          # Checked rather than assumed. A rename in CMakeLists would otherwise
+          # produce an artifact missing a file, and the first anyone would know
+          # is a plugin that loads and never answers.
+          if (-not (Test-Path -LiteralPath $src)) {
+            throw "Expected build output not found: $src"
+          }
+          Copy-Item -LiteralPath $src -Destination "artifact/obsidian-plugins/$($files[$src])"
+        }
+
+        # What this is, next to the files, because an artifact outlives the
+        # run page that explains it.
+        #
+        # An array of lines rather than a here-string. A here-string needs its
+        # body and its terminator at column zero, and a line at column zero
+        # ends the YAML block scalar that this whole step lives inside.
+        $note = @(
+          'This is a CI build of Sarks0/binary-mcp, not a release.'
+          ''
+          "  commit: ${env:OBSIDIAN_BUILD_SHA}"
+          "  run:    ${env:GITHUB_SERVER_URL}/${env:GITHUB_REPOSITORY}/actions/runs/${env:GITHUB_RUN_ID}"
+          ''
+          'It is here so an unmerged branch can be tested without publishing a'
+          'release. install.ps1 does not serve these files -- it fetches the latest'
+          'non-prerelease from the releases page, which nothing you do with this'
+          'artifact changes.'
+          ''
+          'INSTALL'
+          ''
+          'Copy all three files into the plugins directory of the x64dbg you want'
+          'to test: x64dbg/x64/plugins for a 64-bit debugger, x64dbg/x32/plugins'
+          'for a 32-bit one.'
+          ''
+          'Prefer a second, portable x64dbg copy over the one install.ps1 set up.'
+          'The plugin finds obsidian_server.exe, obsidian.ini and its log beside'
+          'its own DLL, so a separate copy is fully isolated and leaves your'
+          'working install on the released binaries.'
+          ''
+          'LISTENER'
+          ''
+          'Configuration is an optional obsidian.ini beside these files. With no'
+          'ini the server binds 127.0.0.1:8765 in plaintext, exactly as it always'
+          'has. See docs/remote-access.md for the remote setup and its certificate'
+          'steps.'
+          ''
+          'These binaries are unsigned and built from an arbitrary commit. Treat'
+          'them as test material, not as something to leave installed.'
+        )
+        Set-Content -Path artifact/obsidian-plugins/BUILD-INFO.txt -Value $note -Encoding ascii
+
+        Get-ChildItem artifact/obsidian-plugins
+
+    - name: Upload plugin artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        # Same reasoning as OBSIDIAN_BUILD_SHA above: name the download after
+        # the commit it was built from, not after a merge commit that exists
+        # only inside this run.
+        name: obsidian-plugins-${{ github.event.pull_request.head.sha || github.sha }}
+        path: artifact/*
+        # A build that produced nothing is a failure, not an empty download.
+        if-no-files-found: error
+        # Short on purpose. These exist to be fetched during a round of
+        # testing, not to become a parallel distribution channel that outlives
+        # the branch.
+        retention-days: 14
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.12'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        enable-cache: true
+
+    - name: Install dependencies
+      run: uv sync --extra dev
+
+    - name: Run security checks with bandit
+      run: |
+        uvx bandit -r src/ -ll
+      continue-on-error: true

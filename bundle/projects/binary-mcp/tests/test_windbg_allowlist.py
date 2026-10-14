@@ -1,0 +1,235 @@
+"""Tests for the token-aware WinDbg command allowlist."""
+
+from __future__ import annotations
+
+import pytest
+
+from src.engines.dynamic.windbg.allowlist import (
+    parse_compound,
+    validate_command,
+)
+
+
+class TestParseCompound:
+    def test_single_command(self):
+        assert parse_compound("bp nt!NtCreateFile") == ["bp nt!NtCreateFile"]
+
+    def test_simple_split(self):
+        assert parse_compound("g; k") == ["g", "k"]
+
+    def test_quoted_semicolon_kept(self):
+        # ';' inside a double-quoted region must not split.
+        result = parse_compound('.printf "a;b"')
+        assert len(result) == 1
+        assert "a;b" in result[0]
+
+    def test_backslash_does_not_escape_a_separator(self):
+        # There is no backslash escape in WinDbg's sequencer. The tokenizer
+        # used to invent one, which desynchronised this split from the
+        # debugger's: 'dt nt!_EPROCESS\\;.dvalloc 1000' was ONE harmless dt
+        # subcommand here and TWO subcommands in cdb, the second allocating
+        # RWX memory in the target.
+        assert parse_compound("dt nt!_EPROCESS\\;.dvalloc 1000") == [
+            "dt nt!_EPROCESS\\",
+            ".dvalloc 1000",
+        ]
+        ok, reason = validate_command("dt nt!_EPROCESS\\;.dvalloc 1000")
+        assert ok is False
+        assert ".dvalloc" in reason
+
+    def test_backslash_before_a_quote_errs_towards_more_splitting(self):
+        # Consequence of dropping the invented escape: a '\\"' closes the
+        # quoted region for this tokenizer. That direction is safe -- it
+        # yields MORE subcommands to validate, never fewer -- so the command
+        # is refused rather than silently under-validated.
+        result = parse_compound('bp X ".printf \\"a;b\\""')
+        assert len(result) == 2
+        ok, _ = validate_command('bp X ".printf \\"a;b\\""')
+        assert ok is False
+
+    def test_unbalanced_interpolation_does_not_swallow_the_tail(self):
+        # An unbalanced '${' used to make the tokenizer copy the entire rest
+        # of the line into the current part, hiding a payload behind a
+        # harmless leading token.
+        parts = parse_compound("k ${ ; .shell calc")
+        assert ".shell calc" in parts
+        ok, reason = validate_command("k ${ ; .shell calc")
+        assert ok is False
+        assert "unbalanced" in reason
+
+    def test_braced_block_kept(self):
+        # The whole .foreach is one subcommand even with ; inside braces.
+        cmd = ".foreach (a {!process 0 0; !handle ${a}}) { !thread ${a} }"
+        result = parse_compound(cmd)
+        assert len(result) == 1
+
+    def test_trailing_semicolon_dropped(self):
+        assert parse_compound("g;") == ["g"]
+
+    def test_empty_input(self):
+        assert parse_compound("") == []
+        assert parse_compound("   ") == []
+
+
+class TestDenyFirstToken:
+    @pytest.mark.parametrize("cmd", [
+        ".shell calc",
+        ".dvalloc 0x1000 0x100",
+        ".dvfree 0x1000 0x100",
+        ".kill",
+        ".restart",
+        ".dump /m c:\\out.dmp",
+        ".writemem c:\\out 0x1000 0x100",
+        ".script c:\\evil.js",
+        ".load mymodule",
+        ".sympath srv*foo",
+        ".symfix",
+        ".pagein 0x1000",
+        ".attach 1234",
+        "eb 0x1000 90 90",
+        "ed 0x1000 deadbeef",
+        "eq 0x1000 0xfeedface",
+        "a 0x1000",
+        # Rest of the Enter/Fill/Move write family (audit F-2)
+        "e 0x1000 90",
+        "ef 0x1000 1.5",
+        "f 0x1000 L100 90",
+        "m 0x1000 0x1100 0x2000",
+        # Single-quote-delimited control flow (audit F-1)
+        "j 1 '.shell calc'",
+        "z '.shell calc'",
+    ])
+    def test_blocks(self, cmd):
+        ok, reason = validate_command(cmd)
+        assert ok is False, f"{cmd!r} should be blocked"
+        assert reason
+
+
+class TestAllowed:
+    @pytest.mark.parametrize("cmd", [
+        "bp nt!NtCreateFile",
+        "g",
+        "k",
+        "kn",
+        "!process 0 0",
+        "!thread",
+        "lm m nt",
+        "dt nt!_EPROCESS 0xfffff800deadbeef",
+        "db 0x1000",
+        "dd 0x1000",
+        "r rip",
+        "r @rip",  # bare read of register
+        ".formats 0x41",
+        ".tlist",
+        ".outmask /l verbose",
+        ".printf \"hello\"",
+        ".bugcheck",
+        # Compound with all-allowed parts
+        "g; k",
+        ".foreach (a {!process 0 0}) {!handle ${a}}",
+    ])
+    def test_allows(self, cmd):
+        ok, reason = validate_command(cmd)
+        assert ok is True, f"{cmd!r} should be allowed; got: {reason}"
+
+
+class TestArgFormDeny:
+    def test_register_write_via_r_blocked(self):
+        ok, reason = validate_command("r @rip = 0x1000")
+        assert ok is False
+        assert "register write" in reason
+
+    def test_register_read_with_at_sigil_allowed(self):
+        ok, _ = validate_command("r @rip")
+        assert ok is True
+
+    def test_process_invasive_blocked(self):
+        ok, reason = validate_command(".process /i 0xfffff800deadbeef")
+        assert ok is False
+        assert "/i" in reason
+
+    def test_process_non_invasive_allowed(self):
+        ok, _ = validate_command(".process 0xfffff800deadbeef")
+        assert ok is True
+
+    def test_chkimg_with_fix_blocked(self):
+        ok, reason = validate_command("!chkimg -d nt /f")
+        assert ok is False
+        assert "chkimg" in reason.lower()
+
+    def test_chkimg_readonly_allowed(self):
+        ok, _ = validate_command("!chkimg -d nt")
+        assert ok is True
+
+    def test_search_is_refused_by_absence_not_by_a_false_write_claim(self):
+        # The old rule refused "s -[bdwq]" as a "search-and-write variant".
+        # There is no write form of 's': it is Search Memory and -b/-w/-d/-q
+        # are the pattern TYPE specifiers for the bytes searched FOR. The rule
+        # was a pure over-block and is gone; 's' is now refused because it is
+        # not on the allowlist, and the reason says so instead of asserting a
+        # write form that does not exist.
+        for cmd in ("s -b 0x1000 L100 90 90", "s 0x1000 L100 90 90"):
+            ok, reason = validate_command(cmd)
+            assert ok is False
+            assert "search-and-write" not in reason
+            assert "allowlist" in reason
+
+    def test_bugcheck_simulator_blocked(self):
+        ok, reason = validate_command(".bugcheck 0x7E")
+        assert ok is False
+
+    def test_bugcheck_bare_allowed(self):
+        ok, _ = validate_command(".bugcheck")
+        assert ok is True
+
+    def test_printf_dml_blocked(self):
+        ok, reason = validate_command(".printf /D \"<link>x</link>\"")
+        assert ok is False
+        assert "DML" in reason
+
+    def test_printf_plain_allowed(self):
+        ok, _ = validate_command(".printf \"hello world\"")
+        assert ok is True
+
+
+class TestCompoundEvasion:
+    def test_quoted_dot_shell_not_blocked_at_top_level(self):
+        # bp with a quoted command-string that contains ".shell" as text.
+        # The quoted text is part of bp's argument, not a separate
+        # subcommand. We accept this - the argument doesn't execute.
+        ok, _ = validate_command('bp X ".printf \\"hello\\""')
+        assert ok is True
+
+    def test_semicolon_chained_block_blocked(self):
+        # User tries to slip .shell after a legitimate command.
+        ok, reason = validate_command("g; .shell calc")
+        assert ok is False
+
+    def test_foreach_with_blocked_inner_blocked(self):
+        # .foreach itself is allowed but its block body must validate.
+        ok, reason = validate_command(
+            ".foreach (a {!process 0 0}) {.shell calc}"
+        )
+        assert ok is False
+        assert "compound block" in reason or "shell" in reason.lower()
+
+    def test_too_many_subcommands_blocked(self):
+        cmd = ";".join(["g"] * 17)
+        ok, reason = validate_command(cmd)
+        assert ok is False
+        assert "compound" in reason.lower()
+
+
+class TestEmptyAndOversize:
+    def test_empty(self):
+        ok, _ = validate_command("")
+        assert ok is False
+
+    def test_whitespace_only(self):
+        ok, _ = validate_command("   ")
+        assert ok is False
+
+    def test_oversize(self):
+        ok, reason = validate_command("g " * 3000)
+        assert ok is False
+        assert "too long" in reason

@@ -1,0 +1,527 @@
+
+<p align="center"><img width="200" src="./.github/logo.png" alt="Androguard"></p>
+<h2 align="center">Androguard</h2>
+
+# Androguard: Reverse engineering and pentesting for Android applications
+
+<div align="center">
+
+![Powered By: Androguard](https://img.shields.io/badge/androguard-green?style=for-the-badge&label=Powered%20by&link=https%3A%2F%2Fgithub.com%2Fandroguard)
+
+</div>
+
+
+[![PyPI Upload](https://github.com/androguard/androguard/actions/workflows/pythonpublish.yml/badge.svg)](https://github.com/androguard/androguard/actions/workflows/pythonpublish.yml)
+![PyPI - Version](https://img.shields.io/pypi/v/androguard)
+![Static Badge](https://img.shields.io/badge/Documentation-InProgress-red)
+
+**Androguard 5** is a Python toolkit for Android reverse engineering: open an APK, inspect the manifest and DEX, disassemble or decompile code, hunt references and vulnerabilities, and optionally patch or analyze native ARM — from the CLI, a high-level `Application` API, Claude Code skills, or an MCP server for LLM hosts.
+
+### Main features
+
+- **APK / DEX analysis** — package metadata, permissions, classes, methods, strings (`apkparser-ag`, `dexparser-ag`, `axml`)
+- **Dalvik disassembly & CFG** — method-level bytecode via `androguard[disasm]`
+- **Java decompilation** — methods, classes, or whole packages via `androguard[decompile]`
+- **Cross-refs & vulns** — `findrefs`, vulnerability scanners, method emulation
+- **Native ARM64** — disassemble / decompile `.so` code via `androguard[arm]`
+- **APK patch** — decode / rebuild project trees via `androguard[patch]`
+- **LLM integration** — Claude Code agent & skills, plus an **MCP server** (`androguard-mcp`) for Claude Code, Cursor, and other MCP clients
+- **MASTG demo coverage** — status of every OWASP MASTG Android demo vs `scan_vulns` in [`docs/mastg-coverage.md`](docs/mastg-coverage.md)
+
+Do you think your phone has been pwned? Please check [IsMyPhonePwned](https://github.com/IsMyPhonePwned).
+
+
+## Installation
+
+Androguard 5 is this repository. It is not the package currently published on PyPI (`androguard` 4.1.4). From a checkout, install the local tree. A bare `pip install androguard` or `pip install 'androguard[full]'` downloads 4.1.4 and uninstalls 5.0.0.
+
+```bash
+# from this repo (Rust toolchain required for the optional extras)
+# Python 3.14+ needs the PyO3 forward-compat flag (bindings use PyO3 0.23, max 3.13)
+export PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
+# Rust apk-parser + dex-parser (siblings under ../)
+pip install -e ../apk-parser
+pip install -e ../dex-parser
+pip install -e .
+pip install -e '.[full]'
+```
+
+After 5.0.0 is published, the same extras install from PyPI:
+
+```bash
+pip install androguard
+pip install 'androguard[full]'
+```
+
+> [!IMPORTANT]
+> Versions >= 4.0.0 are new releases after a long time, where the project has substantial differences from the previous stable version 3.3.5 from 2019. This means that certain functionalities have been removed. If you notice an issue with your project using the latest version, please open up an [issue](https://github.com/androguard/androguard/issues).
+
+## Ecosystem
+
+Androguard v5 is built on dedicated libraries:
+
+| Layer | Library | Role |
+|-------|---------|------|
+| APK archive | [apk-parser](https://github.com/androguard/apk-parser) (`apkparser-ag`) | ZIP structure, signatures, manifest hooks |
+| DEX structure | [dex-parser](https://github.com/androguard/dex-parser) (`dexparser-ag`) | Rust core + Python bindings: classes, methods, fields, bytecode |
+| Binary XML / ARSC | [axml](https://github.com/androguard/axml) / [axml-parser](https://github.com/androguard/axml-parser) (Rust) | `AndroidManifest.xml`, `resources.arsc` |
+| Bytecode (optional) | [dex-bytecode](https://github.com/androguard/dex-bytecode) | Dalvik disassembly / CFG / patch via `androguard[disasm]` |
+| Decompiler (optional) | [dex-decompiler](https://github.com/androguard/dex-decompiler) | DEX → Java, ASC getclass/findrefs, vulns via `androguard[decompile]` |
+| ARM64 (optional) | [arm_disassembler](https://github.com/androguard/arm_disassembler) / [arm_decompiler](https://github.com/androguard/arm_decompiler) | Native code via `androguard[arm]` |
+| APK patch (optional) | [apk-patch](https://github.com/androguard/apk-patch) | In-memory decode/build via `androguard[patch]` |
+
+## Examples
+
+Runnable demos live in [`examples/`](examples/) and are also executed by the
+test suite (`tests/test_examples.py`):
+
+```bash
+python -m examples.application_summary
+python -m examples.disassemble      # androguard[disasm]
+python -m examples.decompile       # androguard[decompile]
+python -m examples.arm             # androguard[arm]
+python -m examples.patch_decode    # androguard[patch]
+python -m examples.run_all
+```
+
+See [`examples/README.md`](examples/README.md).
+
+## Claude Code
+
+This repo ships Claude Code project support (similar in spirit to [areclaw](https://github.com/TheQmaks/areclaw), but driven by Androguard itself):
+
+| Path | Role |
+|------|------|
+| [`CLAUDE.md`](CLAUDE.md) | Project instructions for the agent |
+| [`.claude/agents/androguard-analyst.md`](.claude/agents/androguard-analyst.md) | Analyst agent |
+| [`.claude/skills/`](.claude/skills/) | `/analyze-apk`, `/decompile-apk`, `/find-refs`, `/scan-vulns` |
+| [`workspace/`](workspace/) | Samples, decompiled output, reports |
+
+```bash
+claude /agent androguard-analyst
+claude /analyze-apk path/to/app.apk
+claude /decompile-apk path/to/app.apk com.example.app
+```
+
+## MCP server
+
+Androguard can run as an [MCP](https://modelcontextprotocol.io/) server so LLM hosts (Claude Code, Cursor, …) call typed analysis tools instead of shelling out to the CLI.
+
+```bash
+pip install -e '.[mcp,decompile]'   # add [disasm] for disassembly tools
+androguard-mcp                     # or: python -m androguard.mcp
+```
+
+Example client config:
+
+```json
+{
+  "mcpServers": {
+    "androguard": {
+      "command": "androguard-mcp",
+      "env": {
+        "ANDROGUARD_MCP_ROOTS": "/path/to/androguard"
+      }
+    }
+  }
+}
+```
+
+Typical flow: `open_apk` → `session_id` → `list_classes` / `find_refs` / `decompile_method` / `scan_vulns`.
+
+On launch the server prints a stderr banner (versions, tools, path roots, extras). Use `--log-tools` to log each tool call, and `--log-level DEBUG` for more detail.
+
+Full tool list, env vars, and security notes: [`docs/mcp-server.md`](docs/mcp-server.md). Design background: [`docs/mcp-server-plan.md`](docs/mcp-server-plan.md).
+
+## Quick start
+
+### Command line
+
+```bash
+# Summary: package, main activity, dex count, classes, methods
+androguard -i my.apk
+
+# List classes or methods
+androguard -i my.apk --list-classes
+androguard -i my.apk --list-methods
+
+# Disassemble methods matching regex (requires androguard[disasm])
+androguard -i my.apk --disasm --class 'TestActivity' --method 'onCreate'
+androguard -i my.apk --disasm --class 'Ltests/androguard/.*' --method '<init>'
+androguard -i my.apk --disasm --method 'onCreate' --limit 10
+androguard -i my.apk --disasm --class TestActivity --method onCreate --cfg
+
+# Decompile to Java (requires androguard[decompile])
+androguard -i my.apk --decompile-method 'tests.androguard.TestActivity#onCreate'
+androguard -i my.apk --decompile --class TestActivity --method onCreate
+androguard -i my.apk --decompile -o out.java
+androguard -i my.apk -d decompiled/ --only-package tests.androguard
+androguard -i my.apk --getclass tests.androguard.TestActivity
+androguard -i my.apk --findrefs string --findrefs-value password
+androguard -i my.apk --scan-vulns
+androguard -i my.apk --emulate 'tests.androguard.TestActivity#onCreate'
+
+# Decode project tree (requires androguard[patch])
+androguard -i my.apk --decode-project
+```
+
+### CLI smoke test (bundled sample)
+
+After `pip install -e '.[full]'`, exercise the main CLI features against the repo
+sample APK (`tests/data/APK/TestActivity.apk`):
+
+```bash
+# from the androguard repo root
+APK=tests/data/APK/TestActivity.apk
+CLS=tests.androguard.TestActivity
+METH="$CLS#onCreate"
+
+androguard -i "$APK"                                    # summary
+androguard -i "$APK" --list-classes | head
+androguard -i "$APK" --list-methods | head
+
+# disasm (androguard[disasm])
+androguard -i "$APK" --disasm --class TestActivity --method onCreate
+androguard -i "$APK" --disasm --class TestActivity --method onCreate --cfg
+
+# decompile / ASC / vulns / emulate (androguard[decompile])
+androguard -i "$APK" --decompile-method "$METH"
+androguard -i "$APK" --getclass "$CLS"
+androguard -i "$APK" -d /tmp/androguard-decompiled/ --only-package tests.androguard
+androguard -i "$APK" --findrefs string --findrefs-value "this is a test"
+androguard -i "$APK" --scan-vulns                       # MASWE / MASVS / MASTG ids
+androguard -i "$APK" --emulate "$METH"
+
+# patch (androguard[patch])
+androguard -i "$APK" --decode-project
+```
+
+Or run the Python demos (same coverage, including optional ARM):
+
+```bash
+python -m examples.run_all
+```
+
+### MASTG demo coverage
+
+Androguard’s vulnerability scanner is validated against **all** OWASP MASTG Android demos.
+The checked-in results live in:
+
+**[`docs/mastg-coverage.md`](docs/mastg-coverage.md)**
+
+It lists every `MASTG-DEMO-*` with validate status (`pass` / `gap` / `skip`), Frida static assessment when relevant, and the `scan_vulns` categories found.
+
+```bash
+# regenerate after a validate run (needs JDK 17 + ANDROID_HOME for a full rebuild)
+python scripts/mastg_validate.py --setup
+python scripts/mastg_validate.py            # builds/scans demos → JSON + refreshes docs/mastg-coverage.md
+python scripts/mastg_coverage_doc.py        # refresh the markdown from the latest JSON only
+```
+
+### High-level API (`Application`)
+
+```python
+from androguard import Application
+
+app = Application("my.apk")
+
+print(app.summary())
+# {'app_name': '...', 'main_activity': '...', 'package': 'com.example',
+#  'dex_files': ['classes.dex', ...], 'classes': 1234, 'strings': 5678,
+#  'methods': 8900, 'signed': True}
+
+for name in app.class_names[:10]:
+    print(name)
+
+for method in app.methods:
+    if method.get_code():
+        print(method.class_name, method.name, method.get_code().insns_size)
+```
+
+### APK layer (`apkparser-ag`)
+
+```python
+import io
+from apkparser import APK, OPTION_AXML, OPTION_SIGNATURE, OPTION_PERMISSION
+
+with open("my.apk", "rb") as f:
+    apk = APK(
+        io.BytesIO(f.read()),
+        {
+            OPTION_AXML: True,
+            OPTION_SIGNATURE: True,
+            OPTION_PERMISSION: True,
+        },
+    )
+
+print(apk.get_app_name())
+print(apk.get_main_activity())
+print(apk.axml.package if apk.axml else "")  # from decoded manifest
+print(list(apk.get_dex_names()))  # classes.dex, classes2.dex, ...
+
+manifest_xml = apk.get_android_manifest()
+raw_manifest = apk.get_file("AndroidManifest.xml")
+```
+
+Or through Androguard re-exports:
+
+```python
+from androguard.core.apk import APK, OPTION_AXML
+```
+
+### DEX layer ([dex-parser](https://github.com/androguard/dex-parser))
+
+From an APK’s DEX blobs:
+
+```python
+from dexparser import DEX, DEXHelper, DEX_from_source
+
+# From APK bytes (via apkparser)
+raw = apk.get_file("classes.dex")
+dh = DEXHelper.from_string(raw)
+
+# From a .dex file on disk
+d = DEX.from_path("classes.dex")
+dh = DEXHelper.from_rawdex(d)
+
+# Path, bytes, or stream
+dh = DEXHelper.from_rawdex(DEX_from_source("classes.dex"))
+```
+
+Iterate structure:
+
+```python
+for cls in dh.get_classes():
+    print("CLASS", cls.name, "extends", cls.sname)
+
+for method in dh.get_methods():
+    print("METHOD", method.class_name, method.name, method.proto)
+    code = method.get_code()
+    if code:
+        insns = code["insns"].value   # raw Dalvik bytecode (bytes)
+        print("  insns:", code.insns_size, "bytes:", len(insns))
+
+for field in dh.get_fields():
+    print("FIELD", field.class_name, field.name, field.type_field)
+
+for s in dh.get_strings():
+    if "password" in s.lower():
+        print(s)
+```
+
+Header as a dict:
+
+```python
+d = DEX(bytes_data)
+print(d["header"])  # file_size, class_defs_size, string_ids_size, ...
+```
+
+Androguard shortcuts:
+
+```python
+from androguard.misc import AnalyzeAPK, AnalyzeDex
+
+apk_obj, dex_helpers, app = AnalyzeAPK("my.apk")
+dh = AnalyzeDex("classes.dex")       # path or bytes
+```
+
+### Dalvik disassembly (`dex-bytecode`, optional)
+
+```python
+from androguard.core.bytecode import (
+    disassemble,
+    disassemble_method_code,
+    basic_blocks,
+    cfg_edges,
+    patch_branch,
+    encode_instruction,
+    encode_nop,
+)
+
+# Raw bytecode
+for ins in disassemble(b"\x00\x00\x0e\x00"):
+    print(f"{ins['offset']:08x}  {ins['mnemonic']} {ins['operands']}")
+
+# CFG / basic blocks
+print(basic_blocks(b"\x00\x00\x28\x00\x0e\x00"))  # nop; goto +0; return-void
+print(cfg_edges(b"\x00\x00\x28\x00\x0e\x00"))
+
+# Encode / patch
+print(encode_instruction("const/4", "v0, 1").hex())
+print(encode_nop().hex())
+mutated = patch_branch(b"\x28\x01\x0e\x00", 0, 2)
+
+# From a parsed method
+code = method.get_code()
+if code:
+    for ins in disassemble_method_code(code):
+        print(ins["disasm"])
+```
+
+Through `Application`:
+
+```python
+for method in app.methods:
+    code = method.get_code()
+    if not code:
+        continue
+    for line in app.iter_disassembly(method):
+        print(line)
+    print(app.method_basic_blocks(method))
+    print(app.method_cfg_edges(method))
+```
+
+### Java decompilation ([dex-decompiler](https://github.com/androguard/dex-decompiler), optional)
+
+```python
+from androguard.core.decompiler import (
+    parse_dex,
+    decompile_method,
+    getclass,
+    findrefs,
+    scan_vulns,
+    method_cfg,
+    emulate_method,
+    descriptor_to_java,
+)
+
+raw = apk.get_file("classes.dex")
+dex = parse_dex(raw)
+
+# Entire DEX as one Java source string
+print(dex.decompile()[:2000])
+
+# One method (Java class names)
+java = dex.decompile_method("tests.androguard.TestActivity", "onCreate")
+
+# Package layout on disk
+dex.decompile_to_dir("out/")
+
+# ASC helpers (APK or DEX bytes)
+print(getclass(apk_bytes, "tests.androguard.TestActivity")[:500])
+print(findrefs(apk_bytes, "string", "password")[:5])
+print(scan_vulns(raw)[:3])
+rows, nodes, edges = method_cfg(raw, "tests.androguard.TestActivity", "onCreate")
+print(emulate_method(raw, "tests.androguard.TestActivity", "onCreate"))
+
+# Dalvik descriptor → Java name
+print(descriptor_to_java("Ltests/androguard/TestActivity;"))
+# tests.androguard.TestActivity
+```
+
+Through `Application`:
+
+```python
+# CLASS#METHOD selector (Java names, same as dex-decompiler CLI)
+print(app.decompile_method_selector("tests.androguard.TestActivity#onCreate"))
+
+# Regex on Dalvik descriptors / method names
+for method, source in app.iter_decompiled_methods(
+    class_pattern=r"TestActivity",
+    method_pattern=r"onCreate",
+):
+    print(method.class_name, "→", len(source), "chars")
+
+# All DEX files from the APK → decompiled/ classes/ classes2/ …
+app.decompile_apk_to_dir("decompiled/", only_package="tests.androguard")
+
+# ASC + analysis
+print(app.getclass("tests.androguard.TestActivity")[:500])
+print(app.findrefs("type", "Landroid/app/Activity;"))
+print(app.scan_vulns()[:3])
+print(app.emulate("tests.androguard.TestActivity", "onCreate"))
+```
+
+### ARM64 (`arm_disassembler` / `arm_decompiler`, optional)
+
+```python
+from androguard.core import arm
+
+print(arm.decode_one(0xD503201F))  # nop
+for ins in arm.disassemble(bytes.fromhex("1f2003d5c0035fd6")):
+    print(ins["text"])
+
+out = arm.decompile(bytes.fromhex("1f2003d5c0035fd6"), name="foo")
+print(out["source"])
+```
+
+### APK patch ([apk-patch](https://github.com/androguard/apk-patch), optional)
+
+```python
+from androguard.core import patch
+
+project = patch.decode(apk_bytes, no_res=True)
+# edit project["files"]["project/AndroidManifest.xml"] etc.
+rebuilt = patch.build(project["files"], project_root=project["project_root"])
+
+# or one-shot
+rebuilt = patch.roundtrip(apk_bytes, sign=True)
+# via Application
+project = app.decode_project(only_manifest=True)
+rebuilt = app.rebuild(sign=True, no_res=True)
+```
+
+### Legacy entry point
+
+Scripts that used `AnalyzeAPK` in older Androguard versions can keep the same call pattern; the third return value is now a full `Application` instead of a cross-reference `Analysis` object (not yet restored in v5):
+
+```python
+from androguard.misc import AnalyzeAPK
+
+apk_obj, dex_list, app = AnalyzeAPK("my.apk")
+print(app.summary())
+```
+
+## Documentation
+
+**Documentation contains outdated information — in progress of updating**
+
+The [Github Pages Documentation](http://androguard.github.io/androguard/) is the most up to date source.
+
+Additional documentation that contains outdated information is available at [ReadTheDocs](http://androguard.readthedocs.io/en/latest/).
+
+## Authors: Androguard Team
+
+Androguard + tools: Anthony Desnos (anthony at 42.bzh).
+
+## Projects using Androguard
+
+In alphabetical order:
+
+* [AndroPyTool](https://github.com/alexMyG/AndroPyTool)
+* [AppKnox](http://appknox.com)
+* [Cuckoo Sandbox](https://cuckoosandbox.org)
+* [Deckard](https://github.com/hrkfdn/deckard)
+* [Droidbot](https://github.com/honeynet/droidbot)
+* [Droidstatx](https://github.com/integrity-sa/droidstatx)
+* [εxodus](https://github.com/Exodus-Privacy/exodus)
+* [F-Droid Server](https://gitlab.com/fdroid/fdroidserver)
+* [gplaycli](https://github.com/matlink/gplaycli)
+* [Koodous](https://koodous.com)
+* [MobSF](https://github.com/MobSF/Mobile-Security-Framework-MobSF)
+* [qiew](https://github.com/mtivadar/qiew)
+* [Quark-Engine](https://github.com/quark-engine/quark-engine)
+* [Virustotal](https://virustotal.readme.io/reference/androguard)
+* [Viper Framework](https://github.com/viper-framework/viper)
+* ... and many more!
+
+You are using Androguard and are not listed here? Just create a [ticket](https://github.com/androguard/androguard/issues) or send us a [pull request](https://github.com/androguard/androguard/pulls) with your project!
+
+## Licenses
+
+### Androguard
+
+Copyright (C) 2012 - 2026, Anthony Desnos (anthony at 42.bzh)
+All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS-IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

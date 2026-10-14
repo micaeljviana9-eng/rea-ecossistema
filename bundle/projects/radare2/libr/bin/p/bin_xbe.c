@@ -1,0 +1,460 @@
+/* radare - LGPL - 2014-2026 - thatlemon@gmail.com, pancake */
+
+#include <r_types.h>
+#include <r_util.h>
+#include <r_lib.h>
+#include <r_bin.h>
+#include <string.h>
+#include "../format/xbe/xbe.h"
+
+static const char *kt_name[] = {
+#include "../format/xbe/kernel.h"
+};
+
+static bool check(RBinFile *bf, RBuffer *b) {
+	ut8 magic[4];
+	if (r_buf_read_at (b, 0, magic, sizeof (magic)) == 4) {
+		return !memcmp (magic, "XBEH", 4);
+	}
+	return false;
+}
+
+static bool read_xbe_header(RBuffer *b, xbe_header *h) {
+	ut8 buf[sizeof (*h)];
+	if (r_buf_read_at (b, 0, buf, sizeof (buf)) != sizeof (buf)) {
+		return false;
+	}
+	const ut8 *p = buf;
+	h->magic = r_read_le32 (p);
+	p += sizeof (ut32);
+	memcpy (h->signature, p, sizeof (h->signature));
+	p += sizeof (h->signature);
+	h->base = r_read_le32 (p);
+	p += sizeof (ut32);
+	h->headers_size = r_read_le32 (p);
+	p += sizeof (ut32);
+	h->image_size = r_read_le32 (p);
+	p += sizeof (ut32);
+	h->image_header_size = r_read_le32 (p);
+	p += sizeof (ut32);
+	h->timestamp = r_read_le32 (p);
+	p += sizeof (ut32);
+	h->cert_addr = r_read_le32 (p);
+	p += sizeof (ut32);
+	h->sections = r_read_le32 (p);
+	p += sizeof (ut32);
+	h->sechdr_addr = r_read_le32 (p);
+	p += sizeof (ut32);
+	h->init_flags = r_read_le32 (p);
+	p += sizeof (ut32);
+	h->ep = r_read_le32 (p);
+	p += sizeof (ut32);
+	h->tls_addr = r_read_le32 (p);
+	p += sizeof (ut32);
+	int i;
+	for (i = 0; i < R_ARRAY_SIZE (h->pe_shit); i++) {
+		h->pe_shit[i] = r_read_le32 (p);
+		p += sizeof (ut32);
+	}
+	h->debug_path_addr = r_read_le32 (p);
+	p += sizeof (ut32);
+	h->debug_name_addr = r_read_le32 (p);
+	p += sizeof (ut32);
+	h->debug_uname_addr = r_read_le32 (p);
+	p += sizeof (ut32);
+	h->kernel_thunk_addr = r_read_le32 (p);
+	p += sizeof (ut32);
+	h->nonkernel_import_dir_addr = r_read_le32 (p);
+	p += sizeof (ut32);
+	h->lib_versions = r_read_le32 (p);
+	p += sizeof (ut32);
+	h->lib_versions_addr = r_read_le32 (p);
+	p += sizeof (ut32);
+	h->kernel_lib_addr = r_read_le32 (p);
+	p += sizeof (ut32);
+	h->xapi_lib_addr = r_read_le32 (p);
+	p += sizeof (ut32);
+	for (i = 0; i < R_ARRAY_SIZE (h->shit); i++) {
+		h->shit[i] = r_read_le32 (p);
+		p += sizeof (ut32);
+	}
+	return h->magic == XBE_MAGIC;
+}
+
+static bool read_xbe_section(RBuffer *b, ut64 addr, xbe_section *sect) {
+	ut8 buf[sizeof (*sect)];
+	if (r_buf_read_at (b, addr, buf, sizeof (buf)) != sizeof (buf)) {
+		return false;
+	}
+	const ut8 *p = buf;
+	sect->flags = r_read_le32 (p);
+	p += sizeof (ut32);
+	sect->vaddr = r_read_le32 (p);
+	p += sizeof (ut32);
+	sect->vsize = r_read_le32 (p);
+	p += sizeof (ut32);
+	sect->offset = r_read_le32 (p);
+	p += sizeof (ut32);
+	sect->size = r_read_le32 (p);
+	p += sizeof (ut32);
+	sect->name_addr = r_read_le32 (p);
+	p += sizeof (ut32);
+	sect->refcount = r_read_le32 (p);
+	p += sizeof (ut32);
+	int i;
+	for (i = 0; i < R_ARRAY_SIZE (sect->shit); i++) {
+		sect->shit[i] = r_read_le32 (p);
+		p += sizeof (ut32);
+	}
+	memcpy (sect->digest, p, sizeof (sect->digest));
+	return true;
+}
+
+static bool read_xbe_lib(RBuffer *b, ut64 addr, xbe_lib *lib) {
+	ut8 buf[sizeof (*lib)];
+	if (r_buf_read_at (b, addr, buf, sizeof (buf)) != sizeof (buf)) {
+		return false;
+	}
+	const ut8 *p = buf;
+	memcpy (lib->name, p, sizeof (lib->name));
+	p += sizeof (lib->name);
+	lib->major = r_read_le16 (p);
+	p += sizeof (ut16);
+	lib->minor = r_read_le16 (p);
+	p += sizeof (ut16);
+	lib->build = r_read_le16 (p);
+	p += sizeof (ut16);
+	lib->flags = r_read_le16 (p);
+	return true;
+}
+
+static bool load(RBinFile *bf, RBuffer *buf, ut64 loadaddr) {
+	r_bin_xbe_obj_t *obj = R_NEW (r_bin_xbe_obj_t);
+	if (!obj) {
+		return false;
+	}
+	if (!read_xbe_header (buf, &obj->header)) {
+		R_FREE (obj);
+		return false;
+	}
+
+	if ((obj->header.ep & 0xf0000000) == 0x40000000) {
+		// Sega Chihiro xbe
+		obj->ep_key = XBE_EP_CHIHIRO;
+		obj->kt_key = XBE_KP_CHIHIRO;
+	} else if ((obj->header.ep ^ XBE_EP_RETAIL) > 0x1000000) {
+		// Debug xbe
+		obj->ep_key = XBE_EP_DEBUG;
+		obj->kt_key = XBE_KP_DEBUG;
+	} else {
+		// Retail xbe
+		obj->ep_key = XBE_EP_RETAIL;
+		obj->kt_key = XBE_KP_RETAIL;
+	}
+	bf->bo->bin_obj = obj;
+	return true;
+}
+
+static void destroy(RBinFile *bf) {
+	R_FREE (bf->bo->bin_obj);
+}
+
+static RBinAddr *binsym(RBinFile *bf, int type) {
+	if (type != R_BIN_SYM_MAIN) {
+		return NULL;
+	}
+	r_bin_xbe_obj_t *obj = bf->bo->bin_obj;
+	RBinAddr *ret = R_NEW0 (RBinAddr);
+	ret->vaddr = obj->header.ep ^ obj->ep_key;
+	ret->paddr = ret->vaddr - obj->header.base;
+	return ret;
+}
+
+static RList *entries(RBinFile *bf) {
+	const r_bin_xbe_obj_t *obj;
+	RList *ret;
+	RBinAddr *ptr = R_NEW0 (RBinAddr);
+	if (!bf || !bf->buf || !bf->bo->bin_obj) {
+		free (ptr);
+		return NULL;
+	}
+	ret = r_list_new ();
+	if (!ret) {
+		free (ptr);
+		return NULL;
+	}
+	ret->free = free;
+	obj = bf->bo->bin_obj;
+	ptr->vaddr = obj->header.ep ^ obj->ep_key;
+	ptr->paddr = ptr->vaddr - obj->header.base;
+	r_list_append (ret, ptr);
+	return ret;
+}
+
+static bool sections_vec(RBinFile *bf) {
+	xbe_section *sect = NULL;
+	r_bin_xbe_obj_t *obj = NULL;
+	xbe_header *h = NULL;
+	char tmp[0x100];
+	int i, r;
+	ut32 addr;
+
+	if (!bf || !bf->bo || !bf->bo->bin_obj || !bf->buf) {
+		return false;
+	}
+	obj = bf->bo->bin_obj;
+	h = &obj->header;
+	if (h->sections < 1) {
+		return false;
+	}
+	RVecRBinSection_clear (&bf->bo->sections_vec);
+	if (h->sections < 1 || h->sections > 255) {
+		goto out_error;
+	}
+	sect = calloc (h->sections, sizeof (xbe_section));
+	if (!sect) {
+		goto out_error;
+	}
+	addr = h->sechdr_addr - h->base;
+	if (addr > bf->size || addr + (sizeof (xbe_section) * h->sections) > bf->size) {
+		goto out_error;
+	}
+	for (i = 0; i < h->sections; i++) {
+		if (!read_xbe_section (bf->buf, addr + (sizeof (xbe_section) * i), &sect[i])) {
+			goto out_error;
+		}
+	}
+	for (i = 0; i < h->sections; i++) {
+		addr = sect[i].name_addr - h->base;
+		tmp[0] = 0;
+		if (addr > bf->size || addr + sizeof (tmp) > bf->size) {
+			goto out_error;
+		}
+		r = r_buf_read_at (bf->buf, addr, (ut8 *) tmp, sizeof (tmp));
+		if (r < 1) {
+			goto out_error;
+		}
+		tmp[sizeof (tmp) - 1] = 0;
+		RBinSection *item = RVecRBinSection_emplace_back (&bf->bo->sections_vec);
+		item->name = r_str_newf ("%s.%i", r_str_is_printable (tmp)? tmp: "", i);
+		item->paddr = sect[i].offset;
+		item->vaddr = sect[i].vaddr;
+		item->size = sect[i].size;
+		item->vsize = sect[i].vsize;
+		item->add = true;
+
+		item->perm = R_PERM_R;
+		if (sect[i].flags & SECT_FLAG_X) {
+			item->perm |= R_PERM_X;
+		}
+		if (sect[i].flags & SECT_FLAG_W) {
+			item->perm |= R_PERM_W;
+		}
+	}
+	free (sect);
+	return true;
+out_error:
+	RVecRBinSection_clear (&bf->bo->sections_vec);
+	free (sect);
+	return false;
+}
+
+static RList *libs(RBinFile *bf) {
+	r_bin_xbe_obj_t *obj;
+	xbe_header *h = NULL;
+	int i, off, libs;
+	xbe_lib lib;
+	RList *ret;
+	char *s;
+	ut32 addr;
+
+	if (!bf || !bf->bo || !bf->bo->bin_obj) {
+		return NULL;
+	}
+	obj = bf->bo->bin_obj;
+	h = &obj->header;
+	ret = r_list_new ();
+	if (!ret) {
+		return NULL;
+	}
+	ret->free = free;
+	if (h->kernel_lib_addr < h->base) {
+		off = 0;
+	} else {
+		off = h->kernel_lib_addr - h->base;
+	}
+	if (off > bf->size || off + sizeof (xbe_lib) > bf->size) {
+		goto out_error;
+	}
+	if (!read_xbe_lib (bf->buf, off, &lib)) {
+		goto out_error;
+	}
+	lib.name[7] = 0;
+	s = r_str_newf ("%s %i.%i.%i", lib.name, lib.major, lib.minor, lib.build);
+	if (s) {
+		r_list_append (ret, s);
+	}
+	if (h->xapi_lib_addr < h->base) {
+		off = 0;
+	} else {
+		off = h->xapi_lib_addr - h->base;
+	}
+	if (off > bf->size || off + sizeof (xbe_lib) > bf->size) {
+		goto out_error;
+	}
+	if (!read_xbe_lib (bf->buf, off, &lib)) {
+		goto out_error;
+	}
+
+	lib.name[7] = 0;
+	s = r_str_newf ("%s %i.%i.%i", lib.name, lib.major, lib.minor, lib.build);
+	if (s) {
+		r_list_append (ret, s);
+	}
+	libs = h->lib_versions;
+	if (libs < 1) {
+		goto out_error;
+	}
+	for (i = 0; i < libs; i++) {
+		addr = h->lib_versions_addr - h->base + (i * sizeof (xbe_lib));
+		if (addr > bf->size || addr + sizeof (xbe_lib) > bf->size) {
+			goto out_error;
+		}
+		if (!read_xbe_lib (bf->buf, addr, &lib)) {
+			goto out_error;
+		}
+		// make sure it ends with 0
+		lib.name[7] = '\0';
+		s = r_str_newf ("%s %i.%i.%i", lib.name, lib.major, lib.minor, lib.build);
+		if (s) {
+			r_list_append (ret, s);
+		}
+	}
+
+	return ret;
+out_error:
+	r_list_free (ret);
+	return NULL;
+}
+
+static bool symbols_vec(RBinFile *bf) {
+	r_bin_xbe_obj_t *obj;
+	xbe_header *h;
+	int i, found = false;
+	ut32 thunk_addr[XBE_MAX_THUNK];
+	ut32 kt_addr;
+	xbe_section sect;
+	ut32 addr;
+
+	if (!bf || !bf->bo || !bf->bo->bin_obj) {
+		return false;
+	}
+
+	obj = bf->bo->bin_obj;
+	h = &obj->header;
+	kt_addr = h->kernel_thunk_addr ^ obj->kt_key;
+	RVecRBinSymbol *ret = &bf->bo->symbols_vec;
+	int limit = h->sections;
+	if (h->sechdr_addr < h->base) {
+		return false;
+	}
+	ut32 sechdr_off = h->sechdr_addr - h->base;
+	if (sechdr_off >= bf->size || limit * sizeof (xbe_section) > bf->size - sechdr_off) {
+		return false;
+	}
+	for (i = 0; found == false && i < limit; i++) {
+		addr = h->sechdr_addr - h->base + (sizeof (xbe_section) * i);
+		if (addr > bf->size || addr + sizeof (sect) > bf->size) {
+			return false;
+		}
+		if (!read_xbe_section (bf->buf, addr, &sect)) {
+			return false;
+		}
+		if (kt_addr >= sect.vaddr && kt_addr < sect.vaddr + sect.vsize) {
+			found = true;
+		}
+	}
+	if (!found) {
+		return false;
+	}
+	addr = sect.offset + (kt_addr - sect.vaddr);
+	if (addr > bf->size || addr + sizeof (thunk_addr) > bf->size) {
+		return false;
+	}
+	ut8 thunk_buf[sizeof (thunk_addr)];
+	i = r_buf_read_at (bf->buf, addr, thunk_buf, sizeof (thunk_buf));
+	if (i != sizeof (thunk_buf)) {
+		return false;
+	}
+	for (i = 0; i < XBE_MAX_THUNK; i++) {
+		thunk_addr[i] = r_read_le32 (thunk_buf + (i * sizeof (ut32)));
+	}
+	for (i = 0; i < XBE_MAX_THUNK && thunk_addr[i]; i++) {
+		const ut32 thunk_index = thunk_addr[i] ^ 0x80000000;
+		// Basic sanity checks
+		if (thunk_addr[i] & 0x80000000 && thunk_index > 0 && thunk_index <= XBE_MAX_THUNK) {
+			RBinSymbol *sym = RVecRBinSymbol_emplace_back (ret);
+			R_LOG_DEBUG ("thunk_index %d", thunk_index);
+			sym->name = r_bin_name_new_from (r_str_newf ("kt.%s", kt_name[thunk_index - 1]));
+			sym->vaddr = (h->kernel_thunk_addr ^ obj->kt_key) + (4 * i);
+			sym->paddr = sym->vaddr - h->base;
+			sym->attr.size = 4;
+			sym->ordinal = i;
+		}
+	}
+	return true;
+}
+
+static RBinInfo *info(RBinFile *bf) {
+	r_bin_xbe_obj_t *obj = bf->bo->bin_obj;
+	RBinInfo *ret = R_NEW0 (RBinInfo);
+	ut8 dbg_name[256] = {0};
+	if (obj->header.debug_name_addr >= obj->header.base) {
+		ut64 dbg_off = obj->header.debug_name_addr - obj->header.base;
+		if (dbg_off < bf->size) {
+			r_buf_read_at (bf->buf, dbg_off, dbg_name, sizeof (dbg_name));
+		}
+	}
+	dbg_name[sizeof (dbg_name) - 1] = 0;
+	ret->file = strdup ((char *) dbg_name);
+	ret->bclass = strdup ("program");
+	ret->machine = strdup ("Microsoft Xbox");
+	ret->os = strdup ("xbox");
+	ret->type = strdup ("Microsoft Xbox executable");
+	ret->arch = strdup ("x86");
+	ret->has_va = 1;
+	ret->bits = 32;
+	return ret;
+}
+
+static ut64 baddr(RBinFile *bf) {
+	r_bin_xbe_obj_t *obj = bf->bo->bin_obj;
+	return obj->header.base;
+}
+
+RBinPlugin r_bin_plugin_xbe = {
+	.meta = {
+		.name = "xbe",
+		.author = "TheLemonMan",
+		.desc = "Microsoft XBOX Executables",
+		.license = "LGPL-3.0-only",
+	},
+	.load = &load,
+	.destroy = &destroy,
+	.check = &check,
+	.baddr = &baddr,
+	.binsym = &binsym,
+	.entries = &entries,
+	.sections_vec = &sections_vec,
+	.symbols_vec = &symbols_vec,
+	.info = &info,
+	.libs = &libs,
+};
+
+#ifndef R2_PLUGIN_INCORE
+R_API RLibStruct radare_plugin = {
+	.type = R_LIB_TYPE_BIN,
+	.data = &r_bin_plugin_xbe,
+	.version = R2_VERSION
+};
+#endif

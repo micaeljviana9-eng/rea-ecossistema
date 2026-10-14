@@ -1,0 +1,43 @@
+{
+    "name": "dex2jar",
+    "version": "1.3.0",
+    "description": "Android reverse-engineering workbench for Claude. Use whenever working with an APK, DEX, ODEX, JAR, or smali — convert DEX/APK to JAR, disassemble/assemble smali, sign/resign APKs, and analyze app structure, strings, call graphs, dependencies, manifests, signing certificates, and native .so/JNI code. Ships skills, slash commands, an analysis agent, and an MCP server over a 29-command JSON CLI.",
+    "author": {
+        "name": "CC11001100",
+        "url": "https://github.com/android-security-engineer"
+    },
+    "homepage": "https://github.com/android-security-engineer/dex2jar-skills",
+    "repository": "https://github.com/android-security-engineer/dex2jar-skills",
+    "license": "Apache-2.0",
+    "commands": "../commands/",
+    "agents": "../agents/",
+    "skills": "../skills/",
+    "keywords": [
+        "android",
+        "reverse-engineering",
+        "dex2jar",
+        "apk",
+        "dex",
+        "smali",
+        "baksmali",
+        "decompile",
+        "jar",
+        "dalvik",
+        "androidmanifest",
+        "apk-signing",
+        "signing-certificate",
+        "jni",
+        "native-libs",
+        "elf",
+        "malware-triage",
+        "ctf",
+        "pentesting",
+        "security",
+        "static-analysis",
+        "cross-reference",
+        "call-graph",
+        "deobfuscation",
+        "mcp",
+        "offline"
+    ]
+}

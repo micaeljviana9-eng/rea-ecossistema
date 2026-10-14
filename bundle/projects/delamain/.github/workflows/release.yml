@@ -1,0 +1,153 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write   # create GitHub Release / upload assets
+  packages: write   # push image to GHCR
+
+jobs:
+  docker:
+    name: Build & push multi-arch image to GHCR
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read version from repo-root VERSION file
+        # VERSION is the single source of truth (format YYYYMMDD.N) — reused
+        # verbatim as the image tag so the running container's version always
+        # matches what's committed, regardless of which tag triggered this run.
+        id: version
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/xjoker/delamain:${{ steps.version.outputs.version }}
+            ghcr.io/xjoker/delamain:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/xjoker/delamain
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  cli:
+    name: Build CLI (${{ matrix.target }})
+    # Independent of the docker job on purpose: a GHCR push failure must not
+    # block the cross-compiled binary artifacts. Each runner reads VERSION itself.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux: static musl builds — no glibc dependency, run anywhere incl. Alpine.
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            cross: true
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+            cross: true
+          # macOS + Windows: native builds; link only against always-present system libs.
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+          - target: aarch64-pc-windows-msvc
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tools/delamain-cli
+          key: ${{ matrix.target }}
+
+      # Linux musl targets build inside `cross` Docker images, which carry the full
+      # musl + C cross-toolchain (rustls' crypto backend ships C/asm), yielding a
+      # fully static, dependency-free binary. macOS/Windows build natively.
+      - name: Install cross (Linux musl)
+        if: matrix.cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Build (cross — static musl)
+        if: matrix.cross
+        run: cross build --release --target ${{ matrix.target }} --manifest-path tools/delamain-cli/Cargo.toml
+
+      - name: Build (native)
+        if: ${{ !matrix.cross }}
+        run: cargo build --release --target ${{ matrix.target }} --manifest-path tools/delamain-cli/Cargo.toml
+
+      - name: Package archive
+        id: package
+        shell: bash
+        run: |
+          version="$(cat VERSION)"
+          target="${{ matrix.target }}"
+          bin_dir="tools/delamain-cli/target/${target}/release"
+          name="delamain-cli-${version}-${target}"
+          if [[ "$target" == *windows* ]]; then
+            archive="${name}.zip"
+            (cd "$bin_dir" && 7z a "${GITHUB_WORKSPACE}/${archive}" delamain-cli.exe)
+          else
+            archive="${name}.tar.gz"
+            tar -czf "${archive}" -C "$bin_dir" delamain-cli
+          fi
+          echo "archive=${archive}" >> "$GITHUB_OUTPUT"
+
+      # Every matrix job only uploads its archive as a workflow artifact — it does
+      # NOT touch the GitHub Release. This avoids the softprops race where parallel
+      # jobs each try to *create* the release for the tag and all but one fail with
+      # `already_exists`. The single `publish` job below attaches everything at once.
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.package.outputs.archive }}
+          path: ${{ steps.package.outputs.archive }}
+
+  publish:
+    name: Publish release assets
+    needs: cli
+    # Only tag pushes get a GitHub Release; a manual workflow_dispatch just leaves
+    # the per-target binaries as downloadable workflow artifacts.
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all CLI artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Attach binaries to the release (single, race-free create)
+        uses: softprops/action-gh-release@v3
+        with:
+          files: dist/*

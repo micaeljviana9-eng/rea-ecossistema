@@ -1,0 +1,22 @@
+NAME=PE: corkami dll-ld.exe - open
+FILE=bins/pe/dll-ld.exe
+CMDS=q!
+EXPECT=<<EOF
+EOF
+RUN
+
+# merged: PE: corkami dll-ld.exe - pi 1
+NAME=PE: corkami dll-ld.exe - entrypoint
+FILE=bins/pe/dll-ld.exe
+CMDS=<<EOF
+s
+?e --
+e asm.sub.names=false
+pi 1
+EOF
+EXPECT=<<EOF
+0x401000
+--
+call dword [0x4010a0]
+EOF
+RUN

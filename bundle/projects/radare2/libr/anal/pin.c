@@ -1,0 +1,144 @@
+/* radare - LGPL - Copyright 2015-2025 - pancake */
+
+#include <r_anal.h>
+
+R_API int r_anal_function_instrcount(RAnalFunction *fcn) {
+	int amount = 0;
+	RListIter *iter;
+	RAnalBlock *bb;
+	r_list_foreach (fcn->bbs, iter, bb) {
+		amount += bb->ninstr;
+	}
+	return amount;
+}
+
+R_API bool r_anal_function_islineal(RAnalFunction *fcn) {
+	if (r_anal_function_linear_size (fcn) != r_anal_function_realsize (fcn)) {
+		return false;
+	}
+	RListIter *iter;
+	RAnalBlock *bb;
+	ut64 at = r_anal_function_min_addr (fcn);
+	bool found;
+	ut64 end = r_anal_function_max_addr (fcn);
+	for (at = fcn->addr; at < end; at ++) {
+		found = false;
+		r_list_foreach (fcn->bbs, iter, bb) {
+			if (r_anal_block_contains (bb, at)) {
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			return false;
+		}
+		at = bb->addr + bb->size - 1;
+	}
+	return true;
+}
+
+// pin.c
+
+R_API const char *r_anal_pin_get(RAnal *a, const char *name) {
+	return sdb_const_getf (a->sdb_pins, NULL, "cmd.%s", name);
+}
+
+static const char *pin_lookup_at(RAnal *a, ut64 addr) {
+	if (addr) {
+		return sdb_const_getf (a->sdb_pins, NULL, "0x%" PFMT64x, addr);
+	}
+	return sdb_const_get (a->sdb_pins, "0", NULL);
+}
+
+R_API const char *r_anal_pin_at(RAnal *a, ut64 addr) {
+	return pin_lookup_at (a, addr);
+}
+
+R_API bool r_anal_pin_set(RAnal *a, const char *name, const char *cmd) {
+	r_strf_buffer (128);
+	char *ckey = r_strf ("cmd.%s", name);
+	return sdb_add (a->sdb_pins, ckey, cmd, 0);
+}
+
+typedef void (*REsilPin)(RAnal *a);
+
+/* pin api */
+
+#define DB a->sdb_pins
+
+R_API void r_anal_pin_init(RAnal *a) {
+	sdb_free (DB);
+	DB = sdb_new0 ();
+	r_anal_pin_set (a, "strlen", "dr R0=`pszl@r:A0`;aexa ret");
+	r_anal_pin_set (a, "memcpy", "wf `dr?A1` `dr?A2` @ `dr?A0`;aexa ret");
+	r_anal_pin_set (a, "puts", "psz@r:A0; aexa ret");
+	r_anal_pin_set (a, "ret0", "dr R0=0;aexa ret");
+//	sdb_ptr_set (DB, "strlen", pin_strlen, 0);
+//	sdb_ptr_set (DB, "write", pin_write, 0);
+}
+
+R_API void r_anal_pin_fini(RAnal *a) {
+	if (sdb_free (DB)) {
+		DB = NULL;
+	}
+}
+
+R_API void r_anal_pin(RAnal *a, ut64 addr, const char *name) {
+	char buf[SDB_NUM_BUFSZ];
+	const char *eq = strchr (name, '=');
+	if (eq) {
+		char *n = r_str_ndup (name, (int)(size_t)(eq -name));
+		sdb_setf (DB, eq + 1, 0, "cmd.%s", n);
+		free (n);
+	} else {
+		const char *key = sdb_itoa (addr, 16, buf, sizeof (buf));
+		sdb_set (DB, key, name, 0);
+	}
+}
+
+R_API void r_anal_pin_unset(RAnal *a, ut64 addr) {
+	char buf[SDB_NUM_BUFSZ];
+	const char *key = sdb_itoa (addr, 16, buf, sizeof (buf));
+	sdb_unset (DB, key, 0);
+}
+
+R_API const char *r_anal_pin_call(RAnal *a, ut64 addr) {
+	const char *name = pin_lookup_at (a, addr);
+	if (name) {
+		if (r_str_startswith (name, "soft.")) {
+			// do not call soft esil pins from here
+			return NULL;
+		}
+		const char *cmd = sdb_const_getf (DB, NULL, "cmd.%s", name);
+		if (R_STR_ISNOTEMPTY (cmd)) {
+			a->coreb.cmdf (a->coreb.core, "%s", cmd);
+		} else {
+			if (name && a->pincmd) {
+				a->coreb.cmdf (a->coreb.core, "%s %s", a->pincmd, name);
+			}
+			return name;
+		}
+	}
+	return NULL;
+}
+
+static bool cb_list(void *user, const char *k, const char *v) {
+	RStrBuf *sb = (RStrBuf*)user;
+	if (*k == '0') {
+		// bind
+		r_strbuf_appendf (sb, "'@%s'aep %s\n", k, v);
+	} else {
+		if (r_str_startswith (k, "cmd.")) {
+			r_strbuf_appendf (sb, "'aep %s=%s\n", k + 4, v);
+		} else {
+			r_strbuf_appendf (sb, "'aep %s\n", k);
+		}
+	}
+	return true;
+}
+
+R_API char *r_anal_pin_list(RAnal *a) {
+	RStrBuf *sb = r_strbuf_new ("");
+	sdb_foreach (DB, cb_list, sb);
+	return r_strbuf_drain (sb);
+}

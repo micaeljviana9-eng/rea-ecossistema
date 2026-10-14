@@ -1,0 +1,35 @@
+NAME=Internal less
+FILE=-
+CMDS=<<EOF
+e scr.interactive=false
+pd 1~..
+EOF
+EXPECT_ERR=<<EOF
+WARN: Internal less requires scr.interactive=true
+EOF
+RUN
+
+NAME=Hud mode
+FILE=-
+CMDS=<<EOF
+e log.origin=true
+e scr.interactive=false
+pd 1~...
+EOF
+EXPECT_ERR=<<EOF
+ERROR: [r_cons_hud_string] Hud mode requires scr.interactive=true
+EOF
+RUN
+
+NAME=maxpage counts logical lines
+FILE=-
+CMDS=<<EOF
+e scr.interactive=true
+e scr.maxpage=1
+<n
+?e \x1b[31mAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\x1b[0m
+EOF
+EXPECT_ERR=<<EOF
+Do you want to print 1 lines? (y/N) n
+EOF
+RUN

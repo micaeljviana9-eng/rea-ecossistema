@@ -1,0 +1,73 @@
+[project]
+name = "androguard"
+description = "Androguard is a full python tool to play with Android files."
+authors = [{ name = "Anthony Desnos", email = "anthony@42.bzh" }]
+version = "5.0.0"
+license = { file = "LICENCE" }
+readme = "README.md"
+requires-python = ">=3.10"
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development",
+    "Topic :: Utilities",
+]
+
+dependencies = [
+    # Rust ZIP/APK core (maturin) + Python APK API. Git until 0.0.3 is on PyPI.
+    "apkparser-ag @ git+https://github.com/androguard/apk-parser.git",
+    # Rust DEX core (maturin). PyPI 0.0.1 is the old hachoir parser.
+    "dexparser-ag @ git+https://github.com/androguard/dex-parser.git",
+    "axml>=0.0.2",
+    "rich>=14.0.0",
+]
+
+[project.optional-dependencies]
+disasm = [
+    "dex-bytecode-py @ git+https://github.com/androguard/dex-bytecode.git#subdirectory=dex-bytecode-py",
+]
+decompile = [
+    "dex-decompiler @ git+https://github.com/androguard/dex-decompiler.git#subdirectory=dex-decompiler-py",
+]
+arm = [
+    "arm-disassembler @ git+https://github.com/androguard/arm_disassembler.git#subdirectory=arm_disassembler-py",
+    "arm-decompiler @ git+https://github.com/androguard/arm_decompiler.git#subdirectory=arm_decompiler-py",
+]
+patch = [
+    "apk-patch @ git+https://github.com/androguard/apk-patch.git#subdirectory=crates/apk-patch-py",
+]
+mcp = [
+    "mcp>=1.0",
+]
+full = [
+    "androguard[disasm,decompile,arm,patch,mcp]",
+]
+
+[project.scripts]
+androguard = "androguard.cli.main:app"
+androguard-mcp = "androguard.mcp.server:main"
+
+[build-system]
+requires = ["setuptools>=68", "setuptools_scm>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["androguard", "androguard.*"]
+
+[tool.black]
+line-length = 79
+skip-string-normalization = true
+
+[tool.isort]
+profile = "black"
+line_length = 79

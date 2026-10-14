@@ -1,0 +1,37 @@
+[workspace]
+resolver = "3"
+members = [
+    "native/angr",
+    "native/clarirs-core",
+    "native/clarirs-num",
+    "native/clarirs-vsa",
+    "native/clarirs-z3",
+]
+
+[workspace.dependencies]
+anyhow = "1"
+thiserror = "2"
+
+[workspace.package]
+license = "BSD-2-Clause"
+readme = "README.md"
+keywords = [
+    "analysis",
+    "angr",
+    "binary",
+    "decompiler",
+    "emulator",
+    "engineering",
+    "execution",
+    "research",
+    "reverse",
+    "security",
+    "symbolic",
+    "vulnerability",
+]
+categories = ["science", "security"]
+repository = "https://github.com/angr/angr.git"
+
+[workspace.lints.clippy]
+all = "warn"
+cargo = "warn"
