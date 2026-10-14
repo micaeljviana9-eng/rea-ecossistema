@@ -1,83 +1,57 @@
 # Engenharia reversa de ISO do Windows
 
-Este diretório reúne ferramentas e fontes para estudar uma ISO do Windows de forma organizada. Nem tudo aqui abre uma ISO diretamente: algumas ferramentas extraem arquivos, outras analisam WIM/ESD, boot/UEFI, executáveis PE, drivers ou o comportamento do sistema instalado.
+Este diretório reúne fontes de ferramentas para analisar uma ISO do Windows e o conteúdo que existe dentro dela. Nem todas as ferramentas abrem a ISO: algumas ajudam com WIM/ESD, instaladores MSI/CAB, executáveis PE, drivers, boot/UEFI, sistemas de arquivos ou análise forense depois da extração.
 
-## Fluxo recomendado
+## Fluxo de análise sugerido
 
-1. **Inventariar e verificar a ISO** — calcular hashes, registrar tamanho e versão, comparar com uma imagem confiável.
-2. **Listar e extrair o conteúdo** — explorar a estrutura ISO/UDF, localizar `boot.wim`, `install.wim` ou `install.esd`, `setup.exe`, catálogos e scripts.
-3. **Inspecionar WIM/ESD e pacotes** — listar imagens/índices, montar ou extrair o conteúdo e comparar versões.
-4. **Analisar executáveis e drivers** — identificar formato/arquitetura, imports, strings, metadados, recursos, assinatura e comportamento estático.
-5. **Estudar boot e firmware** — examinar EFI/BCD, carregadores e componentes UEFI quando estiverem presentes.
-6. **Comparar e documentar** — hashes, diffs entre versões, inventário de arquivos e dependências.
+1. **Preservar e identificar a imagem:** registre a versão, tamanho e SHA-256 da ISO; trabalhe numa cópia e não altere o original.
+2. **Listar a ISO:** use 7-Zip e bibliotecas/formatos como pycdlib ou libarchive para entender a estrutura e localizar `boot.wim`, `install.wim`, `install.esd`, `setup.exe`, catálogos e pastas EFI.
+3. **Examinar as imagens do Windows:** use wimlib para listar índices, consultar metadados e extrair ou comparar o conteúdo de WIM/ESD quando suportado.
+4. **Examinar pacotes e executáveis:** msitools para MSI; Detect-It-Easy para identificar formatos; pefile, pe-parse, PE-Bear e LIEF para estruturas PE; capa e FLOSS para indícios de capacidades e strings.
+5. **Decompilar e comparar:** Ghidra, Rizin/radare2, Cutter, x64dbg e ILSpy podem ajudar com código nativo, depuração ou assemblies .NET; diffoscope ajuda a comparar árvores/arquivos.
+6. **Investigar inicialização e firmware quando necessário:** examine arquivos EFI/BCD e componentes UEFI; UEFITool, fiano, uefi-firmware-parser e EDK II são mais especializados em firmware do que em extração de ISO comum.
+7. **Documentar os resultados:** mantenha hashes, caminhos, versões, logs, commits das ferramentas e diferenças observadas.
 
-## Ferramentas já presentes como fontes reais
+Consulte o [mapa das ferramentas](TOOL-MAP.md) para distinguir ferramentas centrais, complementares e de uso indireto.
 
-O inventário inicial deste projeto contém:
+## Conteúdo inicial já presente como arquivos reais
 
-- **Arquivos/formatos/extração:** `7zip`, `libarchive`, `pycdlib`, `squashfs-tools`, `wimlib`, `msitools`, `innoextract`, `unshield`, `binwalk`, `unblob`, `unblob-native`, `kaitai-struct-formats`.
-- **Comparação/forense:** `diffoscope`, `sleuthkit`.
-- **Firmware/UEFI:** `UEFITool`, `fiano`, `uefi-firmware-parser`, `edk2-platforms`.
-- **Formatos estruturados:** `kaitai-struct-formats`.
+O inventário existente inclui ferramentas de arquivo/formato e extração (`7zip`, `libarchive`, `pycdlib`, `squashfs-tools`, `wimlib`, `msitools`, `innoextract`, `unshield`, `binwalk`, `unblob`, `unblob-native`, `kaitai-struct-formats`), comparação/forense (`diffoscope`, `sleuthkit`) e firmware/UEFI (`UEFITool`, `fiano`, `uefi-firmware-parser`, `edk2-platforms`). Consulte a árvore atual para o estado exato de cada fonte.
 
-Esse inventário é baseado na organização feita anteriormente; confira a árvore atual do GitHub para o estado exato de cada diretório.
+## Fontes adicionais a materializar
 
-## Fontes adicionais previstas para importação
+A release [source-archives-2026-10-14](https://github.com/micaeljviana9-eng/rea-ecossistema/releases/tag/source-archives-2026-10-14) contém snapshots fixados por commit upstream. Os caminhos previstos incluem ferramentas PE, motores de engenharia reversa, análise dinâmica, firmware, drivers e fontes de compatibilidade do Windows. O manifesto em [REPOSITORY_MANIFEST.md](REPOSITORY_MANIFEST.md) registra as origens e SHAs.
 
-O lançamento [source-archives-2026-10-14](https://github.com/micaeljviana9-eng/rea-ecossistema/releases/tag/source-archives-2026-10-14) guarda snapshots de código-fonte identificados por commit upstream. O script de importação do Termux tenta colocá-los como arquivos reais neste diretório e remove os gitlinks correspondentes:
+O importador atualizado é [scripts/import-source-repositories-termux.sh](https://github.com/micaeljviana9-eng/rea-ecossistema/blob/main/scripts/import-source-repositories-termux.sh). Ele baixa cada upstream no commit fixado, tenta inicializar recursivamente os submódulos internos, converte o gitlink para arquivos regulares e faz commit/push em lotes retomáveis. Não guarda os `.tar.gz` na árvore final.
 
-### Análise de PE, executáveis, regras e metadados
-- `detect-it-easy`, `pe-bear`, `pe-parse`, `pe-tree`, `pefile`, `lief`
-- `capa`, `capa-rules`, `flare-floss`, `syft`, `winbindex`
+## Executar pelo Termux
 
-### Desmontagem, decompilação e depuração
-- `ghidra`, `radare2`, `rizin`, `cutter`, `x64dbg`, `imhex`, `ilspy`, `snowman`
-
-### Windows, drivers, firmware e hardware
-- `edk2`, `chipsec`, `phnt`, `windows-driver-samples`, `reactos`, `wine`
-
-### Instrumentação, emulação e análise dinâmica
-- `frida`, `dynamorio`, `qiling`, `speakeasy`, `dissect`, `volatility3`
-
-### Ambiente e dependências auxiliares
-- `flare-vm`, `libguestfs`, `push_artifacts`, `bats-core`
-
-Algumas destas são ferramentas auxiliares ou ambientes de análise, não analisadores de ISO por si só. Por exemplo, FLARE-VM prepara um ambiente de análise no Windows; Volatility3 analisa memória; ILSpy foca assemblies .NET; ReactOS e Wine são referências/implementações de compatibilidade de APIs.
-
-## O que ainda não significa “pronto”
-
-- O código-fonte não equivale a binários compilados.
-- Nem todos os projetos compilam em Android/Termux; muitos exigem Windows ou Linux x86-64, SDKs e dependências pesadas.
-- O Windows ADK/DISM, ferramentas oficiais de assinatura e algumas ferramentas proprietárias podem ser complementos úteis, mas não são código incluído automaticamente aqui.
-- O importador identifica arquivos individuais acima de 95 MiB antes do envio; projetos assim ficam pendentes para tratamento separado. O GitHub rejeita arquivos individuais acima de 100 MiB no Git comum.
-- Antes de executar ferramentas, leia o README e a licença de cada projeto. Analise conteúdo suspeito em ambiente isolado.
-
-## Executar a importação pelo Termux
-
-O importador baixa snapshots de código-fonte fixados por commit, extrai os arquivos nas pastas correspondentes, remove os gitlinks convertidos e envia cada projeto como arquivos normais para o GitHub. Ele não coloca os snapshots compactados no repositório.
-
-Comece com um lote pequeno para confirmar que a autenticação e a conexão estão funcionando:
+No Android, execute:
 
 ```bash
 pkg update -y
 pkg install -y curl
 mkdir -p ~/rea-source-import
 curl -fL --retry 5 \
-  "https://raw.githubusercontent.com/micaeljviana9-eng/rea-ecossistema/main/scripts/import-source-archives-termux.sh" \
-  -o ~/rea-source-import/import-source-archives-termux.sh
-bash ~/rea-source-import/import-source-archives-termux.sh
+  "https://raw.githubusercontent.com/micaeljviana9-eng/rea-ecossistema/main/scripts/import-source-repositories-termux.sh" \
+  -o ~/rea-source-import/import-source-repositories-termux.sh
+bash ~/rea-source-import/import-source-repositories-termux.sh
 ```
 
-Na primeira execução, o script pode instalar dependências e pedir para autenticar no GitHub com `gh auth login`. Faça a autenticação no próprio Termux; nunca compartilhe tokens no chat.
-
-Por padrão, cada execução importa até **3 projetos** e faz commit/push individual para poder retomar em caso de interrupção. Execute o mesmo comando novamente para continuar. Quando já tiver confirmado que o processo está funcionando, para tentar todos os restantes de uma vez use:
+Por padrão, importa até **3 projetos por execução**, para reduzir o risco de sobrecarregar o celular. Rode o comando novamente para continuar. Para tentar todos os restantes na mesma execução, use:
 
 ```bash
-bash ~/rea-source-import/import-source-archives-termux.sh --all
+bash ~/rea-source-import/import-source-repositories-termux.sh --all
 ```
 
-O andamento fica em `SOURCE_IMPORT_STATUS.tsv`. Projetos que contêm arquivos individuais acima de 95 MiB ficam pendentes, pois o GitHub bloqueia arquivos com mais de 100 MiB no Git comum. O script lista esses arquivos e preserva a extração no aparelho para análise posterior.
+Na primeira execução, o script pode instalar dependências e solicitar `gh auth login`. Faça a autenticação diretamente no Termux e nunca cole tokens no chat. Prefira Wi-Fi e confira se há espaço livre suficiente, já que alguns projetos e submódulos são grandes.
 
-## Progresso da importação
+O status fica em `SOURCE_IMPORT_STATUS.tsv`. Arquivos individuais acima de 95 MiB ficam pendentes para revisão porque o GitHub bloqueia blobs maiores que 100 MiB no Git comum. Se um submódulo falhar, o script para naquele projeto e mantém a pasta temporária para diagnóstico; os commits enviados anteriormente permanecem no GitHub.
 
-O script cria `SOURCE_IMPORT_STATUS.tsv` com o nome, o repositório upstream e o commit de cada snapshot enviado. A contagem registrada diferencia projetos concluídos dos que ainda estão pendentes. Projetos com arquivos grandes ou pastas de destino já preenchidas precisam de revisão separada.
+## Limites técnicos
+
+- Código-fonte não equivale a binários compilados ou ferramentas prontas para executar.
+- Várias ferramentas exigem Windows/Linux de desktop, compiladores, SDKs, drivers ou dependências que não funcionam no Termux.
+- ReactOS, Wine, CHIPSEC, Volatility3 e FLARE-VM são recursos para tarefas específicas/indiretas; não substituem um extrator de ISO.
+- Preserve e confira `LICENSE`, `COPYING` e `NOTICE` de cada projeto antes de redistribuir ou modificar.
+- Analise conteúdo desconhecido em VM isolada e mantenha hashes e logs para permitir auditoria.
