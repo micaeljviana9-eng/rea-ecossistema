@@ -1,0 +1,23 @@
+Hello, world!
+Basic counts tool results:
+Total counts:
+           0 total instructions
+           0 total unique instructions
+     .* total prefetches
+     .* total data loads
+     .* total data stores
+     .* total icache flushes
+     .* total dcache flushes
+           1 total threads
+     .* total timestamp \+ cpuid markers
+.*
+Thread [1-9][0-9]* counts:
+           0 instructions
+           0 unique instructions
+     .* prefetches
+     .* data loads
+     .* data stores
+     .* icache flushes
+     .* dcache flushes
+     .* timestamp \+ cpuid markers
+.*

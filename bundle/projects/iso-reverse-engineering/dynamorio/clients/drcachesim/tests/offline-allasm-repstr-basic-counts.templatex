@@ -1,0 +1,39 @@
+Wally world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Adios world!
+Basic counts tool results:
+Total counts:
+         122 total instructions
+          50 total unique instructions
+           0 total prefetches
+          12 total data loads
+          10 total data stores
+           0 total icache flushes
+           0 total dcache flushes
+           1 total threads
+          60 total timestamp \+ cpuid markers
+           0 total idle markers
+           0 total wait markers
+           0 total kernel transfer markers
+           0 total function id markers
+           0 total function return address markers
+           0 total function argument markers
+           0 total function return value markers
+           0 total physical address \+ virtual address marker pairs
+           0 total physical address unavailable markers
+          15 total system call number markers
+          13 total blocking system call markers
+           0 total skipped memref markers
+           5 total other markers
+          50 total encodings
+Thread [0-9]* counts:
+         122 instructions
+.*

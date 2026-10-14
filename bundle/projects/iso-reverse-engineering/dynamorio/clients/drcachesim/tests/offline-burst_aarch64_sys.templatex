@@ -1,0 +1,28 @@
+pre-DR init
+pre-DR start
+all done
+DC ZVA count: [0-9]*
+DC ZVA memref count: [0-9]*
+All DC ZVA memrefs are cache-line shaped stores!
+Basic counts tool results:
+Total counts:
+     .* total instructions
+     .* total unique instructions
+     .* total prefetches
+     .* total data loads
+     .* total data stores
+           1 total icache flushes
+           3 total dcache flushes
+           1 total threads
+     .* total timestamp \+ cpuid markers
+.*
+Thread .* counts:
+     .* instructions
+     .* unique instructions
+     .* prefetches
+     .* data loads
+     .* data stores
+           1 icache flushes
+           3 dcache flushes
+     .* timestamp \+ cpuid markers
+.*

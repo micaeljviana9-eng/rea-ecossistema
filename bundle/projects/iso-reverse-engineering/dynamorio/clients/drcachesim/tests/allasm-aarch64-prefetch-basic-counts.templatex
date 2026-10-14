@@ -1,0 +1,24 @@
+Hello, world!
+---- <application exited with code 0> ----
+Basic counts tool results:
+Total counts:
+          96 total instructions
+          96 total unique instructions
+          81 total prefetches
+     .* total data loads
+     .* total data stores
+     .* total icache flushes
+     .* total dcache flushes
+           1 total threads
+     .* total timestamp \+ cpuid markers
+.*
+Thread .* counts:
+          96 instructions
+          96 unique instructions
+          81 prefetches
+     .* data loads
+     .* data stores
+     .* icache flushes
+     .* dcache flushes
+     .* timestamp \+ cpuid markers
+.*
