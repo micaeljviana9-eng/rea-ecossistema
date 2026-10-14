@@ -1,3 +1,139 @@
-[submodule "bundle/projects/iso-reverse-engineering/edk2-platforms"]
-	path = bundle/projects/iso-reverse-engineering/edk2-platforms
-	url = https://github.com/tianocore/edk2-platforms.git
+[submodule "bundle/projects/iso-reverse-engineering/capa"]
+	path = bundle/projects/iso-reverse-engineering/capa
+	url = https://github.com/mandiant/capa.git
+
+[submodule "bundle/projects/iso-reverse-engineering/capa-rules"]
+	path = bundle/projects/iso-reverse-engineering/capa-rules
+	url = https://github.com/mandiant/capa-rules.git
+
+[submodule "bundle/projects/iso-reverse-engineering/chipsec"]
+	path = bundle/projects/iso-reverse-engineering/chipsec
+	url = https://github.com/chipsec/chipsec.git
+
+[submodule "bundle/projects/iso-reverse-engineering/cutter"]
+	path = bundle/projects/iso-reverse-engineering/cutter
+	url = https://github.com/rizinorg/cutter.git
+
+[submodule "bundle/projects/iso-reverse-engineering/detect-it-easy"]
+	path = bundle/projects/iso-reverse-engineering/detect-it-easy
+	url = https://github.com/horsicq/Detect-It-Easy.git
+
+[submodule "bundle/projects/iso-reverse-engineering/dissect"]
+	path = bundle/projects/iso-reverse-engineering/dissect
+	url = https://github.com/fox-it/dissect.git
+
+[submodule "bundle/projects/iso-reverse-engineering/dynamorio"]
+	path = bundle/projects/iso-reverse-engineering/dynamorio
+	url = https://github.com/DynamoRIO/dynamorio.git
+
+[submodule "bundle/projects/iso-reverse-engineering/edk2"]
+	path = bundle/projects/iso-reverse-engineering/edk2
+	url = https://github.com/tianocore/edk2.git
+
+[submodule "bundle/projects/iso-reverse-engineering/flare-floss"]
+	path = bundle/projects/iso-reverse-engineering/flare-floss
+	url = https://github.com/mandiant/flare-floss.git
+
+[submodule "bundle/projects/iso-reverse-engineering/flare-vm"]
+	path = bundle/projects/iso-reverse-engineering/flare-vm
+	url = https://github.com/mandiant/flare-vm.git
+
+[submodule "bundle/projects/iso-reverse-engineering/frida"]
+	path = bundle/projects/iso-reverse-engineering/frida
+	url = https://github.com/frida/frida.git
+
+[submodule "bundle/projects/iso-reverse-engineering/imhex"]
+	path = bundle/projects/iso-reverse-engineering/imhex
+	url = https://github.com/WerWolv/ImHex.git
+
+[submodule "bundle/projects/iso-reverse-engineering/libguestfs"]
+	path = bundle/projects/iso-reverse-engineering/libguestfs
+	url = https://github.com/libguestfs/libguestfs.git
+
+[submodule "bundle/projects/iso-reverse-engineering/lief"]
+	path = bundle/projects/iso-reverse-engineering/lief
+	url = https://github.com/lief-project/LIEF.git
+
+[submodule "bundle/projects/iso-reverse-engineering/pe-bear"]
+	path = bundle/projects/iso-reverse-engineering/pe-bear
+	url = https://github.com/hasherezade/pe-bear.git
+
+[submodule "bundle/projects/iso-reverse-engineering/pe-parse"]
+	path = bundle/projects/iso-reverse-engineering/pe-parse
+	url = https://github.com/trailofbits/pe-parse.git
+
+[submodule "bundle/projects/iso-reverse-engineering/pe-tree"]
+	path = bundle/projects/iso-reverse-engineering/pe-tree
+	url = https://github.com/blackberry/pe_tree.git
+
+[submodule "bundle/projects/iso-reverse-engineering/pefile"]
+	path = bundle/projects/iso-reverse-engineering/pefile
+	url = https://github.com/erocarrera/pefile.git
+
+[submodule "bundle/projects/iso-reverse-engineering/phnt"]
+	path = bundle/projects/iso-reverse-engineering/phnt
+	url = https://github.com/winsiderss/phnt.git
+
+[submodule "bundle/projects/iso-reverse-engineering/qiling"]
+	path = bundle/projects/iso-reverse-engineering/qiling
+	url = https://github.com/qilingframework/qiling.git
+
+[submodule "bundle/projects/iso-reverse-engineering/reactos"]
+	path = bundle/projects/iso-reverse-engineering/reactos
+	url = https://github.com/reactos/reactos.git
+
+[submodule "bundle/projects/iso-reverse-engineering/snowman"]
+	path = bundle/projects/iso-reverse-engineering/snowman
+	url = https://github.com/yegord/snowman.git
+
+[submodule "bundle/projects/iso-reverse-engineering/speakeasy"]
+	path = bundle/projects/iso-reverse-engineering/speakeasy
+	url = https://github.com/mandiant/speakeasy.git
+
+[submodule "bundle/projects/iso-reverse-engineering/syft"]
+	path = bundle/projects/iso-reverse-engineering/syft
+	url = https://github.com/anchore/syft.git
+
+[submodule "bundle/projects/iso-reverse-engineering/volatility3"]
+	path = bundle/projects/iso-reverse-engineering/volatility3
+	url = https://github.com/volatilityfoundation/volatility3.git
+
+[submodule "bundle/projects/iso-reverse-engineering/winbindex"]
+	path = bundle/projects/iso-reverse-engineering/winbindex
+	url = https://github.com/m417z/winbindex.git
+
+[submodule "bundle/projects/iso-reverse-engineering/windows-driver-samples"]
+	path = bundle/projects/iso-reverse-engineering/windows-driver-samples
+	url = https://github.com/microsoft/Windows-driver-samples.git
+
+[submodule "bundle/projects/iso-reverse-engineering/wine"]
+	path = bundle/projects/iso-reverse-engineering/wine
+	url = https://github.com/wine-mirror/wine.git
+
+[submodule "bundle/projects/iso-reverse-engineering/x64dbg"]
+	path = bundle/projects/iso-reverse-engineering/x64dbg
+	url = https://github.com/x64dbg/x64dbg.git
+
+[submodule "bundle/projects/iso-reverse-engineering/ghidra"]
+	path = bundle/projects/iso-reverse-engineering/ghidra
+	url = https://github.com/NationalSecurityAgency/ghidra.git
+
+[submodule "bundle/projects/iso-reverse-engineering/ilspy"]
+	path = bundle/projects/iso-reverse-engineering/ilspy
+	url = https://github.com/icsharpcode/ILSpy.git
+
+[submodule "bundle/projects/iso-reverse-engineering/radare2"]
+	path = bundle/projects/iso-reverse-engineering/radare2
+	url = https://github.com/radareorg/radare2.git
+
+[submodule "bundle/projects/iso-reverse-engineering/rizin"]
+	path = bundle/projects/iso-reverse-engineering/rizin
+	url = https://github.com/rizinorg/rizin.git
+
+[submodule "bundle/projects/iso-reverse-engineering/kaitai-struct-formats/.github/push_artifacts"]
+	path = bundle/projects/iso-reverse-engineering/kaitai-struct-formats/.github/push_artifacts
+	url = https://github.com/kaitai-io/push_artifacts.git
+
+[submodule "bundle/projects/iso-reverse-engineering/msitools/subprojects/bats-core"]
+	path = bundle/projects/iso-reverse-engineering/msitools/subprojects/bats-core
+	url = https://github.com/bats-core/bats-core.git

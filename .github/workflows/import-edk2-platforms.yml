@@ -1,4 +1,5 @@
 name: One-time import — Tianocore edk2-platforms
+# This workflow materializes a pinned source archive, not a gitlink.
 
 on:
   push:
