@@ -1,0 +1,1 @@
+function detect(){return(X.compareEP("E8")||X.compareEP("60"))&&X.compareOverlay("'zzd.'")&&(sOptions="7z archive",bDetected=1),result()}meta("installer","Kingsoft")

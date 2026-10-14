@@ -1,0 +1,16 @@
+// Detect It Easy: detection rule file
+
+// Author: DosX
+// GitHub: https://github.com/DosX-dev
+// Website: https://dosx.su
+// Telegram: @DosX_dev
+
+meta("protector", "Allatori");
+
+function detect() {
+    bDetected = DEX.isDexStringPresent("ALLATORIxDEMO");
+
+    sVersion = bDetected ? "Demo" : String();
+
+    return result();
+}

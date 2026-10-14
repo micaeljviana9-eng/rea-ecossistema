@@ -1,0 +1,2 @@
+function detect(){var e
+return X.c("'[CloneCD]'")&&(e=X.getString(19,1).trim(),/^[0-9]{1}/.test(e))&&(X.isVerbose()&&(sVersion="v"+e),bDetected=1),result()}meta("format","CloneCD Control")

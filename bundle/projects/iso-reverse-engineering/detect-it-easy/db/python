@@ -1,0 +1,33 @@
+// Detect It Easy: DiE-JS framework file
+// Don't change anything unless you're sure about what you're doing
+
+// Author: DosX
+// GitHub: https://github.com/DosX-dev
+// Website: https://dosx.su
+// Telegram: @DosX_dev
+
+function getPythonVersionByDll(dllFileName) {
+    var pythonVersion = String();
+
+    var startIndex = dllFileName.toLowerCase().indexOf("python");
+    if (startIndex !== -1) {
+        startIndex += 6;
+        var endIndex = dllFileName.indexOf(".", startIndex);
+        if (endIndex === -1) {
+            endIndex = dllFileName.length;
+        }
+        pythonVersion = dllFileName.substring(startIndex, endIndex);
+    }
+
+    if (pythonVersion) {
+        if (pythonVersion.length === 1) {
+            return pythonVersion + ".0";
+        } else if (pythonVersion.length === 2) {
+            return pythonVersion[0] + "." + pythonVersion[1];
+        } else {
+            return pythonVersion[0] + "." + pythonVersion.substring(1);
+        }
+    } else {
+        return null;
+    }
+}

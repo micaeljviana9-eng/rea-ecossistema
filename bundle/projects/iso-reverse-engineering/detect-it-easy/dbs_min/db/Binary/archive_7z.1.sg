@@ -1,0 +1,1 @@
+function detect(){return 64<=X.Sz()&&X.c("'7z'BCAF271C")&&(sVersion=X.readByte(6)+"."+X.readByte(7),bDetected=1),result()}meta("archive","7-Zip")

@@ -1,0 +1,1 @@
+function detect(){return(X.isLibraryPresent("windhawk.dll")||X.isLibraryPresent("libc++.whl")||X.isLibraryPresent("libunwind.whl"))&&(bDetected=1),result()}meta("library","Windhawk Tweaker SDK")

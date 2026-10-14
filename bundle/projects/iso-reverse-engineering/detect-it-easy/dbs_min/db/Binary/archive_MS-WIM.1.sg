@@ -1,0 +1,10 @@
+function detect(){if(9<=X.Sz())if(X.c("'MSWIM'000000")){switch(X.isVerbose()&&(sOptions="{"+X.read_UUID(24)+"}"),bDetected=1,X.U16(18)){case 0:sOption("No compression")
+break
+case 2:sOption("XPRESS compression")
+break
+case 4:sOption("LZX compression")
+break
+case 8:sOption("LZMS compression")
+break
+default:bDetected=0}sOption("Part Number:"+X.U16(40)+"/"+X.U16(42))}else X.c("'WLPWM'000000")&&(sName+=", wimlib",bDetected=1)
+return result()}meta("archive","Windows Imaging Format (.WIM)")

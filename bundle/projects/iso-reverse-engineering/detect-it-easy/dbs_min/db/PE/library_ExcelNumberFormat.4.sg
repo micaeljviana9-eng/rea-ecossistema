@@ -1,0 +1,1 @@
+function detect(){return X.isNetObjectPresent("ExcelNumberFormat")&&(bDetected=1),result()}meta("library","ExcelNumberFormat")

@@ -1,0 +1,2 @@
+function detect(){var e
+return 64<=X.Sz()&&X.c("'DDS '7C000000")&&(bDetected=1,X.isVerbose())&&(sOption(X.U32(12)+"x"+X.U32(16)),(e=X.getString(84,4))?sOption("compressed: "+e):sOption("uncompressed"),X.U32(28))&&sOption("MipMap"),result()}meta("image","DirectDraw Surface (.DDS)")

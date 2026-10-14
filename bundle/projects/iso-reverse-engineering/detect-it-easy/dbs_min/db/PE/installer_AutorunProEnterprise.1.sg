@@ -1,0 +1,2 @@
+function detect(){var e=X.section[".rsrc"]
+return e&&X.isSectionNamePresent("CODE")&&-1!==X.fStr(e.FileOffset,e.FileSize,"9AutoRunObjects")&&-1!==X.fStr(e.FileOffset,e.FileSize,"AutoRunObjects")&&(bDetected=1),result()}meta("installer","Autorun Pro Enterprise")

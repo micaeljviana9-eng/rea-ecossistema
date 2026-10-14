@@ -1,0 +1,1 @@
+function detect(){return(X.isNetObjectPresent("Polly")||X.isNetObjectPresent("Polly.Core"))&&(bDetected=1),result()}meta("library","Polly")

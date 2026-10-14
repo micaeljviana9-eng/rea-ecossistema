@@ -1,0 +1,1 @@
+function detect(){if(!X.isNet())return X.isRichSignaturePresent()||(X.isImportPositionHashPresent(0,3264172003)&&X.isImportPositionHashPresent(1,1066087170)||X.isResourceNamePresent("TWINBASIC.ICO"))&&(bDetected=1,X.is64())&&(sVersion="Professional/Ultimate"),sLang="twinBASIC",result()}meta("compiler","twinBASIC")

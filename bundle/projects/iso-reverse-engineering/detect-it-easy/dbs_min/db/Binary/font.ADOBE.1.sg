@@ -1,0 +1,2 @@
+function detect(){var e
+return 15<=X.Sz()&&(X.c("'StartFontMetrics '")&&X.c("'.'",18)?(sName="Adobe Font Metrics (.AFM)",sVersion="v"+X.getString(17,3),bDetected=1):384==X.U16(0)&&896==X.U16(X.Sz()-2)?(sName="Adobe Printer Font Binary (.PFB)",bDetected=1,X.isVerbose()&&(e=X.getString(6,512).match(/%!PS-AdobeFont-1.0: (.*?)[\r\n]/))&&sOption(e[1])):X.c("0001")&&X.Sz()==X.U32(2)&&(sName="Adobe Printer Font Metrics (.PFM)",bDetected=1,X.isVerbose())&&(sOptions=X.getString(6,60))),result()}meta("font")

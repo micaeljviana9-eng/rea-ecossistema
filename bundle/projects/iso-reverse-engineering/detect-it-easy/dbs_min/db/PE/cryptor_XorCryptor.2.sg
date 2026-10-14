@@ -1,0 +1,1 @@
+function detect(){return/^[A-Za-z]{10,31}$/.test(X.getNetAssemblyName())&&X.isNetObjectPresent("LateIndexGet")&&X.isNetUStringPresent("System.Reflection.Assembly")&&X.isNetUStringPresent("EntryPoint")&&X.isNetUStringPresent("Load")&&X.isNetUStringPresent("Invoke")&&(bDetected=1),result()}meta("cryptor","XorCryptor")

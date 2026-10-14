@@ -1,0 +1,1 @@
+function detect(){return/WinACE|UNACE/i.test(X.getVersionStringInfo("InternalName"))&&(sVersion=X.getVersionStringInfo("FileVersion"),bDetected=1),result()}meta("sfx","WinACE")

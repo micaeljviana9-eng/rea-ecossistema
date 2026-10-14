@@ -1,0 +1,2 @@
+function detect(){for(var e,r=0;r<X.resource.length;r++)X.c("D0CF11E0A1B11AE1",X.resource[r].Offset)&&-1!=(e=X.fStr(X.resource[r].Offset,X.resource[r].Size,"Windows Installer"))&&((e=X.getString(e).match(/ XML \((.*?)\)/))&&(sOptions="XML",sVersion=e[1]),bDetected=1)
+return result()}meta("installer","Windows Installer")

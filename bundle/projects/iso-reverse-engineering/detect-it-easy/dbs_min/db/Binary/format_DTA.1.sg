@@ -1,0 +1,2 @@
+function detect(){var t
+return X.c("03000000....08")&&(t=X.getString(7,8).trim(),/^[a-z0-9]{8}/.test(t))&&(X.isVerbose()&&(sOptions=t),bDetected=1),result()}meta("format","DTA")

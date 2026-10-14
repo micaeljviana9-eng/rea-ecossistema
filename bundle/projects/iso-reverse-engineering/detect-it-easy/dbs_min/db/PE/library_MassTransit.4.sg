@@ -1,0 +1,1 @@
+function detect(){return X.isNetObjectPresent("MassTransit")&&(bDetected=1),X.isNetObjectPresent("MassTransit.AmazonSQS")&&(sVersion="AmazonSQS",bDetected=1),result()}meta("library","MassTransit")

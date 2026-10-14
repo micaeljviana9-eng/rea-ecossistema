@@ -1,0 +1,14 @@
+// Detect It Easy: detection rule file
+
+// Author: DosX
+// GitHub: https://github.com/DosX-dev
+// Website: https://dosx.su
+// Telegram: @DosX_dev
+
+meta("protector", "Yidun");
+
+function detect() {
+    bDetected = DEX.isDexItemStringPresent("La/_;");
+
+    return result();
+}

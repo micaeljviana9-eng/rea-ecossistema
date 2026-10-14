@@ -1,0 +1,1 @@
+function detect(){return X.isNetObjectPresent("GitLabApiClient")&&(bDetected=1),result()}meta("library","GitLabApiClient")

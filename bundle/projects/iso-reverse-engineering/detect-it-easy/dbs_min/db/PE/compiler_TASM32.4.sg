@@ -1,0 +1,1 @@
+function detect(){return bTASM32&&(2==X.getMajorLinkerVersion()&&25==X.getMinorLinkerVersion()&&(sVersion="5.X"),bDetected=1),sLang="ASMx86",result()}meta("compiler","TASM32"),includeScript("Borland"),includeScript("TASM32")

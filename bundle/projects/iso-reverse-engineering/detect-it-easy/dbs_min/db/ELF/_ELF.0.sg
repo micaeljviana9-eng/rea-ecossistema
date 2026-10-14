@@ -1,0 +1,1 @@
+function detect(){return X.isVerbose()&&(sName=X.getOperationSystemName(),"0"===(sVersion=X.getOperationSystemVersion())&&(sVersion=""),sOptions=X.getOperationSystemOptions(),bDetected=1),result()}meta("operation system","Unix")

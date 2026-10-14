@@ -1,0 +1,1 @@
+function detect(){return(bDetected=X.compareEP("55 8b ec")&&!X.getNumberOfImports()&&4<X.getNumberOfSections()&&0==X.getSectionFileOffset(0))&&X.isSignaturePresent(0,X.Sz(),"540068006900730020006D00650073007300610067006500200077006F006E002700740020006100")&&(sVersion="demo"),bDetected&&!X.isSectionNamePresent(".alien")&&(sOptions="modified"),result()}meta("protector","Alienyze")

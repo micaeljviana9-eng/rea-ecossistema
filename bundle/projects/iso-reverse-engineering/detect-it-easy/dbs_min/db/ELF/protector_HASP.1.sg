@@ -1,0 +1,2 @@
+function detect(){var e,t
+return 2==X.getNumberOfSections()&&X.isSectionNamePresent("protect")&&0==X.getSectionFileSize(0)&&(e=X.getProgramFileOffset(3),t=X.getProgramFileSize(3),-1==X.fStr(e,t,"hasp")&&(e=X.getProgramFileOffset(1),t=X.getProgramFileSize(1),-1==X.fStr(e,t,"hasp"))||(bDetected=1)),result()}meta("protector","HASP")

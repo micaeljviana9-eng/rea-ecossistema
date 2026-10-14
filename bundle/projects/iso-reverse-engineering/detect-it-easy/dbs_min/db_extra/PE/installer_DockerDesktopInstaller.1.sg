@@ -1,0 +1,1 @@
+function detect(){return X.isNet()&&X.isNetObjectPresent("Docker Desktop Installer")&&4194304==X.getAddressOfEntryPoint()&&16777216<X.section[".rsrc"].FileSize&&(sVersion="4.x",bDetected=1),result()}meta("installer","Docker Desktop Installer .NET sfx 7zip")

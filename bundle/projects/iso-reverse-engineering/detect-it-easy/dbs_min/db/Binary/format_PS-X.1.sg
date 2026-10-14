@@ -1,0 +1,2 @@
+function detect(){var e
+return X.c("'PS-X EXE'")&&(e=X.getString(76,48).trim())&&(X.isVerbose()&&(sOptions="Region: "+e),bDetected=1),result()}meta("format","PlayStation executable (PS1)")

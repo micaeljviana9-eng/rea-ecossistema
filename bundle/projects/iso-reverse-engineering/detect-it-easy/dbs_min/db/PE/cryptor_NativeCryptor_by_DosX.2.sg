@@ -1,0 +1,1 @@
+function detect(){return bDetected=3<=X.getNumberOfSections()&&X.compareOverlay("'7stgc_hdr'00"),result()}meta("cryptor","NativeCryptor by DosX")

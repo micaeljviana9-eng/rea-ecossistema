@@ -1,0 +1,1 @@
+function detect(){return(X.isNetObjectPresent("MongoDB")||X.isNetObjectPresent("MongoDB.Driver")||X.isNetObjectPresent("MongoDB.Driver.Core")||X.isNetObjectPresent("MongoDB.Analyzer"))&&(bDetected=1),X.isNetObjectPresent("MongoDB.AspNetCore.OData")&&(sVersion="ASP.NET Core",bDetected=1),result()}meta("library","MongoDB.NET Driver")

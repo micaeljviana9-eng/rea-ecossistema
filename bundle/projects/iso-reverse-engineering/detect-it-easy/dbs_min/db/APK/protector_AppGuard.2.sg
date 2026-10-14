@@ -1,0 +1,1 @@
+function detect(){return bDetected=X.isArchiveRecordPresent("assets/AppGuard.dgc")||X.isArchiveRecordPresent("assets/AppGuard0.jar")||X.isArchiveRecordPresent("lib/armeabi-v7a/libAppGuard.so")||X.isArchiveRecordPresent("lib/armeabi/libAppGuard-x86.so")||X.isArchiveRecordPresent("lib/armeabi/libAppGuard.so"),result()}meta("protector","AppGuard")

@@ -1,0 +1,1 @@
+function detect(){return X.isLibraryPresentExp(/rnnoise/i)||X.isFunctionPresent("rnnoise_init")?bDetected=1:X.isExportFunctionPresentExpFastAnchor("rnnoise_",/^rnnoise_/)&&(sOptions="static",bDetected=1),result()}meta("library","RNNoise Noise Suppressor")

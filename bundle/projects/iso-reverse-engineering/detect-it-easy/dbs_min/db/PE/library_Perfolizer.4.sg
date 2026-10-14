@@ -1,0 +1,1 @@
+function detect(){return X.isNetObjectPresent("Perfolizer")&&(bDetected=1),result()}meta("library","Perfolizer")

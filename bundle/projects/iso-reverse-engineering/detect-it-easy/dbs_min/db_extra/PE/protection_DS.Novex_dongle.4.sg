@@ -1,0 +1,1 @@
+function detect(){return-1!=X.fStr(0,X.isOverlayPresent()?X.getOverlayOffset():X.Sz(),"\\\\.\\NVKEY")&&(bDetected=1),result()}meta("protection","Novex/Guardant dongle reference")

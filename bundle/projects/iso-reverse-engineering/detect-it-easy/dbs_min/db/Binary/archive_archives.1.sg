@@ -1,0 +1,61 @@
+function detect(){if(X.c("a596fdff"))bDetected=1,sName="FTCOMP"
+else if(X.c("a596..0a"))bDetected=1,sName="IBMPACK1"
+else if(X.c("a596feff"))bDetected=1,sName="IBMPACK2"
+else if(X.c("aced00057704"))bDetected=1,sName="IzPack"
+else if(X.c("'bvxn'"))bDetected=1,sName="LZFSE"
+else if(X.c("'SIT!'"))bDetected=1,sName="SIT"
+else if(X.c("06'SKF3.0'"))bDetected=1,sName="SKF"
+else if(X.c("'Archive'00................2800000064"))bDetected=1,sName="ArcFS"
+else if(X.c("'ARCV'0002"))bDetected=1,sName="ARCV 2"
+else if(X.c("09006bea"))bDetected=1,sName="BFF"
+else if(X.c("00069a")||X.c("0006d2"))bDetected=1,sName="DCL"
+else if(X.c("....'-lh'..2d")||X.c("....'-lz'..2d")||X.c("....'-pm'..2d"))switch(sVersion=X.getString(2,5),bDetected=1,X.getString(3,3)){case"lh0":case"lh1":case"lh2":case"lh3":case"lh4":case"lh5":case"lh6":case"lh7":case"lhd":sName="LHA (.LHA)"
+break
+case"lh8":case"lh9":case"lha":case"lhb":case"lhc":case"lhe":sName="LHA",sOptions="Joe Jared ext (.LHA)"
+break
+case"lhx":sName="LHA",sOptions="UNLHA32 ext (.LHA)"
+break
+case"lzs":case"lz2":case"lz3":case"lz4":case"lz5":case"lz6":case"lz7":case"lz8":sName="LHA ",sOptions="LArc ext (.LZS)"
+break
+case"lz7":case"pm0":case"pm2":sName="LHA archive, PMarc ext (.PMA)"
+break
+default:bDetected=0}else if(X.c("'mflh'0100"))bDetected=1,sName="MVA"
+else if(X.c("'ViG'....1a"))bDetected=1,sName="PaperPort"
+else if(X.c("'sqsh'0000"))bDetected=1,sName="SquashFS",sOptions="big endian"
+else if(X.c("'hsqs'0300"))bDetected=1,sName="SquashFS",sOptions="little endian"
+else if(X.c("'im001V'......50....0000")){sName="SW",bDetected=1
+var e=X.readByte(14)+15
+X.c("1f9d",e)?sName="Z":X.c("1f1e",e)&&(sName="PACK 2")}else if(X.c("0001000401000100010000000000000000000000000000000000000000000000010101"))bDetected=1,sName="VMS SaveSet"
+else if(X.c("'ZOO'............'Archive'"))bDetected=1,sName="ZOO"
+else if(X.c("602213636c00"))bDetected=1,sName="Asymetrix"
+else if(X.c("453dcd28........................'Compressed ROMFS'"))bDetected=1,sName="CRAMFS"
+else if(X.c("'IsZ!@'01"))switch(bDetected=1,sName="Zipped ISO Disk Image (.ISZ)",X.U32(16)){case 0:sOptions="no password"
+break
+case 1:sOptions="password"
+break
+case 2:sOptions="password, aes128"
+break
+case 3:sOptions="password, aes182"
+break
+case 4:sOptions="password, aes256"}else if(X.c("aa59f0000002"))bDetected=1,sName="SaveDskF"
+else if(X.c("'AlB'1a"))bDetected=1,sName="BeOS package"
+else if(X.c("'BIGF'00"))bDetected=1,sName="BIGF"
+else if(X.c("01ca'Copyright (c) Genus Microprogramming, Inc.'"))bDetected=1,sName="GXL"
+else if(X.c("0100......00ecf9"))bDetected=1,sName="INSA"
+else if(X.c("..0fd28ccc1f..3c0d8e830dd88f25ac"))bDetected=1,sName="InstallShield ISN"
+else if(X.c("135d658c3a010200"))bDetected=1,sName="InstallShield",sVersion="3.x"
+else if(X.c("2aab79d800010000"))bDetected=1,sName="InstallShield INST",sVersion="3.x"
+else if(X.c("'SZDD'88"))bDetected=1,sName="SZDD",sOptions="by Microsoft"
+else if(X.c("'KWAJ'88"))bDetected=1,sName="KWAJ",sOptions="by Microsoft"
+else if(X.c("'MDmd'"))bDetected=1,sName="MDCD"
+else if(X.c("'MPQ'1a"))bDetected=1,sName="MPQ",sOptions="by Blizzard"
+else if(X.c("'_MCT'00'KSLZ'789c"))bDetected=1,sName="MSKN 2",sOptions="zlib"
+else if(X.c("'PACK'............0000"))bDetected=1,sName="PACK"
+else if(X.c("'PACK'")&&0<X.U32(4,_BE)&&X.U32(4,_BE)<=3)bDetected=1,sName="Packed git objects (.pack)",sVersion="v"+X.U32(4,_BE),sOptions=X.U32(8,_BE)+" object(s)"
+else if(X.c("FF'tOc'00000002"))sName="Index of packed git objects (.idx)",sVersion="v"+X.U32(4,_BE),bDetected=1
+else if(X.c("'RIDX'00000001")&&0<X.U32(8,_BE)&&X.U32(8,_BE)<=2)switch(sName="Reverse index of packed git objects (.rev)",sVersion="v1",bDetected=1,X.U32(8,_BE)){case 1:sOptions="SHA-1 hashes"
+break
+case 2:sOptions="SHA-256 hashes"
+break
+default:sOptions="unknown hashes"}else X.c("00000000000000000000000000007400010074000500")?(bDetected=1,sName="PCInstall"):X.c("'PP20'09")?(bDetected=1,sName="PowerPack",sOptions="by Nico Francois"):X.c("edabeedb0300")?(bDetected=1,sName="RPM package"):X.c("bd01..00..00..000000")?(bDetected=1,sName="HUFF"):X.c("'SZ '88")?(bDetected=1,sName="SZ",sOptions="by Microsoft"):X.c("'BAGF'02")?(bDetected=1,sName="BAGF"):X.c("'PAC - 'a9' BVRP Software 1990-2000'")?(bDetected=1,sName="PAC",sOptions="1990-2000 by BVRP Software"):X.c("'Cr24'02")?(bDetected=1,sName="CRX"):X.c("74c42c84e1e5d428")?(bDetected=1,sName="InstallShield INX",sVersion="7.x"):X.c("5d0000....ffffffffffffffff00180ddd04")||X.c("5d00008000........000000000000")?(bDetected=1,sName="LZMA"):X.c("1fa0")?(bDetected=1,sName="SCO"):X.c("'# PaCkAgE DaTaStReAm'")?(bDetected=1,sName="Solaris Package"):X.c("'SQZE'010000")?(bDetected=1,sName="SQZE"):X.c("'xar!'001c00010000")?(bDetected=1,sName="XAR"):X.c("fd'7zXZ'00")&&(bDetected=1,sName="XZ")
+return bDetected||(X.Sz()<3||!X.c("1F9D")||(t=X.U8(2),sversion=128&t?"new":"old",(t&=127)<9)||16<t?X.c("'LZK00'000000")?(bDetected=1,sName="LZK00"):X.c("032401010100")?(bDetected=1,sName="WPK"):X.c("'TPWM'")?(bDetected=1,sName="TPWM (BlueByte)"):500<=X.Sz()&&X.c("00'ustar'",256)?(bDetected=1,sName="tar"):X.c("'LB'0100")?(bDetected=1,sName="XFL game resource file (.XFL)",sVersion="v1.0",sOptions=(sOptions=sOptions.append(X.getString(12,32))).append("& other "+(X.readDword(8)-1)+" files")):X.c("FF060000'sNaPpY'")?(bDetected=1,sName="Snappy compressed data (.SZ)"):X.c("'blkzip'00")?(bDetected=1,sName="BulkZip (.BULK)"):X.c("AE01'NanoZip 0.09 alpha'")?(bDetected=1,sName="NanoZip (.NZ)",sVersion="0.09 alpha"):X.c("'CM'2805060000")?(bDetected=1,sName="RAZOR (.RZ)",sOptions="by Christian Martelock"):X.c("28B52FFD")?(bDetected=1,sName="Facebook Zstandard/ZSTD compressed data (.ZST)"):X.c("00'APPL'",64)&&X.c("00008181",120)&&(bDetected=1,sName="MacBinary"):(sName="Compress (.Z)",sVersion=sversion,bDetected=1)),result()}meta("archive","")

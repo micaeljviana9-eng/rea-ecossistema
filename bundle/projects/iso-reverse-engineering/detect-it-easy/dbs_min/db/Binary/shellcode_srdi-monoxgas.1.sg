@@ -1,0 +1,2 @@
+function detect(){var e
+return X.isDeepScan()&&(e=X.fSig(0,X.Sz(),"E800000000")+5,3364440409==X.readDword(e)?(sOptions="AMD64",bDetected=1):3850982744==X.readDword(e)&&(sOptions="x86",bDetected=1)),result()}meta("shellcode","Monoxgas sRDI")

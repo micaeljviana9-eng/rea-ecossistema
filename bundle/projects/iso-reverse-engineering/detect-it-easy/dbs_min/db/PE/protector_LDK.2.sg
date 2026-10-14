@@ -1,0 +1,1 @@
+function detect(){return 4==X.getNumberOfSections()&&X.isSectionNamePresent(".AKS1")&&X.isSectionNamePresent(".AKS2")&&X.isSectionNamePresent(".AKS3")&&X.isSectionNamePresent(".rsrc")&&(bDetected=1),result()}meta("protector","SafeNet Sentinel LDK")

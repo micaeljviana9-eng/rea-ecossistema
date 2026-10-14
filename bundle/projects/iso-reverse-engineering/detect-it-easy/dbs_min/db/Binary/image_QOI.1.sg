@@ -1,0 +1,9 @@
+function detect(){if(14<=X.Sz()&&X.c("'qoif'")){switch(bDetected=1,sOptions=sOptions.append(X.U32(4,_BE)+"x"+X.U32(8,_BE)),X.U8(12)){case 3:sOption("RGB")
+break
+case 4:sOption("RGBA")
+break
+default:return}switch(X.U8(13)){case 0:sOption("sRGB with linear alpha")
+break
+case 1:sOption("all channels linear")
+break
+default:return}}return result()}meta("image","Quite OK Image (.QOI)")

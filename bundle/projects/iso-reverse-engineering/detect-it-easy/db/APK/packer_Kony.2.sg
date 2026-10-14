@@ -1,0 +1,14 @@
+// Detect It Easy: detection rule file
+
+// Author: DosX
+// GitHub: https://github.com/DosX-dev
+// Website: https://dosx.su
+// Telegram: @DosX_dev
+
+meta("packer", "Kony");
+
+function detect() {
+    bDetected = APK.isArchiveRecordPresent("libkonyjsvm.so");
+
+    return result();
+}

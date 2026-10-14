@@ -1,0 +1,1 @@
+function detect(){return X.isNetObjectPresent("SkiaSharp")?(sVersion="Mono-based",bDetected=1):X.isLibraryPresentExp(/^libskiasharp/i)&&(sVersion="Native",bDetected=1),result()}meta("library","SkiaSharp")

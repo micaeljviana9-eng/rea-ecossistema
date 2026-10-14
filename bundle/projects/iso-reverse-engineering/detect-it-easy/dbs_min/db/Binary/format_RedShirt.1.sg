@@ -1,0 +1,1 @@
+function detect(){return X.c("'REDSHIRT'00")?(sVersion="v1.0",bDetected=1):X.c("'REDSHRT2'00")&&(sVersion="v2.0",bDetected=1),result()}meta("format","RedShirt")

@@ -1,0 +1,2 @@
+function detect(){var i,e=X.section[".rdata"]
+return!X.isRichSignaturePresent()&&e&&X.isLibraryPresentExp(/^msvcrt/i)&&(i=e.FileOffset,e=e.FileSize,-1===X.fStr(i,e,"io.nim")&&-1===X.fStr(i,e,"fatal.nim")||(bDetected=1)),sLang="Nim",result()}meta("compiler","Nim")

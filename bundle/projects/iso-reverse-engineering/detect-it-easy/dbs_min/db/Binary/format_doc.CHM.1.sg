@@ -1,0 +1,1 @@
+function detect(){return X.c("'ITSF'..000000")&&(bDetected=1,sVersion=X.I32(4,_LE),sOption(X.U32(20,_LE),"LangID: ")),result()}meta("format","Microsoft Compiled HTML Help")

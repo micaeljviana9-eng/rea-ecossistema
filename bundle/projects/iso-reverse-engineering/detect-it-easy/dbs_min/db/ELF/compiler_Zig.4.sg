@@ -1,0 +1,2 @@
+function detect(){var e,t
+return X.isSectionNamePresent(".rodata")&&X.isDeepScan()&&(t=X.getSectionNumber(".rodata"),e=X.getSectionFileOffset(t),t=X.getSectionFileSize(t),-1!=X.fSig(e,t,"5a49475f44454255475f434f4c4f52"))&&(bDetected=1),sLang="Zig",result()}meta("compiler","Zig")

@@ -1,0 +1,1 @@
+function detect(){return X.isLibraryPresentExp(/^rlottie/i)?bDetected=1:X.isExportFunctionPresentExpFastAnchor("rlottie",/^(\?|_)+.{6,}rlottie/)&&(sOptions="static",bDetected=1),result()}meta("library","rlottie")

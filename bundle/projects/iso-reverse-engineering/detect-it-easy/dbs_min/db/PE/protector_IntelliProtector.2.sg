@@ -1,0 +1,2 @@
+function detect(){var t=X.section[X.nLastSection].FileOffset
+return X.c("E9........CC",t)&&-1!=(t=X.fStr(t,X.section[X.nLastSection].FileSize,"Protected by IntelliProtector"))&&(sVersion=X.getString(t+30),bDetected=1),result()}meta("protector","IntelliProtector")

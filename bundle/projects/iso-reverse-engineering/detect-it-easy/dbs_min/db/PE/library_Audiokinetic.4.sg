@@ -1,0 +1,1 @@
+function detect(){return X.isFunctionPresent("AkTlsAllocateSlot")?bDetected=1:X.isExportFunctionPresent("AkTlsAllocateSlot")&&(sOptions="static",bDetected=1),result()}meta("library","Audiokinetic")

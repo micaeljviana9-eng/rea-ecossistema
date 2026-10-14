@@ -1,0 +1,1 @@
+function detect(){return bDetected=X.isNetObjectPresent("Quest.PowerGUI.ScriptRunner"),sOptions=bDetected&&!X.isConsole()?"Hide console":"",sLang="PowerShell",result()}meta("packer","Quest PowerGUI")

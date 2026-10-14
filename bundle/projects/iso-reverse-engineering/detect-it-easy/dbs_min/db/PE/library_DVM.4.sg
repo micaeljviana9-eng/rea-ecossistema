@@ -1,0 +1,1 @@
+function detect(){return X.isLibraryPresent("tdvm.dll")&&(bDetected=1),result()}meta("library","DVM")

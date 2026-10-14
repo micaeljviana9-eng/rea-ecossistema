@@ -1,0 +1,1 @@
+function detect(){return X.c("'WinISO software'",33086)&&(bDetected=1),result()}meta("tool","WinISO")

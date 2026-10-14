@@ -1,0 +1,2 @@
+function detect(){if(0==X.getElfHeader_shstrndx()&&0==X.getElfHeader_shnum()&&X.getElfHeader_shentsize()){sVersion="1.X",bDetected=1
+for(var e=0;e<X.getNumberOfPrograms()-1&&bDetected;e++)0==X.getProgramFileOffset(e)&&(bDetected=0)}return sLang="ASMx"+(X.is64()?"64":"86"),result()}meta("compiler","FASM")

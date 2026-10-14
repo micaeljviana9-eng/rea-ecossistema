@@ -1,0 +1,1 @@
+function detect(){return X.c("'FORM'")&&-1!=X.fStr(0,X.Sz(),"BODY")&&-1!=X.fStr(0,X.Sz(),"FORM")&&-1!=X.fStr(0,X.Sz(),"ANNO")&&(bDetected=1),result()}meta("audio","8SVX")

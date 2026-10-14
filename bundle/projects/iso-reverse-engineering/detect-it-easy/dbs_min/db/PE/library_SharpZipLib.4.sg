@@ -1,0 +1,1 @@
+function detect(){return X.isNetObjectPresent("SharpZipLib")&&(bDetected=1),result()}meta("library","SharpZipLib Compression")

@@ -1,0 +1,2 @@
+function detect(){var e
+return 2<X.getNumberOfImports()&&X.isRichSignaturePresent()&&X.isLibraryPresentExp(/vcruntime140/i)&&"VirtualProtect"===X.getImportFunctionName(0,0)&&"GetCurrentProcess"===X.getImportFunctionName(0,1)&&"GetModuleHandleA"===X.getImportFunctionName(0,2)&&"MultiByteToWideChar"===X.getImportFunctionName(0,3)&&"FlushInstructionCache"===X.getImportFunctionName(0,4)&&((e=X.section[".packed"])||(e=X.section[X.getNumberOfSections()-1],sOptions="modified"),X.c("00 ** ?? 00",e.FileOffset))&&(bDetected=1),result()}meta("packer","AlushPacker")

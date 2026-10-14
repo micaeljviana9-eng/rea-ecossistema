@@ -1,0 +1,1 @@
+function detect(){return X.isLibraryPresent("GfnRuntimeSdk.dll")?bDetected=1:X.isExportFunctionPresentExpFastAnchor("gfn",/^gfn(?:Free|Get|Register|Start|Stop)/)&&(sOptions="static",bDetected=1),result()}meta("library","Nvidia GeForce NOW SDK")

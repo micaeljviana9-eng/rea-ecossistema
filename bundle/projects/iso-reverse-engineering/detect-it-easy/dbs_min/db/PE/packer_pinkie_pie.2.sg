@@ -1,0 +1,2 @@
+function detect(){var e
+if(!X.is64())return(e=X.section[".kucd"])&&(sVersion="0.4",bDetected=-1!==X.fSig(e.FileOffset,e.FileSize,"64A1300000008B7008BB0001000031C9")),result()}meta("packer","pinkie-pie")

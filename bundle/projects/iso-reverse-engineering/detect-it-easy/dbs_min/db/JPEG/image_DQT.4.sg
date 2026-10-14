@@ -1,0 +1,1 @@
+function detect(){return bDetected=1,sOptions=X.getDqtMD5(),result()}meta("image","DQT")

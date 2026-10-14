@@ -1,0 +1,1 @@
+function detect(){return bDetected=X.isArchiveRecordPresent("lib/arm64-v8a/libnesec.so")||X.isArchiveRecordPresent("lib/armeabi-v7a/libnesec.so")||X.isArchiveRecordPresent("lib/armeabi/libnesec.so")||X.isArchiveRecordPresent("lib/x86/libnesec.so"),result()}meta("protector","Yidun")

@@ -1,0 +1,2 @@
+function detect(){var e,t=X.section[X.getImportSection()]
+return t&&(e=t.FileOffset,t=t.FileSize,t=Math.min(t,8264),-1!=X.fStr(e,t,"TerminateHackShield"))&&(bDetected=1),result()}meta("protector","HackShield")

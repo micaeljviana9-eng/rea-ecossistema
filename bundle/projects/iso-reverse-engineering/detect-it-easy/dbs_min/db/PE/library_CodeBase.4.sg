@@ -1,0 +1,1 @@
+function detect(){return X.isExportFunctionPresentExpFastAnchor("l4linkst",/l4linkSt/)&&(sVersion="4.0",sOptions="static",bDetected=1),result()}meta("library","CodeBase")

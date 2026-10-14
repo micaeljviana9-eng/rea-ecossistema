@@ -1,0 +1,1 @@
+function detect(){return(X.section[".obfh"]||X.isExportFunctionPresent("WhatSoundDoesACowMake"))&&X.isFunctionPresent("vsprintf")&&(bDetected=1),sLang="C",result()}meta("protection","obfus.h")

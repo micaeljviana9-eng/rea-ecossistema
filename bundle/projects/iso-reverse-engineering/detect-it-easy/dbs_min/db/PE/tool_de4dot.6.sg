@@ -1,0 +1,1 @@
+function detect(){return X.isNet()&&(X.isNetObjectPresent("method_0")||X.isNetObjectPresent("smethod_0"))&&(X.isNetObjectPresent("GClass0")&&X.isNetObjectPresent("GClass1")||X.isNetObjectPresent("Class0")&&X.isNetObjectPresent("Class1"))&&(bDetected=1,sOptions="deobfuscated"),result()}meta("tool","de4dot")

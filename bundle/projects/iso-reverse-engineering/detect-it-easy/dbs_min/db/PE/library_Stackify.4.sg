@@ -1,0 +1,1 @@
+function detect(){return X.isNetObjectPresent("StackifyLib")&&(bDetected=1),result()}meta("library","Stackify")

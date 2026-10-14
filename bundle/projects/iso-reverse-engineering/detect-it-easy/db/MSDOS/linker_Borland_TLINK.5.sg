@@ -1,0 +1,25 @@
+// Detect It Easy: detection rule file
+// Author: horsicq <horsicq@gmail.com>
+
+// https://github.com/horsicq/Detect-It-Easy/issues/371
+// Borland TLINK writes its own marker into the DOS header:
+//   0x1E: marker byte 0xFB
+//   0x1F: version byte (high nibble = major, low nibble = minor)
+//   0x20: word "rj" / "jr"
+meta("linker", "Borland TLINK");
+
+function detect() {
+    if (MSDOS.readSByte(0x1E) === -5) {
+        var nMagic = MSDOS.readWord(0x20);
+
+        if ((nMagic === 0x6A72) || (nMagic === 0x726A)) {
+            var nVersion = MSDOS.readByte(0x1F);
+
+            sVersion = (nVersion >> 4) + "." + (nVersion & 0x0F);
+
+            bDetected = true;
+        }
+    }
+
+    return result();
+}

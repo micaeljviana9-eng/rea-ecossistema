@@ -1,0 +1,1 @@
+function detect(){return 12<=X.Sz()&&X.c("C61FBC03C103191F",X.U64(0,_BE))&&(sVersion=X.U32(8),bDetected=1),sLang="JavaScript",result()}meta("format","Hermes JavaScript bytecode")

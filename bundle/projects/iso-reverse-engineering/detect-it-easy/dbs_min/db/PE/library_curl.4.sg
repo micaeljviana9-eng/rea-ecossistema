@@ -1,0 +1,1 @@
+function detect(){return X.isLibraryPresentExp(/libcurl/i)?bDetected=1:X.isExportFunctionPresentExpFastAnchor("curl_easy_",/^curl_easy_/)&&(sOptions="static",bDetected=1),result()}meta("library","Curl")

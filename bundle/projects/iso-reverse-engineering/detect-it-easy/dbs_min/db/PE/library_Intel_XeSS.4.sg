@@ -1,0 +1,1 @@
+function detect(){return X.isLibraryPresentExp(/(lib|ig)xess/)||X.isFunctionPresent("xessGetVersion")||X.isFunctionPresent("xessDestroyContext")?bDetected=1:X.isExportFunctionPresentExpFastAnchor("xess",/^xess(?:D3D|Destroy|Get|Set)/)&&(sOptions="static",bDetected=1),result()}meta("library","Intel XeSS")

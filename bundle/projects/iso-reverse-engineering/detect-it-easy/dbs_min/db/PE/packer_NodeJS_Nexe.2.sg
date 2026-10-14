@@ -1,0 +1,1 @@
+function detect(){if(X.isExportFunctionPresent("napi_wrap"))return bDetected=X.isOverlayPresent()&&256<=X.getOverlaySize()&&-1!==X.fStr(X.section[1].FileOffset,X.section[1].FileSize,"nexe~~sentinel"),sLang="JavaScript",result()}meta("packer","nexe")

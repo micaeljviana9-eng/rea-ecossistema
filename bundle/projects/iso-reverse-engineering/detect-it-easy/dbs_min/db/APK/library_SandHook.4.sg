@@ -1,0 +1,1 @@
+function detect(){return bDetected=X.isArchiveRecordPresent("lib/arm64-v8a/libsandhook-native.so")||X.isArchiveRecordPresent("lib/arm64-v8a/libsandhook.so")||X.isArchiveRecordPresent("lib/armeabi-v7a/libsandhook-native.so")||X.isArchiveRecordPresent("lib/armeabi-v7a/libsandhook.so"),result()}meta("library","SandHook")

@@ -1,0 +1,2 @@
+function detect(){var i
+return 48<=X.Sz()&&X.c("'RIFF'........'ACON'")&&(-1!=(i=X.fStr(12,X.Sz()-12,"framicon"))&&(sOptions=X.readByte(i+18)+"x"+X.readByte(i+19),i+=12+X.readDword(i+30),sOptions=sOptions.append(X.readWord(i+14)+"bpp")),-1!=(i=X.fSig(12,X.Sz()-12,"'anih'24000000"))&&(i=X.readDword(i+12),sOptions=sOptions.append(i+(1==i?" icon":" icons"))),bDetected=1),result()}meta("image","Windows Animated Cursor")

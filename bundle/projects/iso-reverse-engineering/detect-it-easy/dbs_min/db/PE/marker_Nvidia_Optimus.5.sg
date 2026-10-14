@@ -1,0 +1,1 @@
+function detect(){return X.isExportFunctionPresent("NvOptimusEnablement")?bDetected=1:X.isExportFunctionPresent("NoNvOptimEnablement")&&(sOptions="Disabled",bDetected=1),result()}meta("marker","Nvidia Optimus")

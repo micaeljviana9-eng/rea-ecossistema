@@ -1,0 +1,1 @@
+function detect(){return"Godot Engine"==X.getVersionStringInfo("FileDescription")&&(sVersion=File.cleanString(X.getFileVersion()),bDetected=1),result()}meta("game engine","Godot")

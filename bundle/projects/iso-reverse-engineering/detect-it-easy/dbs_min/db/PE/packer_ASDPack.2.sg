@@ -1,0 +1,1 @@
+function detect(){return X.compareEP("8B442404565753E8CD010000C30000000000000000000000000010000000")?(sVersion="2.0",bDetected=1):1===X.getNumberOfImports()&&3===X.getNumberOfSections()&&"Kernel32.dll"===X.getImportLibraryName(0)&&X.isImportPositionHashPresent(0,911341197)&&(bDetected=1),result()}meta("packer","ASDPack")

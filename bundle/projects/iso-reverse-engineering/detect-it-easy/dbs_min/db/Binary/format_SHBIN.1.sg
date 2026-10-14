@@ -1,0 +1,2 @@
+function detect(){var r
+return X.c("'DVLB'")&&(r=X.getString(12,4).trim(),/^[A-Z]{4}/.test(r))&&(X.isVerbose()&&(sOptions=r),bDetected=1),result()}meta("format","Shader Binary")

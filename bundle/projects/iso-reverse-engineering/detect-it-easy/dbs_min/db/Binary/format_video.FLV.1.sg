@@ -1,0 +1,1 @@
+function detect(){return 37<X.Sz()&&X.c("'FLV'")&&X.c("'onMetaData'",27)&&(bDetected=1),result()}meta("format","Flash Video")

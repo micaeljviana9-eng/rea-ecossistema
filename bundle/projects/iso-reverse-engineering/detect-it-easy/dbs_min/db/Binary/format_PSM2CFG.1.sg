@@ -1,0 +1,2 @@
+function detect(){var t
+return X.c("'PSM2CFG'")&&(t=X.getString(17,4).trim(),/^[0-9\.]{4}$/.test(t))&&(sVersion=t,bDetected=1),result()}meta("format","PSM2CFG")

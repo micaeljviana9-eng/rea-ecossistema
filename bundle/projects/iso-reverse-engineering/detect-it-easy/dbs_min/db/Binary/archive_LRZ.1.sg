@@ -1,0 +1,18 @@
+function detect(){if(9<=X.Sz()&&X.c("'LRZI'")){switch(bDetected=1,sVersion=X.U8(4)+"."+X.U8(5),X.U8(49)){case 3:break
+case 4:sOption("BZIP2")
+break
+case 5:sOption("LZO")
+break
+case 6:sOption("LZMA")
+break
+case 7:sOption("GZIP")
+break
+case 8:sOption("ZPAQ")
+break
+default:bDetected=0}switch(X.U8(22)){case 0:break
+case 1:sOption("encrypted")
+break
+default:bDetected=0}switch(X.U8(21)){case 0:break
+case 1:sOption("md5")
+break
+default:bDetected=0}}return result()}meta("archive","Long Range ZIP (.LRZ)")

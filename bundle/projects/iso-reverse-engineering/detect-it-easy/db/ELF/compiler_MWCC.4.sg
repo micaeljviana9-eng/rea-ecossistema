@@ -1,0 +1,30 @@
+// Detect It Easy: detection rule file
+// Author: BJNFNE <bjnfne@web.de>
+
+// https://decomp.wiki/compilers/MWCC
+meta("compiler", "MW MIPS C");
+
+function detect() {
+    var nSection = ELF.getSectionNumber(".comment");
+
+    if (nSection != -1) {
+        var nOffset = ELF.findString(
+            ELF.getSectionFileOffset(nSection),
+            ELF.getSectionFileSize(nSection),
+            "MW MIPS C Compiler"
+        );
+
+        if (nOffset != -1) {
+            bDetected = true;
+
+            var aVersion = ELF.getString(nOffset, 50).match(/\(([^)]+)\)/);
+            if (aVersion) {
+                sVersion = aVersion[1];
+            }
+        }
+    }
+
+    sLang = "C";
+
+    return result();
+}

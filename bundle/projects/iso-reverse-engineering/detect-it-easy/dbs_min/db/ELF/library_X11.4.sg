@@ -1,0 +1,1 @@
+function detect(){return X.isLibraryPresent("libX11.so.6")&&(bDetected=1),result()}meta("library","X11")

@@ -1,0 +1,3 @@
+function detect(){if(!X.isOverlay())return result()
+var e=X.Sz()
+X.isZeroFilled(0,e)&&_setResult("overlay","null padding","","")}

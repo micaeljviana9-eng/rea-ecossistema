@@ -1,0 +1,1 @@
+function detect(){return(X.c("'KDMV'01")||X.c("'KDMV'02")||X.c("'KDMV'03"))&&(sVersion=X.U8(4),bDetected=1),result()}meta("format","VMWare Virtual Disk (VMDK)")
