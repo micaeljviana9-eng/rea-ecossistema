@@ -1,0 +1,100 @@
+name: Import all remaining source archives
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/import-all-source-archives.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: import-all-source-archives
+  cancel-in-progress: false
+
+jobs:
+  archive-sources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Download pinned upstream source archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cat > sources.tsv <<'SOURCES'
+          capa	mandiant/capa	9cf793abf84f23ef9887b6fd7e6a9f6838b55708
+          capa-rules	mandiant/capa-rules	805f9eaccfb6a4e1ddffc809d71e2b5ccc15e5
+          chipsec	chipsec/chipsec	c11756375417cc859e25a98e0788849ebd6eb8cc
+          cutter	rizinorg/cutter	d7f11b220884a6cc8549da955b744bd318645103
+          detect-it-easy	horsicq/Detect-It-Easy	dd9ac5fa6762bdc28a96097e6d81aecf9571afda
+          dissect	fox-it/dissect	8477b4f4aaeb9070011dbd99cde81c990dd4d779
+          dynamorio	DynamoRIO/dynamorio	d1a47572c0ad60cc9f6e5eb240a6028e4c4a5693
+          edk2	tianocore/edk2	0d61209231b2ec50ca6f6b96825baaa07c280854
+          flare-floss	mandiant/flare-floss	f03936da325561cde7652a153f31923da0aa8990
+          flare-vm	mandiant/flare-vm	5dc321d336f2d1b0c77343bdfd8cd3ac01ba1b37
+          frida	frida/frida	3c7ea1530edb0c3bb9b1de84444510163052b18a
+          imhex	WerWolv/ImHex	34483cb90527cd71c92049ef3b1b2cc27936a1d4
+          libguestfs	libguestfs/libguestfs	af937d2f0f76ef599e212e5214cb9f6dc3f5c1f6
+          lief	lief-project/LIEF	5416ff2e2fcda29924c2f868a7249b4318359c41
+          pe-bear	hasherezade/pe-bear	b90f1d7d96635e7a029f424a0d1d11a104821685
+          pe-parse	trailofbits/pe-parse	9e4e3587969ea2410dadda1ccfa909aec1121d09
+          pe-tree	blackberry/pe_tree	2be607fc55702293cd02cbc6cda5283452464aff
+          pefile	erocarrera/pefile	58186a92164842cf758822e067bc79c59b3c80d9
+          phnt	winsiderss/phnt	53fbbdc5b5d2b08761db1c7b26bfa8c820924356
+          qiling	qilingframework/qiling	86c927cb329993b14e2586e04d1dd7a90deee5fb
+          reactos	reactos/reactos	c63ed8b88c2876f87aa7f227b4ac22c0556c174b
+          snowman	yegord/snowman	8c26cb1979822f7afe9504c72c9f022e2418fd6e
+          speakeasy	mandiant/speakeasy	aa9f22643f4519e0555141cd16ee25eb971b5518
+          syft	anchore/syft	ddc490c5c5606048715f4668e8adcc4a6267df3d
+          volatility3	volatilityfoundation/volatility3	77ff0b1932d77527f850c8ced01d85805ea7bf97
+          winbindex	m417z/winbindex	aacec0c2e1c622127dc72123f60c9c986fc94a2f
+          windows-driver-samples	microsoft/Windows-driver-samples	2dc3fd3a0cc84a2933f2194e7ec0871584979071
+          wine	wine-mirror/wine	5b6b85421c2a2161728b2a55e9f09271770a3eb0
+          x64dbg	x64dbg/x64dbg	4fc92664f0ea63136c07c68ea848a994ea2749c6
+          ghidra	NationalSecurityAgency/ghidra	918acd744d17e3b95fbde44ec6ab3e59b6dbd45f
+          ilspy	icsharpcode/ILSpy	dad8a25ed2b742c64b7e22b5db6cc13c69f3e9b2
+          radare2	radareorg/radare2	0ad346ff016627d686a2af51156adfc96ccde6d2
+          rizin	rizinorg/rizin	0164b933e43789a5cd16a2d7fb967c1f619502e1
+          push_artifacts	kaitai-io/push_artifacts	04b0a00a4dae1858f027ab0e96b8971e282cd48b
+          bats-core	bats-core/bats-core	0c92eb4c418d59fcb1a1a8c1d7a015f8149689f2
+          SOURCES
+
+          while IFS=$'\t' read -r name upstream sha; do
+            [[ -n "$name" ]] || continue
+            echo "::group::Downloading $name ($upstream @ $sha)"
+            curl --fail --location --retry 5 --retry-all-errors --connect-timeout 30 --max-time 1800 \
+              "https://codeload.github.com/$upstream/tar.gz/$sha" \
+              --output "dist/$name-$sha.tar.gz"
+            test -s "dist/$name-$sha.tar.gz"
+            printf '%s  %s\n' "$(sha256sum "dist/$name-$sha.tar.gz" | cut -d' ' -f1)" "$name-$sha.tar.gz" >> dist/SHA256SUMS.txt
+            echo "::endgroup::"
+          done < sources.tsv
+
+          cp sources.tsv dist/SOURCE-ARCHIVE-INDEX.tsv
+          cat > dist/README.txt <<'README'
+          REA Ecossistema — pinned source archives
+          Each .tar.gz is an upstream source snapshot at the exact commit listed in SOURCE-ARCHIVE-INDEX.tsv.
+          Verify downloaded assets with SHA256SUMS.txt.
+          These archives preserve source files but do not expand them into the main Git repository tree.
+          edk2-platforms is already imported as real files in bundle/projects/iso-reverse-engineering/edk2-platforms.
+          Check upstream licenses before redistribution.
+          README
+
+      - name: Publish source archives as a GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: source-archives-2026-10-14
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/*.tar.gz dist/SHA256SUMS.txt dist/SOURCE-ARCHIVE-INDEX.tsv dist/README.txt --repo "$REPO" --clobber
+          else
+            gh release create "$TAG" dist/*.tar.gz dist/SHA256SUMS.txt dist/SOURCE-ARCHIVE-INDEX.tsv dist/README.txt \
+              --repo "$REPO" \
+              --title "Pinned source archives — REA Ecossistema" \
+              --notes "Source snapshots of the remaining REA tools, pinned to upstream commit IDs. See SOURCE-ARCHIVE-INDEX.tsv and SHA256SUMS.txt. edk2-platforms is already stored as files in the repository. Review upstream licenses before redistribution."
+          fi
