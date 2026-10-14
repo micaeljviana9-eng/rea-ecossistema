@@ -5,13 +5,13 @@ REPO_URL="https://github.com/micaeljviana9-eng/rea-ecossistema.git"
 RELEASE_BASE="https://github.com/micaeljviana9-eng/rea-ecossistema/releases/download/source-archives-2026-10-14"
 INDEX_URL="$RELEASE_BASE/SOURCE-ARCHIVE-INDEX.tsv"
 TARGET="bundle/projects/iso-reverse-engineering/source-files"
-WORK="${TMPDIR:-$HOME/tmp}/rea-source-import"
+WORK="$HOME/rea-source-import"
 BRANCH="main"
 
 if ! command -v git >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1 || ! command -v tar >/dev/null 2>&1; then
   echo "Instalando ferramentas necessárias..."
   pkg update -y
-  pkg install -y git curl tar
+  pkg install -y git curl tar gh
 fi
 
 mkdir -p "$(dirname "$WORK")"
@@ -21,6 +21,15 @@ if [ ! -d "$WORK/rea-ecossistema/.git" ]; then
   echo "Clonando o repositório..."
   git clone "$REPO_URL" "$WORK/rea-ecossistema"
 fi
+
+if ! command -v gh >/dev/null 2>&1; then
+  pkg install -y gh
+fi
+if ! gh auth status >/dev/null 2>&1; then
+  echo "Entre na sua conta GitHub quando o gh solicitar (não compartilhe token no chat)."
+  gh auth login
+fi
+gh auth setup-git
 
 cd "$WORK/rea-ecossistema"
 git switch "$BRANCH"
