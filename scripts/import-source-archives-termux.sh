@@ -4,87 +4,132 @@ set -Eeuo pipefail
 REPO_URL="https://github.com/micaeljviana9-eng/rea-ecossistema.git"
 RELEASE_BASE="https://github.com/micaeljviana9-eng/rea-ecossistema/releases/download/source-archives-2026-10-14"
 INDEX_URL="$RELEASE_BASE/SOURCE-ARCHIVE-INDEX.tsv"
-TARGET="bundle/projects/iso-reverse-engineering/source-files"
+ROOT="bundle/projects/iso-reverse-engineering"
+STATUS="$ROOT/SOURCE_IMPORT_STATUS.tsv"
 WORK="$HOME/rea-source-import"
+CLONE="$WORK/rea-ecossistema"
+ARCHIVES="$WORK/archives"
 BRANCH="main"
 
-if ! command -v git >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1 || ! command -v tar >/dev/null 2>&1; then
-  echo "Instalando ferramentas necessárias..."
+need_pkg() {
+  command -v "$1" >/dev/null 2>&1
+}
+if ! need_pkg git || ! need_pkg curl || ! need_pkg tar || ! need_pkg gh; then
   pkg update -y
-  pkg install -y git curl tar gh
+  pkg install -y git curl tar gh findutils grep coreutils
 fi
 
-mkdir -p "$(dirname "$WORK")"
-mkdir -p "$WORK"
-
-if [ ! -d "$WORK/rea-ecossistema/.git" ]; then
-  echo "Clonando o repositório..."
-  git clone "$REPO_URL" "$WORK/rea-ecossistema"
+mkdir -p "$WORK" "$ARCHIVES"
+if [ ! -d "$CLONE/.git" ]; then
+  git clone "$REPO_URL" "$CLONE"
 fi
 
-if ! command -v gh >/dev/null 2>&1; then
-  pkg install -y gh
-fi
 if ! gh auth status >/dev/null 2>&1; then
-  echo "Entre na sua conta GitHub quando o gh solicitar (não compartilhe token no chat)."
+  echo "Autentique no GitHub quando solicitado. Não envie tokens para ninguém."
   gh auth login
 fi
 gh auth setup-git
 
-cd "$WORK/rea-ecossistema"
+cd "$CLONE"
 git switch "$BRANCH"
-# Resume any commits left locally if a previous push was interrupted.
+git fetch origin
+git pull --rebase origin "$BRANCH"
 git push origin "$BRANCH"
-mkdir -p "$TARGET"
 
 if [ -z "$(git config user.name || true)" ]; then
-  read -r -p "Seu nome para os commits do Git: " GIT_NAME
+  read -r -p "Nome para os commits Git: " GIT_NAME
   git config user.name "$GIT_NAME"
 fi
 if [ -z "$(git config user.email || true)" ]; then
-  read -r -p "Seu e-mail do GitHub: " GIT_EMAIL
+  read -r -p "E-mail para os commits Git: " GIT_EMAIL
   git config user.email "$GIT_EMAIL"
 fi
 
-curl --fail --location --retry 5 "$INDEX_URL" --output "$WORK/SOURCE-ARCHIVE-INDEX.tsv"
+mkdir -p "$ROOT"
+touch "$STATUS"
+curl --fail --location --retry 5 --retry-all-errors --connect-timeout 30 \
+  "$INDEX_URL" --output "$WORK/SOURCE-ARCHIVE-INDEX.tsv"
 
-while IFS="$(printf '\t')" read -r name upstream sha; do
-  [ -n "$name" ] || continue
-  archive="$WORK/$name-$sha.tar.gz"
-  dest="$TARGET/$name"
-  marker="$dest/.source-import-complete"
+is_imported() {
+  awk -F '\t' -v n="$1" '$1 == n { found=1 } END { exit !found }' "$STATUS"
+}
 
-  if [ -f "$marker" ]; then
-    echo "Já importado; pulando: $name"
+while IFS=$'\t' read -r name upstream sha; do
+  [ -n "${name:-}" ] || continue
+
+  if is_imported "$name"; then
+    echo "Já enviado; pulando: $name"
     continue
   fi
 
+  case "$name" in
+    push_artifacts) dest="$ROOT/kaitai-struct-formats/.github/push_artifacts" ;;
+    bats-core) dest="$ROOT/msitools/subprojects/bats-core" ;;
+    *) dest="$ROOT/$name" ;;
+  esac
+
+  archive="$ARCHIVES/$name-$sha.tar.gz"
+  stage="$WORK/extracted-$name"
+  ready="$WORK/extracted-$name.ok"
+
   echo
-  echo "===== Importando $name ($upstream @ $sha) ====="
-  curl --fail --location --retry 5 --retry-all-errors --connect-timeout 30 \
-    "$RELEASE_BASE/$name-$sha.tar.gz" --output "$archive"
+  echo "========== $name — $upstream @ $sha =========="
 
-  rm -rf "$dest"
-  mkdir -p "$dest"
-  if ! tar -xzf "$archive" --strip-components=1 -C "$dest"; then
-    echo "Falha ao extrair $name. Mantive os commits anteriores; pode executar novamente."
-    exit 1
+  if [ ! -s "$archive" ] && [ ! -f "$ready" ]; then
+    curl --fail --location --retry 5 --retry-all-errors --connect-timeout 30 --max-time 1800 \
+      "$RELEASE_BASE/$name-$sha.tar.gz" --output "$archive"
   fi
-  printf 'upstream=%s\ncommit=%s\narchive=%s\n' "$upstream" "$sha" "$name-$sha.tar.gz" > "$marker"
 
-  git add -f "$dest"
-  if git diff --cached --quiet; then
-    echo "Nenhuma alteração Git para $name."
+  if [ ! -f "$ready" ]; then
+    rm -rf "$stage"
+    mkdir -p "$stage"
+    if ! tar -xzf "$archive" --strip-components=1 -C "$stage"; then
+      echo "ERRO: não consegui extrair $name. Parei para não corromper a importação."
+      exit 1
+    fi
+    touch "$ready"
+  fi
+
+  # GitHub rejects individual files over 100 MiB. Flag these before changing Git.
+  large_list="$WORK/large-files-$name.txt"
+  find "$stage" -type f -size +95M -print > "$large_list" || true
+  if [ -s "$large_list" ]; then
+    echo "PENDENTE: $name contém arquivos grandes demais para enviar com Git comum."
+    echo "Arquivos encontrados:"
+    cat "$large_list"
+    echo "A cópia extraída ficou no aparelho em: $stage"
+    echo "Vou continuar com os outros projetos; este será tratado depois com Git LFS/alternativa."
+    continue
+  fi
+
+  # Remove the submodule pointer (gitlink) before replacing it with real source files.
+  if git ls-files --stage -- "$dest" | grep -q '^160000 '; then
+    git rm -f -- "$dest"
   else
-    git commit -m "Import source snapshot: $name ($sha)"
+    rm -rf "$dest"
+  fi
+  mkdir -p "$(dirname "$dest")"
+  mv "$stage" "$dest"
+  rm -f "$ready"
+
+  printf '%s\t%s\t%s\n' "$name" "$upstream" "$sha" >> "$STATUS"
+  git add -f -- "$dest" "$STATUS"
+  git add -f -- .gitmodules 2>/dev/null || true
+
+  if git diff --cached --quiet; then
+    echo "Sem alterações para registrar: $name"
+  else
+    git commit -m "Import source files: $name ($sha)"
     echo "Enviando $name ao GitHub..."
     git push origin "$BRANCH"
   fi
 
-  rm -f "$archive"
-  echo "Concluído: $name"
+  rm -f "$archive" "$large_list"
+  echo "OK: $name"
 done < "$WORK/SOURCE-ARCHIVE-INDEX.tsv"
 
 echo
-echo "Importação concluída. Pastas em: $TARGET"
-echo "Repositório local: $WORK/rea-ecossistema"
+echo "Importação executada. Confira os projetos pendentes acima."
+echo "Fontes: $ROOT"
+echo "Status: $STATUS"
+echo "Área de trabalho local: $CLONE"
