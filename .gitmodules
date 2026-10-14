@@ -1,7 +1,3 @@
-[submodule "bundle/projects/iso-reverse-engineering/capa"]
-	path = bundle/projects/iso-reverse-engineering/capa
-	url = https://github.com/mandiant/capa.git
-
 [submodule "bundle/projects/iso-reverse-engineering/capa-rules"]
 	path = bundle/projects/iso-reverse-engineering/capa-rules
 	url = https://github.com/mandiant/capa-rules.git

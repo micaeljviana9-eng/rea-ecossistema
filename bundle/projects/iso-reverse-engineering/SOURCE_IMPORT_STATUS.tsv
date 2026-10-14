@@ -1,0 +1,2 @@
+name	upstream	commit	destination	regular_files	nested_submodules
+capa	mandiant/capa	9cf793abf84f23ef9887b6fd7e6a9f6838b55708	bundle/projects/iso-reverse-engineering/capa	1969	3
