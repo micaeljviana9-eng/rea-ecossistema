@@ -105,3 +105,10 @@ arquivos README, LICENSE, COPYING e .gitmodules de cada projeto.
 - `xorriso` e `libcdio`: preferir pacote ou tarball oficial; validar assinatura/hash antes de guardar a fonte.
 - Ferramentas de sistema como `e2fsprogs`, `mtools`, `qemu-img`, `cpio`, GRUB e Syslinux devem ser registradas como dependências de ambiente, não clonadas às cegas.
 
+
+## Submódulo externo registrado
+
+- Caminho no bundle: `bundle/projects/iso-reverse-engineering/edk2-platforms`
+- Origem: https://github.com/tianocore/edk2-platforms.git
+- Commit fixado: `013fca79e55c7ac4f3d0eaf23799a9a73ed43dba` (branch `master` consultada em 2026-10-14)
+- Estado: registrado como submódulo Git, não como cópia achatada. Para materializar os arquivos localmente após clonar o bundle, execute `git submodule update --init --recursive`. O arquivo `Platform/Ampere/Readme.md` será obtido do repositório de origem.
