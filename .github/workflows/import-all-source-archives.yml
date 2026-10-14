@@ -25,7 +25,7 @@ jobs:
           mkdir -p dist
           cat > sources.tsv <<'SOURCES'
           capa	mandiant/capa	9cf793abf84f23ef9887b6fd7e6a9f6838b55708
-          capa-rules	mandiant/capa-rules	805f9eaccfb6a4e1ddffc809d71e2b5ccc15e5
+          capa-rules	mandiant/capa-rules	805f9eaccfb6a4e1ddffc809d71d1e2b5ccc15e5
           chipsec	chipsec/chipsec	c11756375417cc859e25a98e0788849ebd6eb8cc
           cutter	rizinorg/cutter	d7f11b220884a6cc8549da955b744bd318645103
           detect-it-easy	horsicq/Detect-It-Easy	dd9ac5fa6762bdc28a96097e6d81aecf9571afda
