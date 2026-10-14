@@ -1,0 +1,6 @@
+@@ -1,4 +1,4 @@
+ directory   .
+ directory   dir
+-symlink     dir/link -> broken
++symlink     dir/link -> really-broken
+ regular     dir/text

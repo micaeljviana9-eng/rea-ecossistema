@@ -1,0 +1,22 @@
+@@ -1,17 +1,16 @@
+ // callconv: rax amd64 (rdi, rsi, rdx, rcx, r8, r9, xmm0, xmm1, xmm2, xmm3, xmm4);
+ int main (int argc, char **argv, char **envp) {
+-        push (rbp)   // [00] -r-x section size 49 named 0.__TEXT.__text
++        push (rbp)   // [00] -r-x section size 42 named 0.__TEXT.__text
+         rbp = rsp
+         rsp -= 0x10
+-        rdi = rip + 0x43 // section.3.__TEXT.__cstring // 0x100000f72 // "%s %s\n"
+-        rsi = rip + 0x43 // str.17:31:50 // 0x100000f79 // "17:31:50"
+-        rdx = rip + 0x45 // str.Wed_Dec__2_17:31:49_2015 // 0x100000f82 // "Wed Dec  2 17:31:49 2015"
++        rdi = rip + 0x3b // section.3.__TEXT.__cstring // 0x100000f8a // "%s\n"
++        rsi = rip + 0x38 // str.15:52:34 // 0x100000f8e // "15:52:34"
+         al = 0
+-        sym.imp.printf () // int printf("%s %s\n", "17:31:50", "Wed Dec  2 17:31:49 2015")
++        sym.imp.printf () // int printf("%s\n", "15:52:34")
+         ecx = 0
+         dword [var_4h] = eax
+         eax = ecx
+         rsp += 0x10
+         rbp = pop ()
+         return       // rsp // rsp
+ }

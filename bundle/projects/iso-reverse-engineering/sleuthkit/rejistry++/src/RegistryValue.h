@@ -1,0 +1,95 @@
+/*
+ *
+ * The Sleuth Kit
+ *
+ * Copyright 2013-2015 Basis Technology Corp.
+ * Contact: carrier <at> sleuthkit <dot> org
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * This is a C++ port of the Rejistry library developed by Willi Ballenthin.
+ * See https://github.com/williballenthin/Rejistry for the original Java version.
+ */
+
+/**
+ * \file RegistryValue.h
+ *
+ */
+#ifndef _REJISTRY_REGISTRYVALUE_H
+#define _REJISTRY_REGISTRYVALUE_H
+
+#include <string>
+#include <vector>
+
+// Local includes
+#include "ValueData.h"
+#include "VKRecord.h"
+
+namespace Rejistry {
+
+    /**
+     * Class that represents a Registry value.
+     */
+    class RegistryValue {
+    public:
+
+        typedef std::unique_ptr<RegistryValue> RegistryValueUniqPtr;
+        typedef std::vector<RegistryValueUniqPtr> RegistryValuePtrList;
+
+        RegistryValue(std::unique_ptr<VKRecord> vk) { _vk = std::move(vk); }
+        RegistryValue(const RegistryValue& );
+
+        virtual ~RegistryValue();
+        
+        /**
+         * Get the name of this value.
+         * @returns ASCII key name
+         */
+        std::wstring getName() const;
+
+        /**
+         * Get the type of this value.
+         * @returns Enum type of value.
+         */
+        ValueData::VALUE_TYPES getValueType() const;
+
+        /**
+         * Get the value data.
+         * @returns Unique pointer to the value data.
+         * @throws RegistryParseException on error.
+         */
+        ValueData::ValueDataUniqPtr getValue() const;
+
+        /**
+         * Get the length of the value in bytes, as declared by the value's
+         * record in the hive.
+         *
+         * Do not use this to size reads of the value data. In a corrupt or
+         * crafted hive the declared length can be larger than the data that
+         * is actually stored, and getValue() returns only the bytes present.
+         * Use the size of the returned data (e.g. getAsRawData().size())
+         * instead. If the two differ, the value data is truncated.
+         *
+         * @returns The declared length of the value in bytes.
+         */
+        uint32_t getValueLength() const;
+
+    private:
+        RegistryValue();
+        RegistryValue& operator=(const RegistryValue &);
+
+        std::unique_ptr<VKRecord> _vk;
+    };
+};
+
+#endif

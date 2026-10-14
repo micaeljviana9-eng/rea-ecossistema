@@ -1,0 +1,20 @@
+#!/bin/sh
+
+set -e
+
+if ! [ -d "$AUTOPKGTEST_TMP" ]; then
+    echo "AUTOPKGTEST_TMP not set." >&2
+    exit 1
+fi
+
+export LIBGUESTFS_MEMSIZE=128
+if [ "$(basename "$0")" = "pytest-with-recommends" ]; then
+    export DIFFOSCOPE_FAIL_TESTS_ON_MISSING_TOOLS="aapt2 androguard apktool asar cpio dexdump zipinfo pedump qemu-img oggDump ppudump otool lipo radare2 ssh"
+fi
+
+for py in $(py3versions -s); do
+    echo "@@@@@@@@ Running against $py"
+    cp -r tests pyproject.toml "$AUTOPKGTEST_TMP"
+    (cd "$AUTOPKGTEST_TMP"; "$py" -m pytest -vv -l -r a -k 'not test_code_is_black_clean')
+    rm -rf "${AUTOPKGTEST_TMP:?}"/*
+done

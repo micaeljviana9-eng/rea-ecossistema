@@ -1,0 +1,9 @@
+@@ -1,8 +1,2 @@
+-./journal PAX header SCHILY.xattr.system.posix_acl_default: 
+-   ACL_USER_OBJ rwx 2^32-1
+-  ACL_GROUP_OBJ rx  2^32-1
+-      ACL_GROUP rx  4
+-       ACL_MASK rx  2^32-1
+-      ACL_OTHER rx  2^32-1
+ ./journal PAX header atime: 2026-06-29 22:01:12.232778+00:00
+ ./journal PAX header ctime: 2023-01-12 09:50:07.391583+00:00
