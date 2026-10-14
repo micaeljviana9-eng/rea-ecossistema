@@ -14,7 +14,7 @@ BRANCH="main"
 need_pkg() {
   command -v "$1" >/dev/null 2>&1
 }
-if ! need_pkg git || ! need_pkg curl || ! need_pkg tar || ! need_pkg gh; then
+if ! need_pkg git || ! need_pkg curl || ! need_pkg tar || ! need_pkg gh || ! need_pkg python; then
   pkg update -y
   pkg install -y git curl tar gh findutils grep coreutils python
 fi
