@@ -21,7 +21,7 @@ fi
 
 mkdir -p "$WORK" "$ARCHIVES"
 if [ ! -d "$CLONE/.git" ]; then
-  git clone "$REPO_URL" "$CLONE"
+  git clone --depth 1 --filter=blob:none --sparse "$REPO_URL" "$CLONE"
 fi
 
 if ! gh auth status >/dev/null 2>&1; then
@@ -31,6 +31,10 @@ fi
 gh auth setup-git
 
 cd "$CLONE"
+# Keep only the folders needed for this import checked out; the repository
+# contains many thousands of unrelated files and can overwhelm a phone.
+git sparse-checkout init --cone
+git sparse-checkout set README.md .gitmodules scripts bundle/projects/iso-reverse-engineering
 git switch "$BRANCH"
 git fetch origin
 git pull --rebase origin "$BRANCH"
