@@ -63,7 +63,7 @@ fi
 cd "$CLONE"
 git switch "$BRANCH"
 git sparse-checkout init --cone
-git sparse-checkout set README.md .gitmodules scripts bundle/projects/iso-reverse-engineering
+git sparse-checkout set scripts bundle/projects/iso-reverse-engineering
 if [ -z "$(git status --porcelain)" ]; then
   git pull --rebase origin "$BRANCH"
 else
