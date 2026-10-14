@@ -15,7 +15,7 @@ Este diretório reúne ferramentas e fontes para estudar uma ISO do Windows de f
 
 O inventário inicial deste projeto contém:
 
-- **Arquivos/formatos/extração:** `7zip`, `libarchive`, `pycdlib`, `squashfs-tools`, `wimlib`, `msitools`, `innoextract`, `unshield`, `binwalk`, `unblob`, `unblob-native`.
+- **Arquivos/formatos/extração:** `7zip`, `libarchive`, `pycdlib`, `squashfs-tools`, `wimlib`, `msitools`, `innoextract`, `unshield`, `binwalk`, `unblob`, `unblob-native`, `kaitai-struct-formats`.
 - **Comparação/forense:** `diffoscope`, `sleuthkit`.
 - **Firmware/UEFI:** `UEFITool`, `fiano`, `uefi-firmware-parser`, `edk2-platforms`.
 - **Formatos estruturados:** `kaitai-struct-formats`.
