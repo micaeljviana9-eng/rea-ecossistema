@@ -80,7 +80,7 @@ while IFS=$'\t' read -r name upstream sha; do
       "$RELEASE_BASE/$name-$sha.tar.gz" --output "$archive"
   fi
 
-  if [ ! -f "$ready" ]; then
+  if [ ! -f "$ready" ] || [ ! -d "$stage" ]; then
     rm -rf "$stage"
     mkdir -p "$stage"
     if ! tar -xzf "$archive" --strip-components=1 -C "$stage"; then
