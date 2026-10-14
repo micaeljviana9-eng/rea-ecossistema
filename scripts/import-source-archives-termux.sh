@@ -150,16 +150,16 @@ import pathlib, re, sys
 path = sys.argv[1]
 p = pathlib.Path(".gitmodules")
 text = p.read_text(encoding="utf-8") if p.exists() else ""
-blocks = re.split(r"(?=^\\[submodule )", text, flags=re.MULTILINE)
+blocks = re.split(r"(?=^\[submodule )", text, flags=re.MULTILINE)
 kept = []
 for block in blocks:
-    match = re.search(r"^\\s*path\\s*=\\s*(.*?)\\s*$", block, flags=re.MULTILINE)
+    match = re.search(r"^\s*path\s*=\s*(.*?)\s*$", block, flags=re.MULTILINE)
     if match and match.group(1) == path:
         continue
     kept.append(block)
 new_text = "".join(kept).strip()
 if new_text:
-    p.write_text(new_text + "\\n", encoding="utf-8")
+    p.write_text(new_text + "\n", encoding="utf-8")
 elif p.exists():
     p.unlink()
 PY
@@ -169,7 +169,7 @@ PY
   mv "$stage" "$dest"
   rm -f "$ready"
 
-  printf '%s\\t%s\\t%s\\n' "$name" "$upstream" "$sha" >> "$STATUS"
+  printf '%s\t%s\t%s\n' "$name" "$upstream" "$sha" >> "$STATUS"
   git add -f -- "$dest" "$STATUS"
   git add -A -- .gitmodules
 
