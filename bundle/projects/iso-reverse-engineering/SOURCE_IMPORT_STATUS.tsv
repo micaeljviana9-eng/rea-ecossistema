@@ -6,3 +6,4 @@ cutter	rizinorg/cutter	d7f11b220884a6cc8549da955b744bd318645103	bundle/projects/
 detect-it-easy	horsicq/Detect-It-Easy	dd9ac5fa6762bdc28a96097e6d81aecf9571afda	bundle/projects/iso-reverse-engineering/detect-it-easy	5201	0
 dissect	fox-it/dissect	8477b4f4aaeb9070011dbd99cde81c990dd4d779	bundle/projects/iso-reverse-engineering/dissect	9	0
 dynamorio	DynamoRIO/dynamorio	d1a47572c0ad60cc9f6e5eb240a6028e4c4a5693	bundle/projects/iso-reverse-engineering/dynamorio	5119	3
+edk2	tianocore/edk2	0d61209231b2ec50ca6f6b96825baaa07c280854	bundle/projects/iso-reverse-engineering/edk2	101792	54
