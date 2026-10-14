@@ -2,7 +2,7 @@
 
 Updated: 2026-10-14
 
-This file records official upstream repositories pinned to exact commit IDs. These entries are Git submodules (gitlinks), not copies of all source files in this repository. A normal Git checkout does not materialize their working trees automatically. From the repository root, initialize them with:
+This file records official upstream repositories pinned to exact commit IDs. The 33 tool/engine paths in the table below are Git submodules (gitlinks), not copies of their source files; `edk2-platforms` is the exception and has been imported as an actual source snapshot. A normal Git checkout does not materialize submodule working trees automatically. From the repository root, initialize them with:
 
 ```bash
 git submodule update --init --recursive
@@ -10,7 +10,7 @@ git submodule update --init --recursive
 
 Large sources such as ReactOS, Wine, Winbindex, EDK II, and libguestfs can require substantial disk space. The list pins the commit IDs found at the upstream default branch at import time; commits remain reproducible unless an upstream deletes the referenced object.
 
-The separate `edk2-platforms` source is intentionally imported as a source snapshot by the one-time GitHub Actions workflow, because its entry is materialized in this bundle rather than left as a gitlink.
+The `edk2-platforms` source snapshot is present at `bundle/projects/iso-reverse-engineering/edk2-platforms`, pinned to commit `013fca79e55c7ac4f3d0eaf23799a9a73ed43dba` from upstream `master`. The one-time workflow was removed after successfully importing the files.
 
 ## Requested project paths
 
@@ -24,6 +24,7 @@ The separate `edk2-platforms` source is intentionally imported as a source snaps
 | `dissect` | [`fox-it/dissect`](https://github.com/fox-it/dissect) | `main` | `8477b4f4aaeb9070011dbd99cde81c990dd4d779` | Git submodule |
 | `dynamorio` | [`DynamoRIO/dynamorio`](https://github.com/DynamoRIO/dynamorio) | `master` | `d1a47572c0ad60cc9f6e5eb240a6028e4c4a5693` | Git submodule |
 | `edk2` | [`tianocore/edk2`](https://github.com/tianocore/edk2) | `master` | `0d61209231b2ec50ca6f6b96825baaa07c280854` | Git submodule |
+| `edk2-platforms` | [`tianocore/edk2-platforms`](https://github.com/tianocore/edk2-platforms) | `master` | `013fca79e55c7ac4f3d0eaf23799a9a73ed43dba` | Source snapshot (files imported) |
 | `flare-floss` | [`mandiant/flare-floss`](https://github.com/mandiant/flare-floss) | `master` | `f03936da325561cde7652a153f31923da0aa8990` | Git submodule |
 | `flare-vm` | [`mandiant/flare-vm`](https://github.com/mandiant/flare-vm) | `main` | `5dc321d336f2d1b0c77343bdfd8cd3ac01ba1b37` | Git submodule |
 | `frida` | [`frida/frida`](https://github.com/frida/frida) | `main` | `3c7ea1530edb0c3bb9b1de84444510163052b18a` | Git submodule |
