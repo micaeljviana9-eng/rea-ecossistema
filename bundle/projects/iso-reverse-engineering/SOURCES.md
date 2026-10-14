@@ -56,3 +56,10 @@ As fontes são mantidas separadas. Confira a licença original de cada projeto a
 - Finalidade: Código-fonte do 7-Zip para formatos de arquivos e imagens.
 - Data da importação: 2026-10-14 20:21:17 UTC
 - Histórico Git do projeto original: não incluído; conferir os avisos de licença copiados.
+
+## edk2-platforms
+- Repository: https://github.com/tianocore/edk2-platforms
+- Imported commit: `013fca79e55c7ac4f3d0eaf23799a9a73ed43dba` (upstream `master`, 2026-10-09)
+- Destination: `bundle/projects/iso-reverse-engineering/edk2-platforms`
+- Method: pinned source archive; upstream Git history is not included.
+- License: preserve and review the included `License.txt`, `License-History.txt`, and any component-specific notices.

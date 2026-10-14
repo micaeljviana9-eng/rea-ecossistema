@@ -1,0 +1,153 @@
+/** @file
+
+  Copyright (c) 2017 - 2026, ARM Limited. All rights reserved.
+
+  SPDX-License-Identifier: BSD-2-Clause-Patent
+
+  @par Reference(s):
+    - Base Platform interrupt assignments [https://developer.arm.com/documentation/110379/1131/Base-Platform/Base-Platform-interrupt-assignments]
+    - Base Platform Memory Map [https://support.arm.com/documentation/110379/1132/Base-Platform/Base-Platform-memory-map]
+    - Base Platform GICv5 interrupt assignments [https://support.arm.com/documentation/110379/1132/Base-Platform/FVP-Base-RevC-2xAEMvA-GICv5-platform-interrupt-assignments]
+    - GICv5 specification [https://support.arm.com/documentation/111701/latest]
+
+**/
+
+#ifndef PLATFORM_H__
+#define PLATFORM_H__
+
+#define ENABLE_MEM_MAPPED_TIMER
+
+#ifdef ENABLE_MEM_MAPPED_TIMER
+// REFCLK CNTControl
+#define FVP_SYSTEM_TIMER_BASE_ADDRESS   0x2A430000
+// REFCLK CNTRead
+#define FVP_CNT_READ_BASE_ADDRESS       0x2A800000
+#else
+#define FVP_SYSTEM_TIMER_BASE_ADDRESS   0xFFFFFFFFFFFFFFFF
+#define FVP_CNT_READ_BASE_ADDRESS       0xFFFFFFFFFFFFFFFF
+#endif
+
+// GT Block Timer
+// AP_REFCLK CNTCTL
+#define FVP_GT_BLOCK_CTL_BASE           0x2A810000
+#define FVP_TIMER_FRAMES_COUNT          2
+
+// GT Block Timer Frames
+// AP_REFCLK_S CNTBase0
+#define FVP_GT_BLOCK_FRAME0_CTL_BASE      0x2A820000
+#define FVP_GT_BLOCK_FRAME0_CTL_EL0_BASE  0xFFFFFFFFFFFFFFFF
+#define FVP_GT_BLOCK_FRAME0_GSIV          57
+#define FVP_GT_BLOCK_FRAME0_GSIV_GICV5    (FVP_GICV5_INTERRUPT_TYPE_SPI | 0x19)
+
+// AP_REFCLK_NS CNTBase1
+#define FVP_GT_BLOCK_FRAME1_CTL_BASE      0x2A830000
+#define FVP_GT_BLOCK_FRAME1_CTL_EL0_BASE  0xFFFFFFFFFFFFFFFF
+#define FVP_GT_BLOCK_FRAME1_GSIV          58
+#define FVP_GT_BLOCK_FRAME1_GSIV_GICV5    (FVP_GICV5_GSI_TYPE_IWB | 0x3)
+
+#define GTDT_TIMER_EDGE_TRIGGERED   \
+          EFI_ACPI_6_2_GTDT_TIMER_FLAG_TIMER_INTERRUPT_MODE
+#define GTDT_TIMER_LEVEL_TRIGGERED  0
+#define GTDT_TIMER_ACTIVE_LOW       \
+          EFI_ACPI_6_2_GTDT_TIMER_FLAG_TIMER_INTERRUPT_POLARITY
+#define GTDT_TIMER_ACTIVE_HIGH      0
+#define GTDT_TIMER_SAVE_CONTEXT     \
+          EFI_ACPI_6_2_GTDT_TIMER_FLAG_ALWAYS_ON_CAPABILITY
+#define GTDT_TIMER_LOSE_CONTEXT     0
+
+#define FVP_GTDT_GTIMER_FLAGS       (GTDT_TIMER_LOSE_CONTEXT   | \
+                                       GTDT_TIMER_ACTIVE_LOW   | \
+                                       GTDT_TIMER_LEVEL_TRIGGERED)
+
+// GT Block Timer Flags
+#define GTX_TIMER_EDGE_TRIGGERED    \
+          EFI_ACPI_6_2_GTDT_GT_BLOCK_TIMER_FLAG_TIMER_INTERRUPT_MODE
+#define GTX_TIMER_LEVEL_TRIGGERED   0
+#define GTX_TIMER_ACTIVE_LOW        \
+          EFI_ACPI_6_2_GTDT_GT_BLOCK_TIMER_FLAG_TIMER_INTERRUPT_POLARITY
+#define GTX_TIMER_ACTIVE_HIGH       0
+
+#define FVP_GTX_TIMER_FLAGS         (GTX_TIMER_ACTIVE_HIGH | \
+                                       GTX_TIMER_LEVEL_TRIGGERED)
+
+#define GTX_TIMER_SECURE            \
+          EFI_ACPI_6_2_GTDT_GT_BLOCK_COMMON_FLAG_SECURE_TIMER
+#define GTX_TIMER_NON_SECURE        0
+#define GTX_TIMER_SAVE_CONTEXT      \
+          EFI_ACPI_6_2_GTDT_GT_BLOCK_COMMON_FLAG_ALWAYS_ON_CAPABILITY
+#define GTX_TIMER_LOSE_CONTEXT      0
+
+#define FVP_GTX_COMMON_FLAGS_S      (GTX_TIMER_SAVE_CONTEXT      | \
+                                       GTX_TIMER_SECURE)
+#define FVP_GTX_COMMON_FLAGS_NS     (GTX_TIMER_SAVE_CONTEXT      | \
+                                       GTX_TIMER_NON_SECURE)
+
+// Watchdog
+#define SBSA_WATCHDOG_EDGE_TRIGGERED   \
+          EFI_ACPI_6_2_GTDT_SBSA_GENERIC_WATCHDOG_FLAG_TIMER_INTERRUPT_MODE
+#define SBSA_WATCHDOG_LEVEL_TRIGGERED  0
+#define SBSA_WATCHDOG_ACTIVE_LOW       \
+          EFI_ACPI_6_2_GTDT_SBSA_GENERIC_WATCHDOG_FLAG_TIMER_INTERRUPT_POLARITY
+#define SBSA_WATCHDOG_ACTIVE_HIGH      0
+#define SBSA_WATCHDOG_SECURE           \
+          EFI_ACPI_6_2_GTDT_SBSA_GENERIC_WATCHDOG_FLAG_SECURE_TIMER
+#define SBSA_WATCHDOG_NON_SECURE       0
+
+#define FVP_SBSA_WATCHDOG_FLAGS        (SBSA_WATCHDOG_NON_SECURE       | \
+                                          SBSA_WATCHDOG_ACTIVE_HIGH    | \
+                                          SBSA_WATCHDOG_LEVEL_TRIGGERED)
+
+// PL050 keyboard and mouse interfaces
+#define FVP_PL050_KEYBOARD_BASE_ADDRESS  0x1C060000
+#define FVP_PL050_MOUSE_BASE_ADDRESS     0x1C070000
+#define FVP_PL050_KEYBOARD_IRQ           44
+#define FVP_PL050_MOUSE_IRQ              45
+
+// GICv5
+#define FVP_GICV5_INTERRUPT_TYPE_SHIFT            (29)
+#define FVP_GICV5_INTERRUPT_TYPE_PPI              (1 << FVP_GICV5_INTERRUPT_TYPE_SHIFT)
+#define FVP_GICV5_INTERRUPT_TYPE_LPI              (2 << FVP_GICV5_INTERRUPT_TYPE_SHIFT)
+#define FVP_GICV5_INTERRUPT_TYPE_SPI              (3 << FVP_GICV5_INTERRUPT_TYPE_SHIFT)
+
+#define FVP_GICV5_GSI_TYPE_IWB                    (7 << FVP_GICV5_INTERRUPT_TYPE_SHIFT)
+
+#define FVP_GICV5_ITS_CONF_FRAME_BASE         (0x2f120000)
+#define FVP_GICV5_ITS_TRANS_FRAME_BASE        (0x2f130000)
+
+#define FVP_GICV5_IRS_CONF_FRAME_BASE         (0x2f1a0000)
+#define FVP_GICV5_IRS_SETLPI_FRAME_BASE       (0x2f1b0000)
+
+#define FVP_GICV5_IWB_CONF_FRAME_BASE         (0x2f000000)
+#define FVP_GICV5_IWB_GSIV_BASE               (FVP_GICV5_GSI_TYPE_IWB)
+
+#define FVP_GICV5_PMU_IRQ                     (FVP_GICV5_INTERRUPT_TYPE_PPI | 0x17)
+#define FVP_GICV5_VGIC_IRQ                    (FVP_GICV5_INTERRUPT_TYPE_PPI | 0x19)
+
+#define FVP_GICV5_ARM_ARCH_S_TIMER_IRQ        (FVP_GICV5_INTERRUPT_TYPE_PPI | 0x1d)
+#define FVP_GICV5_ARM_ARCH_NS_TIMER_IRQ       (FVP_GICV5_INTERRUPT_TYPE_PPI | 0x1e)
+#define FVP_GICV5_ARM_ARCH_VIRT_TIMER_IRQ     (FVP_GICV5_INTERRUPT_TYPE_PPI | 0x1b)
+#define FVP_GICV5_ARM_ARCH_HYP_TIMER_IRQ      (FVP_GICV5_INTERRUPT_TYPE_PPI | 0x1a)
+
+#define FVP_GICV5_SPCR_IRQ                    (FVP_GICV5_INTERRUPT_TYPE_SPI | 0x05)
+#define FVP_GICV5_DBG_IRQ                     (FVP_GICV5_INTERRUPT_TYPE_SPI | 0x06)
+
+#define FVP_GICV5_PL050_KEYBOARD_IRQ          (FVP_GICV5_INTERRUPT_TYPE_SPI | 0x0c)
+#define FVP_GICV5_PL050_MOUSE_IRQ             (FVP_GICV5_INTERRUPT_TYPE_SPI | 0x0d)
+
+#define FVP_GICV5_SMMU3_EVENT_IRQ             (FVP_GICV5_INTERRUPT_TYPE_SPI | 0x4a)
+#define FVP_GICV5_SMMU3_PRI_IRQ               (FVP_GICV5_INTERRUPT_TYPE_SPI | 0x4b)
+#define FVP_GICV5_SMMU3_GERR_IRQ              (FVP_GICV5_INTERRUPT_TYPE_SPI | 0x4f)
+#define FVP_GICV5_SMMU3_SYNC_IRQ              (FVP_GICV5_INTERRUPT_TYPE_SPI | 0x4d)
+
+#define FVP_GICV5_PCIE_PRT0_IRQ               (FVP_GICV5_INTERRUPT_TYPE_SPI | 0xa8)
+#define FVP_GICV5_PCIE_PRT1_IRQ               (FVP_GICV5_INTERRUPT_TYPE_SPI | 0xa9)
+#define FVP_GICV5_PCIE_PRT2_IRQ               (FVP_GICV5_INTERRUPT_TYPE_SPI | 0xaa)
+#define FVP_GICV5_PCIE_PRT3_IRQ               (FVP_GICV5_INTERRUPT_TYPE_SPI | 0xab)
+
+#define FVP_GICV5_PCIE_IWB0_IRQ               (FVP_GICV5_IWB_GSIV_BASE | 0xa8)
+#define FVP_GICV5_PCIE_IWB1_IRQ               (FVP_GICV5_IWB_GSIV_BASE | 0xa9)
+#define FVP_GICV5_PCIE_IWB2_IRQ               (FVP_GICV5_IWB_GSIV_BASE | 0xaa)
+#define FVP_GICV5_PCIE_IWB3_IRQ               (FVP_GICV5_IWB_GSIV_BASE | 0xab)
+
+#endif // PLATFORM_H__
+

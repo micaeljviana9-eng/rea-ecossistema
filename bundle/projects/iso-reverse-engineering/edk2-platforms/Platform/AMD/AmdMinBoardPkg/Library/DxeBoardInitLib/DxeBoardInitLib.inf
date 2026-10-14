@@ -1,0 +1,45 @@
+## @file
+#  Implements BoardInitLib Library Class in DXE phase.
+#
+#  Copyright (C) 2023 - 2026 Advanced Micro Devices, Inc. All rights reserved.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 1.29
+  BASE_NAME                      = DxeBoardInitLib
+  FILE_GUID                      = B3C8F348-B528-4CA0-928E-3193ADEA65E6
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = BoardInitLib
+  CONSTRUCTOR                    = DxeBoardInitLibConstructor
+  SUPPORTED_ARCHITECTURES        = X64
+
+[LibraryClasses]
+  BaseLib
+  DebugLib
+  DxeServicesTableLib
+  PcdLib
+  UefiBootServicesTableLib
+
+[Packages]
+  AgesaPkg/AgesaPkg.dec
+  MdePkg/MdePkg.dec
+  MinPlatformPkg/MinPlatformPkg.dec
+  PcAtChipsetPkg/PcAtChipsetPkg.dec
+
+[Sources]
+  DxeBoardInitLib.c
+  DxeBoardInitLibInternal.c
+  DxeBoardInitLibInternal.h
+
+[Pcd]
+  gEfiAmdAgesaPkgTokenSpaceGuid.PcdAmdFchCfgAcpiPm1EvtBlkAddr
+  gEfiAmdAgesaPkgTokenSpaceGuid.PcdAmdFchCfgAcpiPm1CntBlkAddr
+  gEfiAmdAgesaPkgTokenSpaceGuid.PcdAmdFchCfgAcpiPmTmrBlkAddr
+  gEfiAmdAgesaPkgTokenSpaceGuid.PcdAmdFchCfgAcpiGpe0BlkAddr
+  gEfiAmdAgesaPkgTokenSpaceGuid.PcdAmdFchCfgSmiCmdPortAddr
+
+[DEPEX]
+  gEfiMpServiceProtocolGuid

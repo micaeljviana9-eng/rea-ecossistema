@@ -1,0 +1,38 @@
+/** @file
+
+  Copyright (C) 2024-2025 Advanced Micro Devices, Inc. All rights reserved.<BR>
+
+  SPDX-License-Identifier: BSD-2-Clause-Patent
+
+**/
+
+#pragma once
+
+#include <Base.h>
+#include <Protocol/SpiConfiguration.h>
+#include <Protocol/DevicePath.h>
+#include <FchRegistersCommon.h>
+
+typedef struct {
+  CONTROLLER_DEVICE_PATH      ControllerDevicePath;
+  EFI_DEVICE_PATH_PROTOCOL    End;
+} SPI_CONTROLLER_DEVICE_PATH;
+
+#define FCH_DEVICE_PATH  {                                        \
+    {                                                             \
+      {                                                           \
+        HARDWARE_DEVICE_PATH,                                     \
+        HW_CONTROLLER_DP,                                         \
+        {                                                         \
+          (UINT8)(sizeof (CONTROLLER_DEVICE_PATH)),               \
+          (UINT8)((sizeof (CONTROLLER_DEVICE_PATH)) >> 8)         \
+        }                                                         \
+      },                                                          \
+      (FCH_LPC_BUS << 16) | (FCH_LPC_DEV << 8) | (FCH_LPC_FUNC)   \
+    },                                                            \
+    {                                                             \
+      END_DEVICE_PATH_TYPE,                                       \
+      END_ENTIRE_DEVICE_PATH_SUBTYPE,                             \
+      { 0x4 }                                                     \
+    }                                                             \
+  }
