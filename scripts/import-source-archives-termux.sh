@@ -11,6 +11,31 @@ CLONE="$WORK/rea-ecossistema"
 ARCHIVES="$WORK/archives"
 BRANCH="main"
 
+# Process only a few projects per run by default so Termux does not get overloaded.
+# Use --all to process all remaining projects in one run, or --limit N for a custom batch.
+MAX_PER_RUN=3
+case "${1:-}" in
+  "") ;;
+  --all) MAX_PER_RUN=0 ;;
+  --limit)
+    if [[ ! "${2:-}" =~ ^[1-9][0-9]*$ ]]; then
+      echo "Uso: $0 [--all | --limit N]"
+      exit 2
+    fi
+    MAX_PER_RUN="$2"
+    ;;
+  -h|--help)
+    echo "Uso: $0 [--all | --limit N]"
+    echo "Padrão: importa até 3 projetos por execução e permite retomar depois."
+    exit 0
+    ;;
+  *)
+    echo "Argumento desconhecido: $1"
+    echo "Uso: $0 [--all | --limit N]"
+    exit 2
+    ;;
+esac
+
 need_pkg() {
   command -v "$1" >/dev/null 2>&1
 }
@@ -38,7 +63,6 @@ git sparse-checkout set README.md .gitmodules scripts bundle/projects/iso-revers
 git switch "$BRANCH"
 git fetch origin
 git pull --rebase origin "$BRANCH"
-git push origin "$BRANCH"
 
 if [ -z "$(git config user.name || true)" ]; then
   read -r -p "Nome para os commits Git: " GIT_NAME
@@ -57,6 +81,8 @@ curl --fail --location --retry 5 --retry-all-errors --connect-timeout 30 \
 is_imported() {
   awk -F '\t' -v n="$1" '$1 == n { found=1 } END { exit !found }' "$STATUS"
 }
+
+IMPORTED_THIS_RUN=0
 
 while IFS=$'\t' read -r name upstream sha; do
   [ -n "${name:-}" ] || continue
@@ -102,34 +128,40 @@ while IFS=$'\t' read -r name upstream sha; do
     echo "Arquivos encontrados:"
     cat "$large_list"
     echo "A cópia extraída ficou no aparelho em: $stage"
-    echo "Vou continuar com os outros projetos; este será tratado depois com Git LFS/alternativa."
+    echo "Este projeto ficou pendente; continuarei com os demais."
     continue
   fi
 
-  # Remove the submodule pointer (gitlink) before replacing it with real source files.
+  # Replace only a registered Git submodule. Never erase an existing ordinary
+  # directory without checking it first.
   if git ls-files --stage -- "$dest" | grep -q '^160000 '; then
     git rm -f -- "$dest"
-  else
-    rm -rf "$dest"
+  elif [ -e "$dest" ]; then
+    echo "PENDENTE: o destino já contém arquivos normais, não um gitlink:"
+    echo "  $dest"
+    echo "Preservei esses arquivos; revise este projeto manualmente."
+    continue
   fi
 
-  # Remove the matching .gitmodules stanza too, so the repository no longer
-  # advertises a submodule after its real files have been imported.
+  # Remove the matching .gitmodules stanza so imported source is tracked as files.
   if [ -f .gitmodules ]; then
     python - "$dest" <<'PY'
 import pathlib, re, sys
 path = sys.argv[1]
 p = pathlib.Path(".gitmodules")
 text = p.read_text(encoding="utf-8") if p.exists() else ""
-blocks = re.split(r"(?=^\[submodule )", text, flags=re.MULTILINE)
+blocks = re.split(r"(?=^\\[submodule )", text, flags=re.MULTILINE)
 kept = []
 for block in blocks:
-    match = re.search(r"^\s*path\s*=\s*(.*?)\s*$", block, flags=re.MULTILINE)
+    match = re.search(r"^\\s*path\\s*=\\s*(.*?)\\s*$", block, flags=re.MULTILINE)
     if match and match.group(1) == path:
         continue
     kept.append(block)
 new_text = "".join(kept).strip()
-p.write_text((new_text + "\n") if new_text else "", encoding="utf-8")
+if new_text:
+    p.write_text(new_text + "\\n", encoding="utf-8")
+elif p.exists():
+    p.unlink()
 PY
   fi
 
@@ -137,9 +169,9 @@ PY
   mv "$stage" "$dest"
   rm -f "$ready"
 
-  printf '%s\t%s\t%s\n' "$name" "$upstream" "$sha" >> "$STATUS"
+  printf '%s\\t%s\\t%s\\n' "$name" "$upstream" "$sha" >> "$STATUS"
   git add -f -- "$dest" "$STATUS"
-  git add -f -- .gitmodules 2>/dev/null || true
+  git add -A -- .gitmodules
 
   if git diff --cached --quiet; then
     echo "Sem alterações para registrar: $name"
@@ -151,10 +183,28 @@ PY
 
   rm -f "$archive" "$large_list"
   echo "OK: $name"
+  IMPORTED_THIS_RUN=$((IMPORTED_THIS_RUN + 1))
+
+  if [ "$MAX_PER_RUN" -gt 0 ] && [ "$IMPORTED_THIS_RUN" -ge "$MAX_PER_RUN" ]; then
+    echo "Limite desta execução atingido ($MAX_PER_RUN projetos)."
+    break
+  fi
 done < "$WORK/SOURCE-ARCHIVE-INDEX.tsv"
 
+TOTAL=$(awk 'NF { n++ } END { print n+0 }' "$WORK/SOURCE-ARCHIVE-INDEX.tsv")
+DONE=$(awk -F '\t' 'NF >= 3 { seen[$1]=1 } END { for (x in seen) n++; print n+0 }' "$STATUS")
+PENDING=$((TOTAL - DONE))
+
 echo
-echo "Importação executada. Confira os projetos pendentes acima."
+echo "========== RESUMO =========="
+echo "Importados nesta execução: $IMPORTED_THIS_RUN"
+echo "Concluídos registrados: $DONE de $TOTAL"
+echo "Pendentes (inclui projetos com arquivos >95 MiB): $PENDING"
 echo "Fontes: $ROOT"
 echo "Status: $STATUS"
 echo "Área de trabalho local: $CLONE"
+if [ "$PENDING" -gt 0 ]; then
+  echo "Execute novamente para continuar; use '$0 --all' para tentar todos de uma vez."
+else
+  echo "Todos os snapshots do índice foram importados."
+fi
