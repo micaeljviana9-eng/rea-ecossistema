@@ -1,0 +1,14 @@
+- description: Security-and-quality queries for C#
+- qlpack: codeql-csharp
+- apply: security-and-quality-selectors.yml
+  from: codeql-suite-helpers
+- exclude:
+    query filename: 
+      - CallsUnmanagedCode.ql
+      - UnmanagedCodeCheck.ql
+      - XmldocMissingSummary.ql
+      - SameNameAsSuper.ql
+      - CompilerError.ql
+      - ExtractorError.ql
+      - ExtractorMessage.ql
+      - TooManyRefParameters.ql
