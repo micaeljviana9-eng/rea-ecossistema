@@ -1,0 +1,119 @@
+package testutil
+
+import (
+	"fmt"
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/anchore/syft/syft/pkg/cataloger/binary/internal/manager/internal"
+	"github.com/anchore/syft/syft/pkg/cataloger/binary/internal/manager/internal/config"
+)
+
+// SnippetOrBinary returns the path to either the binary or the snippet for the given logical entry key.
+// Note: this is intended to be used only within the context of the binary cataloger test fixtures. Any other
+// use is unsupported. Path should be a logical path relative to the testdata/classifiers directory (but does
+// not specify the "bin" or "snippets" parent path... this is determined logically [snippets > binary unless told
+// otherwise]). Path should also be to the directory containing the binary or snippets of interest (not the binaries
+// or snippets itself).
+func SnippetOrBinary(t *testing.T, logicalPath string, requireBinary bool) string {
+	t.Helper()
+
+	// logicalPath is a posix key, not a host path
+	require.Len(t, strings.Split(logicalPath, "/"), 3, "path must be a in the form <name>/<version>/<arch>")
+
+	// cd to testdata directory and load the config
+
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+
+	require.NoError(t, os.Chdir("testdata"))
+	defer func() {
+		require.NoError(t, os.Chdir(cwd))
+	}()
+
+	appConfig, err := config.Read()
+	require.NoError(t, err)
+
+	// find the first matching fixture path that matches the given requirements
+
+	entries, err := internal.ListAllEntries(*appConfig)
+	require.NoError(t, err)
+
+	var fixturePath string
+	for k, v := range entries.Sorted() {
+		if path.Dir(k.Path()) == logicalPath {
+			// prefer the snippet over the binary
+			if !requireBinary {
+				if v.SnippetPath != "" {
+					t.Logf("using snippet for %q", logicalPath)
+					require.NoError(t, validateSnippet(v.BinaryPath, v.SnippetPath))
+					fixturePath = v.SnippetPath
+					break
+				}
+				if v.BinaryPath != "" {
+					fixturePath = v.BinaryPath
+					break
+				}
+				t.Fatalf("no binary or snippet found for %q", logicalPath)
+			}
+			if v.BinaryPath != "" {
+				t.Logf("forcing the use of the original binary for %q", logicalPath)
+				fixturePath = v.BinaryPath
+				break
+			}
+
+			if v.SnippetPath != "" && !v.IsConfigured {
+				t.Skip("no binary found, but is covered by a snippet. Please add this case to the 'binary/testdata/config.yaml' and recreate the snippet")
+			}
+
+			t.Fatalf("no binary found for %q", logicalPath)
+		}
+	}
+
+	if fixturePath == "" {
+		t.Fatalf("no fixture found for %q", logicalPath)
+	}
+
+	// this should be relative to the tests-fixtures directory and should be the directory containing the binary or
+	// snippet of interest (not the path to the binary or snippet itself)
+	return filepath.Join("testdata", filepath.Dir(fixturePath))
+}
+
+func validateSnippet(binaryPath, snippetPath string) error {
+	// get a sha256 of the binary
+	if _, err := os.Stat(binaryPath); err != nil {
+		// no binary to validate against (this is ok)
+		return nil
+	}
+
+	metadata, err := internal.ReadSnippetMetadata(snippetPath)
+	if err != nil {
+		return err
+	}
+
+	if metadata == nil {
+		return nil
+	}
+
+	f, err := os.Open(binaryPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	expected, err := internal.Sha256SumFile(f)
+	if err != nil {
+		return err
+	}
+
+	if expected != metadata.FileSha256 {
+		return fmt.Errorf("snippet shadows a binary with a different sha256 (want %q got %q)", expected, metadata.FileSha256)
+	}
+
+	return nil
+}

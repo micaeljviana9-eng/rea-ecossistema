@@ -22,3 +22,4 @@ qiling	qilingframework/qiling	86c927cb329993b14e2586e04d1dd7a90deee5fb	bundle/pr
 reactos	reactos/reactos	c63ed8b88c2876f87aa7f227b4ac22c0556c174b	bundle/projects/iso-reverse-engineering/reactos	29264	0
 snowman	KarlVogel/snowman	5a2a7d972434f0afd6c313e4443424d257b39b88	bundle/projects/iso-reverse-engineering/snowman	1038	0
 speakeasy	mandiant/speakeasy	aa9f22643f4519e0555141cd16ee25eb971b5518	bundle/projects/iso-reverse-engineering/speakeasy	1386	4
+syft	anchore/syft	ddc490c5c5606048715f4668e8adcc4a6267df3d	bundle/projects/iso-reverse-engineering/syft	3036	0
