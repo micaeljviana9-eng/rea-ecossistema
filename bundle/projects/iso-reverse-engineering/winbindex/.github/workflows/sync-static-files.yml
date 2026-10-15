@@ -1,0 +1,41 @@
+name: Sync Static Files
+
+defaults:
+  run:
+    shell: bash
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'data/**'
+  workflow_dispatch:
+
+concurrency: sync-static-files
+
+jobs:
+  update:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+      - name: Checkout gh-pages
+        uses: actions/checkout@v6
+        with:
+          ref: gh-pages
+          path: data/gh-pages
+      - name: Sync static files
+        # https://superuser.com/questions/280425/getting-robocopy-to-return-a-proper-exit-code
+        run: |
+          robocopy /job:RSYNC-STATIC-FILES || [ $? -lt 8 ]
+      - name: Commit changes of static files
+        run: |
+          cd data/gh-pages
+          git add .
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git diff-index --quiet HEAD || git commit -m "Sync static files"
+          git push

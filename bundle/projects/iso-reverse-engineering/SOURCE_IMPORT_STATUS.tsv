@@ -24,3 +24,4 @@ snowman	KarlVogel/snowman	5a2a7d972434f0afd6c313e4443424d257b39b88	bundle/projec
 speakeasy	mandiant/speakeasy	aa9f22643f4519e0555141cd16ee25eb971b5518	bundle/projects/iso-reverse-engineering/speakeasy	1386	4
 syft	anchore/syft	ddc490c5c5606048715f4668e8adcc4a6267df3d	bundle/projects/iso-reverse-engineering/syft	3036	0
 volatility3	volatilityfoundation/volatility3	77ff0b1932d77527f850c8ced01d85805ea7bf97	bundle/projects/iso-reverse-engineering/volatility3	520	0
+winbindex	m417z/winbindex	aacec0c2e1c622127dc72123f60c9c986fc94a2f	bundle/projects/iso-reverse-engineering/winbindex	236	0
