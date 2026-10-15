@@ -1,0 +1,53 @@
+// Raw clone children trap at once, often before the parent's clone event.
+#include <sched.h>
+#include <sys/mman.h>
+
+#include "TargetUtil.h"
+
+extern "C"
+{
+    volatile int ct_done = 0;
+    // Both parent and child return here.
+    void ct_site();
+    void ct_spawn(void* stackTop);
+}
+
+asm(R"(
+    .text
+
+    .globl ct_spawn
+    .type  ct_spawn, @function
+ct_spawn:
+    movq    %rdi, %rsi
+    movq    $0x50f00, %rdi
+    xorq    %rdx, %rdx
+    xorq    %r10, %r10
+    xorq    %r8, %r8
+    movq    $56, %rax
+    syscall
+    .globl ct_site
+ct_site:
+    testq   %rax, %rax
+    jnz     1f
+    lock incl ct_done(%rip)
+    movq    $60, %rax
+    xorq    %rdi, %rdi
+    syscall
+1:
+    ret
+)");
+
+int main()
+{
+    for(int i = 0; i < kCloneTrapRounds; ++i)
+    {
+        const long size = 64 * 1024;
+        void* stack = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
+        if(stack == MAP_FAILED)
+            return 1;
+        ct_spawn(static_cast<char*>(stack) + size);
+        while(ct_done <= i)
+            sched_yield();
+    }
+    return 0;
+}
