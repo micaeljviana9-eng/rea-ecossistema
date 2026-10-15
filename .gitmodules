@@ -1,7 +1,3 @@
-[submodule "bundle/projects/iso-reverse-engineering/flare-vm"]
-	path = bundle/projects/iso-reverse-engineering/flare-vm
-	url = https://github.com/mandiant/flare-vm.git
-
 [submodule "bundle/projects/iso-reverse-engineering/frida"]
 	path = bundle/projects/iso-reverse-engineering/frida
 	url = https://github.com/frida/frida.git

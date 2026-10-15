@@ -8,3 +8,4 @@ dissect	fox-it/dissect	8477b4f4aaeb9070011dbd99cde81c990dd4d779	bundle/projects/
 dynamorio	DynamoRIO/dynamorio	d1a47572c0ad60cc9f6e5eb240a6028e4c4a5693	bundle/projects/iso-reverse-engineering/dynamorio	5119	3
 edk2	tianocore/edk2	0d61209231b2ec50ca6f6b96825baaa07c280854	bundle/projects/iso-reverse-engineering/edk2	101792	54
 flare-floss	mandiant/flare-floss	f03936da325561cde7652a153f31923da0aa8990	bundle/projects/iso-reverse-engineering/flare-floss	470	1
+flare-vm	mandiant/flare-vm	5dc321d336f2d1b0c77343bdfd8cd3ac01ba1b37	bundle/projects/iso-reverse-engineering/flare-vm	33	0
