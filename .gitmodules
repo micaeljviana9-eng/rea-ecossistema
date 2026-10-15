@@ -1,7 +1,3 @@
-[submodule "bundle/projects/iso-reverse-engineering/speakeasy"]
-	path = bundle/projects/iso-reverse-engineering/speakeasy
-	url = https://github.com/mandiant/speakeasy.git
-
 [submodule "bundle/projects/iso-reverse-engineering/syft"]
 	path = bundle/projects/iso-reverse-engineering/syft
 	url = https://github.com/anchore/syft.git
