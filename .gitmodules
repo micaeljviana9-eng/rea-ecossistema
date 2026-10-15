@@ -1,7 +1,3 @@
-[submodule "bundle/projects/iso-reverse-engineering/snowman"]
-	path = bundle/projects/iso-reverse-engineering/snowman
-	url = https://github.com/yegord/snowman.git
-
 [submodule "bundle/projects/iso-reverse-engineering/speakeasy"]
 	path = bundle/projects/iso-reverse-engineering/speakeasy
 	url = https://github.com/mandiant/speakeasy.git
