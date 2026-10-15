@@ -1,7 +1,3 @@
-[submodule "bundle/projects/iso-reverse-engineering/pe-parse"]
-	path = bundle/projects/iso-reverse-engineering/pe-parse
-	url = https://github.com/trailofbits/pe-parse.git
-
 [submodule "bundle/projects/iso-reverse-engineering/pe-tree"]
 	path = bundle/projects/iso-reverse-engineering/pe-tree
 	url = https://github.com/blackberry/pe_tree.git

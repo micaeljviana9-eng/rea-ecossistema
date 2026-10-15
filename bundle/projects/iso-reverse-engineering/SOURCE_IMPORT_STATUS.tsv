@@ -14,3 +14,4 @@ imhex	WerWolv/ImHex	34483cb90527cd71c92049ef3b1b2cc27936a1d4	bundle/projects/iso
 libguestfs	libguestfs/libguestfs	af937d2f0f76ef599e212e5214cb9f6dc3f5c1f6	bundle/projects/iso-reverse-engineering/libguestfs	1336	1
 lief	lief-project/LIEF	5416ff2e2fcda29924c2f868a7249b4318359c41	bundle/projects/iso-reverse-engineering/lief	3752	0
 pe-bear	hasherezade/pe-bear	b90f1d7d96635e7a029f424a0d1d11a104821685	bundle/projects/iso-reverse-engineering/pe-bear	4416	3
+pe-parse	trailofbits/pe-parse	9e4e3587969ea2410dadda1ccfa909aec1121d09	bundle/projects/iso-reverse-engineering/pe-parse	982	1
