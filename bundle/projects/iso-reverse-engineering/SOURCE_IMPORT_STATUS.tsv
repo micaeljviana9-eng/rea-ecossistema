@@ -32,3 +32,4 @@ ghidra	NationalSecurityAgency/ghidra	918acd744d17e3b95fbde44ec6ab3e59b6dbd45f	bu
 ilspy	icsharpcode/ILSpy	dad8a25ed2b742c64b7e22b5db6cc13c69f3e9b2	bundle/projects/iso-reverse-engineering/ilspy	3236	1
 radare2	radareorg/radare2	0ad346ff016627d686a2af51156adfc96ccde6d2	bundle/projects/iso-reverse-engineering/radare2	5107	0
 rizin	rizinorg/rizin	0164b933e43789a5cd16a2d7fb967c1f619502e1	bundle/projects/iso-reverse-engineering/rizin	4201	0
+push_artifacts	kaitai-io/push_artifacts	04b0a00a4dae1858f027ab0e96b8971e282cd48b	bundle/projects/iso-reverse-engineering/kaitai-struct-formats/.github/push_artifacts	6	0
