@@ -1,7 +1,3 @@
-[submodule "bundle/projects/iso-reverse-engineering/libguestfs"]
-	path = bundle/projects/iso-reverse-engineering/libguestfs
-	url = https://github.com/libguestfs/libguestfs.git
-
 [submodule "bundle/projects/iso-reverse-engineering/lief"]
 	path = bundle/projects/iso-reverse-engineering/lief
 	url = https://github.com/lief-project/LIEF.git

@@ -11,3 +11,4 @@ flare-floss	mandiant/flare-floss	f03936da325561cde7652a153f31923da0aa8990	bundle
 flare-vm	mandiant/flare-vm	5dc321d336f2d1b0c77343bdfd8cd3ac01ba1b37	bundle/projects/iso-reverse-engineering/flare-vm	33	0
 frida	frida/frida	3c7ea1530edb0c3bb9b1de84444510163052b18a	bundle/projects/iso-reverse-engineering/frida	54208	50
 imhex	WerWolv/ImHex	34483cb90527cd71c92049ef3b1b2cc27936a1d4	bundle/projects/iso-reverse-engineering/imhex	8305	23
+libguestfs	libguestfs/libguestfs	af937d2f0f76ef599e212e5214cb9f6dc3f5c1f6	bundle/projects/iso-reverse-engineering/libguestfs	1336	1
