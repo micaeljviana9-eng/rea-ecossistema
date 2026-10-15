@@ -31,3 +31,4 @@ x64dbg	x64dbg/x64dbg	4fc92664f0ea63136c07c68ea848a994ea2749c6	bundle/projects/is
 ghidra	NationalSecurityAgency/ghidra	918acd744d17e3b95fbde44ec6ab3e59b6dbd45f	bundle/projects/iso-reverse-engineering/ghidra	20618	0
 ilspy	icsharpcode/ILSpy	dad8a25ed2b742c64b7e22b5db6cc13c69f3e9b2	bundle/projects/iso-reverse-engineering/ilspy	3236	1
 radare2	radareorg/radare2	0ad346ff016627d686a2af51156adfc96ccde6d2	bundle/projects/iso-reverse-engineering/radare2	5107	0
+rizin	rizinorg/rizin	0164b933e43789a5cd16a2d7fb967c1f619502e1	bundle/projects/iso-reverse-engineering/rizin	4201	0
