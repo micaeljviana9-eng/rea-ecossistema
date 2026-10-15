@@ -1,0 +1,9 @@
+{
+    "hex.yara_rules.view.yara.header.matches": "Matches",
+    "hex.yara_rules.view.yara.header.rules": "規則",
+    "hex.yara_rules.view.yara.match": "Match Rules",
+    "hex.yara_rules.view.yara.matches.variable": "變數",
+    "hex.yara_rules.view.yara.matching": "Matching...",
+    "hex.yara_rules.view.yara.name": "Yara 規則",
+    "hex.yara_rules.view.yara.rule_added": " Yara 規則已新增！"
+}

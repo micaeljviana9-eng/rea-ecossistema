@@ -1,0 +1,9 @@
+{
+    "hex.yara_rules.view.yara.header.matches": "Combinações",
+    "hex.yara_rules.view.yara.header.rules": "Regras",
+    "hex.yara_rules.view.yara.match": "Combinar Regras",
+    "hex.yara_rules.view.yara.matches.variable": "Variável",
+    "hex.yara_rules.view.yara.matching": "Combinando...",
+    "hex.yara_rules.view.yara.name": "Regras Yara",
+    "hex.yara_rules.view.yara.rule_added": "Regra Yara Adicionada!"
+}

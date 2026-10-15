@@ -1,7 +1,3 @@
-[submodule "bundle/projects/iso-reverse-engineering/imhex"]
-	path = bundle/projects/iso-reverse-engineering/imhex
-	url = https://github.com/WerWolv/ImHex.git
-
 [submodule "bundle/projects/iso-reverse-engineering/libguestfs"]
 	path = bundle/projects/iso-reverse-engineering/libguestfs
 	url = https://github.com/libguestfs/libguestfs.git

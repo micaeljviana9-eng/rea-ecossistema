@@ -1,0 +1,43 @@
+#pragma once
+
+#include <hex/ui/view.hpp>
+#include <hex/api/achievement_manager.hpp>
+#include <hex/api/content_registry/settings.hpp>
+
+namespace hex::plugin::builtin {
+
+    class ViewAchievements : public View::Floating {
+    public:
+        ViewAchievements();
+        ~ViewAchievements() override;
+
+        void drawContent() override;
+        void drawAlwaysVisibleContent() override;
+        void drawHelpText() override;
+
+        [[nodiscard]] bool shouldDraw() const override { return true; }
+        [[nodiscard]] bool hasViewMenuItemEntry() const override { return false; }
+
+        [[nodiscard]] ImVec2 getMinSize() const override {
+            return scaled({ 800, 600 });
+        }
+
+        [[nodiscard]] ImVec2 getMaxSize() const override {
+            return scaled({ 1600, 1200 });
+        }
+
+    private:
+        ImVec2 drawAchievementTree(ImDrawList *drawList, const AchievementManager::AchievementNode * prevNode, const std::vector<AchievementManager::AchievementNode*> &nodes, ImVec2 position);
+
+    private:
+        std::list<const Achievement*> m_achievementUnlockQueue;
+        const Achievement *m_currAchievement = nullptr;
+        const Achievement *m_achievementToGoto = nullptr;
+        float m_achievementUnlockQueueTimer = -1;
+        ContentRegistry::Settings::SettingsVariable<bool, "hex.builtin.setting.interface", "hex.builtin.setting.interface.achievement_popup"> m_showPopup = false;
+
+
+        ImVec2 m_offset;
+    };
+
+}

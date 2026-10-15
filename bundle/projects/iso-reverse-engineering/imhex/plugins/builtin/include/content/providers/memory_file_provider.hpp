@@ -1,0 +1,71 @@
+#pragma once
+
+#include <fonts/vscode_icons.hpp>
+
+#include <hex/providers/provider.hpp>
+#include <hex/providers/matchers/mime.hpp>
+#include <hex/providers/matchers/magic.hpp>
+#include <hex/providers/matchers/filename.hpp>
+#include <hex/providers/matchers/provider_type.hpp>
+
+namespace hex::plugin::builtin {
+
+    class MemoryFileProvider : public hex::prv::Provider,
+                               public prv::IProviderMenuItems,
+                               public prv::ProviderMatchStrategies<
+                                   prv::PatternMatcherMIME,
+                                   prv::PatternMatcherMagic,
+                                   prv::PatternMatcherFileName,
+                                   prv::PatternMatcherProviderType
+                               > {
+    public:
+        explicit MemoryFileProvider() = default;
+        ~MemoryFileProvider() override = default;
+
+        [[nodiscard]] bool isAvailable() const override { return true; }
+        [[nodiscard]] bool isReadable()  const override { return true; }
+        [[nodiscard]] bool isWritable()  const override { return !m_readOnly; }
+        [[nodiscard]] bool isResizable() const override { return !m_readOnly; }
+        [[nodiscard]] bool isSavable()   const override { return true; }
+        [[nodiscard]] bool isSavableAsRecent() const override { return false; }
+
+        [[nodiscard]] OpenResult open() override;
+        void close() override { }
+
+        void readRaw(u64 offset, void *buffer, size_t size) override;
+        void writeRaw(u64 offset, const void *buffer, size_t size) override;
+        [[nodiscard]] u64 getActualSize() const override { return m_data.size(); }
+
+        void resizeRaw(u64 newSize) override;
+
+        void save() override;
+
+        [[nodiscard]] std::string getName() const override;
+
+        std::vector<MenuEntry> getMenuEntries() override;
+
+        [[nodiscard]] UnlocalizedString getTypeName() const override {
+            return "hex.builtin.provider.mem_file"_unlocalized;
+        }
+
+        [[nodiscard]] const char* getIcon() const override {
+            return ICON_VS_FILE_BINARY;
+        }
+
+        [[nodiscard]] std::pair<Region, bool> getRegionValidity(u64 address) const override;
+
+        void loadSettings(const nlohmann::json &settings) override;
+        [[nodiscard]] nlohmann::json storeSettings(nlohmann::json settings) const override;
+
+        void setReadOnly(bool readOnly) { m_readOnly = readOnly; }
+
+    private:
+        void renameFile();
+
+    private:
+        std::vector<u8> m_data;
+        std::string m_name;
+        bool m_readOnly = false;
+    };
+
+}

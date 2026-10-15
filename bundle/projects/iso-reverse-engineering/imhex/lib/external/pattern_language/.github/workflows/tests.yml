@@ -1,0 +1,80 @@
+name: "Unit Tests"
+
+on:
+  push:
+    branches: [ '*' ]
+  pull_request:
+    branches: [ '*' ]
+
+jobs:
+  tests:
+    name: 🧪 Unit Tests
+    runs-on: ubuntu-26.04
+    env:
+      DISPATCH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+    - name: 🧰 Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: ⬇️ Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y       \
+            build-essential       \
+            ccache                \
+            gcc-16                \
+            g++-16                \
+            lld                   \
+            ${PKGCONF:-}          \
+            cmake                 \
+            ninja-build           \
+            lcov                  \
+            gcovr
+
+    - name: 📜 Setup ccache
+      uses: hendrikmuhs/ccache-action@v1
+      with:
+        key: ${{ runner.os }}-tests-${{ github.run_id }}
+        restore-keys: ${{ runner.os }}-tests
+        max-size: 1G
+
+    - name: 🛠️ Build
+      run: |
+        mkdir -p build
+        cd build
+        CC=gcc-16 CXX=g++-16 cmake                                                                                    \
+          -DCMAKE_BUILD_TYPE=Debug                                                                                    \
+          -DCMAKE_C_FLAGS="-O0 -fuse-ld=lld -fsanitize=address,leak,undefined -fno-sanitize-recover=all"   \
+          -DCMAKE_CXX_FLAGS="-O0 -fuse-ld=lld -fsanitize=address,leak,undefined -fno-sanitize-recover=all" \
+          -DLIBPL_ENABLE_TESTS=ON                                                                                     \
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache                                                                          \
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache                                                                        \
+          -G Ninja                                                                                                    \
+          ..
+        ninja unit_tests 
+        ninja plcli
+
+    - name: 🧪 Perform plcli Integration Tests
+      run: |
+        python tests/integration/integration.py build/cli/plcli
+
+    - name: 🧪 Perform Unit Tests
+      run: |
+        cd build
+        ctest --output-on-failure
+
+  imhex_patterns_tests:
+    name: 🧪 ImHex Patterns Tests
+    needs: tests
+    uses: WerWolv/ImHex-Patterns/.github/workflows/tests.yml@master
+    with:
+      pattern_language_git_repo: ${{ github.server_url }}/${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
+      pattern_language_git_hash: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}

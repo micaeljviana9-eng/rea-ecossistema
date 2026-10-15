@@ -1,0 +1,13 @@
+{
+    "hex.fonts.setting.font": "Police",
+    "hex.fonts.setting.font.button.bold": "G",
+    "hex.fonts.setting.font.button.italic": "I",
+    "hex.fonts.setting.font.custom_font": "Police personnalisée",
+    "hex.fonts.setting.font.font_bold": "Gras",
+    "hex.fonts.setting.font.font_italic": "Italique",
+    "hex.fonts.setting.font.font_antialias": "Anticrénelage",
+    "hex.fonts.setting.font.font_size": "Taille de la police",
+    "hex.fonts.font.default": "Police générale de l'interface utilisateur",
+    "hex.fonts.font.hex_editor": "Police de l'éditeur hexadécimal",
+    "hex.fonts.font.code_editor": "Police de l'éditeur de code"
+}

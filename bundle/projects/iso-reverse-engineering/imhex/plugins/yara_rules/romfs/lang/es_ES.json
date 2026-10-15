@@ -1,0 +1,9 @@
+{
+    "hex.yara_rules.view.yara.header.matches": "Coincidenciasç",
+    "hex.yara_rules.view.yara.header.rules": "Rules",
+    "hex.yara_rules.view.yara.match": "Reglas de Coincidencia",
+    "hex.yara_rules.view.yara.matches.variable": "",
+    "hex.yara_rules.view.yara.matching": "Analizando coincidencias...",
+    "hex.yara_rules.view.yara.name": "Yara Rules",
+    "hex.yara_rules.view.yara.rule_added": "¡La Yara Rule fue añadida con éxito!"
+}

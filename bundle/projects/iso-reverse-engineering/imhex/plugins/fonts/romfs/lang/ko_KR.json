@@ -1,0 +1,16 @@
+{
+    "hex.fonts.setting.font": "글꼴",
+    "hex.fonts.setting.font.custom_font": "사용자 정의 글꼴",
+    "hex.fonts.setting.font.font_antialias": "안티에일리어싱",
+    "hex.fonts.setting.font.font_bold": "굵게",
+    "hex.fonts.setting.font.font_italic": "기울임꼴",
+    "hex.fonts.setting.font.font_size": "글꼴 크기",
+    "hex.fonts.setting.font.button.bold": "B",
+    "hex.fonts.setting.font.button.italic": "I",
+    "hex.fonts.font.default": "일반 UI 글꼴",
+    "hex.fonts.font.hex_editor": "헥스 에디터 글꼴",
+    "hex.fonts.font.code_editor": "코드 에디터 글꼴",
+    "hex.fonts.setting.font.antialias_none": "없음",
+    "hex.fonts.setting.font.antialias_grayscale": "회색조",
+    "hex.fonts.setting.font.antialias_subpixel": "서브픽셀"
+}

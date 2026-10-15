@@ -1,0 +1,9 @@
+{
+    "hex.yara_rules.view.yara.header.matches": "Abbinamenti",
+    "hex.yara_rules.view.yara.header.rules": "Regola",
+    "hex.yara_rules.view.yara.match": "Abbina Regole",
+    "hex.yara_rules.view.yara.matches.variable": "Variabile",
+    "hex.yara_rules.view.yara.matching": "Abbinamento...",
+    "hex.yara_rules.view.yara.name": "Regole di Yara",
+    "hex.yara_rules.view.yara.rule_added": "Regola di Yara aggiunta!"
+}

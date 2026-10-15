@@ -1,0 +1,367 @@
+#include <content/recent.hpp>
+
+#include <content/legacy_project_importer.hpp>
+
+#include <imgui.h>
+#include <imgui_internal.h>
+
+#include <hex/api/content_registry/views.hpp>
+#include <hex/api/events/events_provider.hpp>
+#include <hex/api/events/events_lifecycle.hpp>
+#include <hex/api/content_registry/settings.hpp>
+#include <hex/api/content_registry/user_interface.hpp>
+#include <hex/api/content_registry/provider.hpp>
+#include <hex/api/imhex_api/provider.hpp>
+#include <hex/api/project_manager.hpp>
+#include <hex/api/task_manager.hpp>
+#include <hex/providers/provider.hpp>
+
+#include <hex/helpers/default_paths.hpp>
+#include <hex/helpers/menu_items.hpp>
+#include <hex/helpers/fmt.hpp>
+#include <fmt/chrono.h>
+
+#include <wolv/utils/guards.hpp>
+#include <wolv/utils/string.hpp>
+
+#include <toasts/toast_notification.hpp>
+#include <fonts/vscode_icons.hpp>
+#include <fonts/tabler_icons.hpp>
+
+#include <ranges>
+#include <unordered_set>
+
+namespace hex::plugin::builtin::recent {
+
+    constexpr static auto MaxRecentEntries = 5;
+    namespace {
+
+        std::atomic_bool s_recentEntriesUpdating = false;
+        std::list<RecentEntry> s_recentEntries;
+
+    }
+
+    static void saveCurrentProjectAsRecent() {
+        if (ProjectManager::isTemporaryProject())
+            return;
+
+        if (!ContentRegistry::Settings::read<bool>("hex.builtin.setting.general"_unlocalized, "hex.builtin.setting.general.save_recent_providers"_unlocalized, true)) {
+            return;
+        }
+        auto fileName = fmt::format("{:%y%m%d_%H%M%S}.json", fmt::gmtime(std::chrono::system_clock::now()));
+
+        auto projectFileName = ProjectManager::getPath().filename();
+
+        // The recent provider is saved to every "recent" directory
+        for (const auto &recentPath : paths::Recent.write()) {
+            wolv::io::File recentFile(recentPath / fileName, wolv::io::File::Mode::Create);
+            if (!recentFile.isValid())
+                continue;
+
+            nlohmann::json recentEntry {
+                { "type", "project" },
+                { "displayName", wolv::util::toUTF8String(projectFileName) },
+                { "path", wolv::util::toUTF8String(ProjectManager::getPath()) }
+            };
+
+            recentFile.writeString(recentEntry.dump(4));
+        }
+
+        updateRecentEntries();
+    }
+
+    void registerEventHandlers() {
+        // Save every opened provider as a "recent" shortcut
+        (void)EventProviderOpened::subscribe([](const prv::Provider *provider) {
+            if (ContentRegistry::Settings::read<bool>("hex.builtin.setting.general"_unlocalized, "hex.builtin.setting.general.save_recent_providers"_unlocalized, true)) {
+                auto fileName = fmt::format("{:%y%m%d_%H%M%S}.json", fmt::gmtime(std::chrono::system_clock::now()));
+
+                // Do not save to recents if the provider is part of a project
+                if (ProjectManager::hasPath())
+                    return;
+
+                // Do not save to recents if the provider doesn't want it
+                if (!provider->isSavableAsRecent())
+                    return;
+
+                // The recent provider is saved to every "recent" directory
+                for (const auto &recentPath : paths::Recent.write()) {
+                    wolv::io::File recentFile(recentPath / fileName, wolv::io::File::Mode::Create);
+                    if (!recentFile.isValid())
+                        continue;
+
+                    {
+                        auto path = ProjectManager::getPath();
+                        ProjectManager::clearPath();
+
+                        if (auto settings = provider->storeSettings({}); !settings.is_null())
+                            recentFile.writeString(settings.dump(4));
+
+                        ProjectManager::setPath(path);
+                    }
+                }
+            }
+
+            updateRecentEntries();
+        });
+
+        // Add opened projects to "recents" shortcuts
+        (void)EventProjectOpened::subscribe(saveCurrentProjectAsRecent);
+        // When saving a project, update its "recents" entry. This is mostly useful when using saving a new project
+        (void)EventProjectSaved::subscribe(saveCurrentProjectAsRecent);
+    }
+
+    void updateRecentEntries() {
+        TaskManager::createBackgroundTask("hex.builtin.task.updating_recents", [](auto&) {
+            if (s_recentEntriesUpdating)
+                return;
+
+            s_recentEntriesUpdating = true;
+            ON_SCOPE_EXIT { s_recentEntriesUpdating = false; };
+
+            s_recentEntries.clear();
+
+            // Query all recent providers
+            std::vector<std::fs::path> recentFilePaths;
+            for (const auto &folder : paths::Recent.read()) {
+                for (const auto &entry : std::fs::directory_iterator(folder)) {
+                    if (entry.is_regular_file())
+                        recentFilePaths.push_back(entry.path());
+                }
+            }
+
+            // Sort recent provider files by last modified time
+            std::sort(recentFilePaths.begin(), recentFilePaths.end(), [](const auto &a, const auto &b) {
+                return std::fs::last_write_time(a) > std::fs::last_write_time(b);
+            });
+
+            std::unordered_set<RecentEntry, RecentEntry::HashFunction> alreadyAddedProviders;
+            for (const auto &path : recentFilePaths) {
+                if (s_recentEntries.size() >= MaxRecentEntries)
+                    break;
+
+                try {
+                    wolv::io::File recentFile(path, wolv::io::File::Mode::Read);
+                    if (!recentFile.isValid()) {
+                        continue;
+                    }
+
+                    auto content = recentFile.readString();
+                    if (content.empty()) {
+                        continue;
+                    }
+
+                    auto jsonData = nlohmann::json::parse(content);
+
+                    auto entry = RecentEntry {
+                        .displayName    = jsonData.at("displayName"),
+                        .type           = jsonData.at("type"),
+                        .entryFilePath  = path,
+                        .data           = jsonData
+                    };
+
+                    if (entry.displayName.empty()) {
+                        entry.displayName = recentFile.getPath().filename().string();
+                    }
+
+                    // Do not add entry twice
+                    if (!alreadyAddedProviders.insert(entry).second)
+                        continue;
+
+                    s_recentEntries.push_back(entry);
+                } catch (const std::exception &e) {
+                    log::error("Failed to parse recent file: {}", e.what());
+                }
+            }
+
+            // Delete all recent provider files that are not in the list
+            for (const auto &path : recentFilePaths) {
+                bool found = false;
+                for (const auto &provider : s_recentEntries) {
+                    if (path == provider.entryFilePath) {
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found)
+                    wolv::io::fs::remove(path);
+            }
+
+        });
+    }
+
+    void loadRecentEntry(const RecentEntry &recentEntry) {
+        if (recentEntry.type == "project") {
+            std::fs::path projectPath = recentEntry.data["path"].get<std::string>();
+            if (isLegacyProjectFile(projectPath)) {
+                openLegacyProjectMigration(projectPath);
+                return;
+            }
+            if (!ProjectManager::load(projectPath)) {
+                ui::ToastError::open(fmt::format("hex.builtin.popup.error.project.load"_lang, wolv::util::toUTF8String(projectPath)));
+            }
+            return;
+        }
+
+        if (const auto path = recentEntry.data.find("path"); path != recentEntry.data.end() && path->is_string()) {
+            const auto projectPath = std::fs::path(path->get<std::string>());
+            if (isLegacyProjectFile(projectPath)) {
+                openLegacyProjectMigration(projectPath);
+                return;
+            }
+        }
+
+        auto provider = ImHexApi::Provider::createProvider(UntranslatedString(recentEntry.type), true);
+        if (provider != nullptr) {
+            provider->loadSettings(recentEntry.data);
+
+            ImHexApi::Provider::openProvider(provider);
+
+            updateRecentEntries();
+        }
+    }
+
+    static const char* getProviderIcon(const UnlocalizedString &unlocalizedName) {
+        for (const auto &provider : ContentRegistry::Provider::impl::getEntries()) {
+            if (provider.unlocalizedName == unlocalizedName) {
+                return provider.icon;
+            }
+        }
+
+        if (unlocalizedName == UntranslatedString("project")) {
+            return ICON_VS_NOTEBOOK;
+        }
+
+        return ICON_TA_FILE_UNKNOWN;
+    }
+
+    void draw() {
+        if (s_recentEntries.empty())
+            return;
+
+        static bool collapsed = false;
+        const RecentEntry *entryToLoad = nullptr;
+        if (ImGuiExt::BeginSubWindow("hex.builtin.welcome.start.recent"_lang, &collapsed, ImVec2(), ImGuiChildFlags_AutoResizeX)) {
+            if (!s_recentEntriesUpdating) {
+                for (auto it = s_recentEntries.begin(); it != s_recentEntries.end();) {
+                    const auto &recentEntry = *it;
+                    bool shouldRemove = false;
+
+                    const bool isProject = recentEntry.type == "project";
+
+                    ImGui::PushID(&recentEntry);
+                    ON_SCOPE_EXIT { ImGui::PopID(); };
+
+                    if (ImGuiExt::IconHyperlink(getProviderIcon(UntranslatedString(recentEntry.type)), hex::limitStringLength(recentEntry.displayName, 32).c_str())) {
+                        entryToLoad = &recentEntry;
+                    }
+                    ImGui::SetItemTooltip("%s", recentEntry.displayName.c_str());
+
+                    if (ImGui::IsItemHovered() && ImGui::GetIO().KeyShift) {
+                        if (ImGui::BeginTooltip()) {
+                            if (ImGui::BeginTable("##RecentEntryTooltip", 2, ImGuiTableFlags_RowBg)) {
+                                ImGui::TableNextRow();
+                                ImGui::TableNextColumn();
+                                ImGui::TextUnformatted("hex.ui.common.name"_lang);
+                                ImGui::TableNextColumn();
+                                ImGui::TextUnformatted(recentEntry.displayName.c_str());
+
+                                ImGui::TableNextRow();
+                                ImGui::TableNextColumn();
+                                ImGui::TextUnformatted("hex.ui.common.type"_lang);
+                                ImGui::TableNextColumn();
+
+                                if (isProject) {
+                                    ImGui::TextUnformatted("hex.ui.common.project"_lang);
+
+                                    ImGui::TableNextRow();
+                                    ImGui::TableNextColumn();
+                                    ImGui::TextUnformatted("hex.ui.common.path"_lang);
+                                    ImGui::TableNextColumn();
+                                    ImGui::TextUnformatted(recentEntry.data["path"].get<std::string>().c_str());
+                                } else {
+                                    ImGui::TextUnformatted(Lang(recentEntry.type));
+                                }
+
+                                ImGui::EndTable();
+                            }
+                            ImGui::EndTooltip();
+                        }
+                    }
+
+                    ImGui::PushID(recentEntry.getHash());
+
+                    // Detect right click on recent provider
+                    constexpr static auto PopupID = "RecentEntryMenu";
+                    if (ImGui::IsMouseReleased(1) && ImGui::IsItemHovered()) {
+                        ImGui::OpenPopup(PopupID);
+                    }
+
+                    if (ImGui::BeginPopup(PopupID)) {
+                        if (ImGui::MenuItemEx("hex.ui.common.remove"_lang, ICON_VS_REMOVE)) {
+                            shouldRemove = true;
+                        }
+                        ImGui::EndPopup();
+                    }
+
+                    ImGui::PopID();
+
+                    // Handle deletion from vector and on disk
+                    if (shouldRemove) {
+                        wolv::io::fs::remove(recentEntry.entryFilePath);
+                        it = s_recentEntries.erase(it);
+                    } else {
+                        ++it;
+                    }
+                }
+
+                if (entryToLoad != nullptr) {
+                    loadRecentEntry(*entryToLoad);
+                }
+            }
+
+        } else {
+            ImGui::TextUnformatted("...");
+        }
+        ImGuiExt::EndSubWindow();
+    }
+
+    void addMenuItems() {
+        #if defined(OS_WEB)
+            return;
+        #endif
+
+        ContentRegistry::UserInterface::addMenuItemSubMenu({ "hex.builtin.menu.file"_unlocalized }, 1200, [] {
+            if (menu::beginMenuEx("hex.builtin.menu.file.open_recent"_lang, ICON_VS_ARCHIVE, !recent::s_recentEntriesUpdating && !s_recentEntries.empty())) {
+                // Copy to avoid changing list while iteration
+                auto recentEntries = s_recentEntries;
+                for (auto &recentEntry : recentEntries) {
+                    if (recentEntry.displayName.empty()) {
+                        // recent entry is invalid, happens when items are removed externally or from the projects view
+                        continue;
+                    }
+
+                    if (menu::menuItemEx(recentEntry.displayName.c_str(), getProviderIcon(UntranslatedString(recentEntry.type)))) {
+                        loadRecentEntry(recentEntry);
+                    }
+                }
+
+                menu::menuSeparator();
+                if (menu::menuItem("hex.builtin.menu.file.clear_recent"_lang)) {
+                    s_recentEntries.clear();
+
+                    // Remove all recent files
+                    for (const auto &recentPath : paths::Recent.write()) {
+                        for (const auto &entry : std::fs::directory_iterator(recentPath))
+                            std::fs::remove(entry.path());
+                    }
+                }
+
+                menu::endMenu();
+            }
+        }, [] {
+            return TaskManager::getRunningTaskCount() == 0 && !s_recentEntriesUpdating && !s_recentEntries.empty();
+        }, nullptr, true);
+    }
+}

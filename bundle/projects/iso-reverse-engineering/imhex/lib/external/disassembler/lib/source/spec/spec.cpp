@@ -1,0 +1,97 @@
+#include <disasm/spec/spec.hpp>
+
+namespace disasm::spec {
+
+    namespace {
+
+        struct FormatResult {
+            std::string mnemonic;
+            std::string operands;
+            const Opcode *opcode;
+            size_t advance;
+        };
+
+        FormatResult formatOpcode(const std::vector<Opcode> &opcodes, const std::map<std::string, std::vector<std::string>> &tables, u64 address, std::span<const u8> bytes, const std::map<std::string, i64> &variables, bool allowMultiple = false) {
+            std::string mnemonic, operands;
+            size_t advance = 0;
+
+            const Opcode *foundOpcode = nullptr;
+            for (const Opcode &opcode : opcodes) {
+                const auto bytes_span = bytes.subspan(advance);
+                if (auto formattedValue = opcode.format(address, bytes_span, tables, variables); formattedValue.has_value()) {
+                    mnemonic += opcode.getMnemonic();
+                    mnemonic.append(" ");
+
+                    operands += formattedValue.value();
+                    operands.append(" ");
+
+                    advance += opcode.getSize(address, bytes_span, variables);
+
+                    foundOpcode = &opcode;
+
+                    if (!allowMultiple)
+                        break;
+                }
+            }
+
+            if (!mnemonic.empty()) mnemonic.pop_back();
+            if (!operands.empty()) operands.pop_back();
+
+            return { mnemonic, operands, foundOpcode, advance };
+        }
+
+    }
+
+    std::vector<Disassembly> Spec::disassemble(std::span<const u8> bytes, std::size_t instructionCount, const std::map<std::string, i64> &variables) const {
+        std::vector<Disassembly> disassembly;
+
+        size_t offset = 0x00;
+        while (offset < bytes.size()) {
+            std::string mnemonic, operands;
+
+            {
+                const auto result = formatOpcode(getPrefixes(), getTables(), offset, bytes.subspan(offset), variables, true);
+                mnemonic += result.mnemonic;
+                operands += result.operands;
+                offset += result.advance;
+            }
+
+            {
+                const auto result = formatOpcode(getOpcodes(), getTables(), offset, bytes.subspan(offset), variables);
+                mnemonic += result.mnemonic;
+                operands += result.operands;
+                offset += result.advance;
+
+                if (result.advance == 0) {
+                    operands.clear();
+                    disassembly.emplace_back("???");
+                    offset += 1;
+                } else {
+                    std::vector<nlohmann::json> metadata;
+
+                    if (result.opcode != nullptr) {
+                        if (auto json = result.opcode->getMetadata(); !json.empty()) {
+                            for (auto &entry : json) {
+                                metadata.push_back(entry);
+                            }
+                        }
+                    }
+
+                    disassembly.emplace_back(std::move(mnemonic), std::move(operands), bytes.subspan(offset - result.advance, result.advance), std::move(metadata));
+
+                    if (offset + result.advance > bytes.size()) {
+                        break;
+                    }
+                }
+            }
+
+            if (instructionCount != 0 && disassembly.size() >= instructionCount) {
+                break;
+            }
+        }
+
+        return disassembly;
+    }
+
+}
+

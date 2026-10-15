@@ -1,0 +1,10 @@
+{
+    "hex.fonts.setting.font": "Schriftart",
+    "hex.fonts.setting.font.custom_font": "Schriftart",
+    "hex.fonts.setting.font.font_antialias": "Schrift Anti-Aliasing",
+    "hex.fonts.setting.font.button.bold": "F",
+    "hex.fonts.setting.font.button.italic": "K",
+    "hex.fonts.setting.font.font_bold": "Fett",
+    "hex.fonts.setting.font.font_italic": "Kursiv",
+    "hex.fonts.setting.font.font_size": "Schriftgrösse"
+}

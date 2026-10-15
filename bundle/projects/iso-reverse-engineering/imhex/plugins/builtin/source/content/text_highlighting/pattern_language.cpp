@@ -1,0 +1,2600 @@
+#include <algorithm>
+#include <content/text_highlighting/pattern_language.hpp>
+#include <pl/core/ast/ast_node_type_decl.hpp>
+#include <pl/core/tokens.hpp>
+#include <hex/helpers/utils.hpp>
+#include <wolv/utils/string.hpp>
+#include <iostream>
+#include <content/views/view_pattern_editor.hpp>
+#include <pl/pattern_language.hpp>
+#include <toasts/toast_notification.hpp>
+
+
+
+namespace hex::plugin::builtin {
+
+    using namespace pl::core;
+    using Coordinates    = IdentifierHighlighter::Coordinates;
+    using Directive      = Token::Directive;
+    using Identifier     = Token::Identifier;
+    using Keyword        = Token::Keyword;
+    using Separator      = Token::Separator;
+    using Operator       = Token::Operator;
+    using Comment        = Token::Comment;
+    using DocComment     = Token::DocComment;
+    using Literal        = Token::Literal;
+    using ValueType      = Token::ValueType;
+    using RequiredInputs = IdentifierHighlighter::RequiredInputs;
+    using TokenInterval  = IdentifierHighlighter::TokenInterval;
+
+    TokenInterval::TokenInterval(i32 start, i32 end) : m_start(start), m_end(end) {
+        if (m_start > m_end)
+            std::swap(m_start,m_end);
+    }
+
+    bool TokenInterval::operator<(const TokenInterval &other) const {
+        return other.m_end == m_end ? other.m_start < m_start :  m_end < other.m_end;
+    }
+
+    bool TokenInterval::operator>(const TokenInterval &other) const {
+        return other.m_end == m_end ? other.m_start > m_start :  m_end > other.m_end;
+    }
+
+    bool TokenInterval::operator==(const TokenInterval &other) const {
+        return m_start == other.m_start && m_end == other.m_end;
+    }
+
+    bool TokenInterval::operator!=(const TokenInterval &other) const {
+        return m_start != other.m_start || m_end != other.m_end;
+    }
+
+    bool TokenInterval::operator<=(const TokenInterval &other) const {
+        return other.m_end == m_end ? other.m_start  <= m_start : m_end < other.m_end;
+    }
+
+    bool TokenInterval::operator>=(const TokenInterval &other) const {
+        return other.m_end == m_end ? other.m_start  >= m_start : m_end > other.m_end;
+    }
+
+    [[nodiscard]] bool TokenInterval::contains(const TokenInterval &other) const {
+        return other.m_start >= m_start && other.m_end <= m_end;
+    }
+
+    [[nodiscard]] bool TokenInterval::contains(i32 value) const {
+        return value >= m_start && value <= m_end;
+    }
+
+    [[nodiscard]] bool TokenInterval::contiguous(const TokenInterval &other) const {
+        auto highEndDiff = m_start - other.m_end;
+        auto lowEndDiff = other.m_start - m_end;
+        return highEndDiff == 0 || highEndDiff == 1 || lowEndDiff == 0 || lowEndDiff == 1;
+    }
+
+    void IdentifierHighlighter::next(i32 count) {
+        if (m_viewPatternEditor->interrupted()) {
+            m_viewPatternEditor->resetInterrupt();
+            throw std::out_of_range("Highlights were deliberately interrupted");
+        }
+        if (count == 0)
+            return;
+        i32 id = getTokenId();
+        i32 maxChange;
+        if (count > 0)
+            maxChange = std::min(count,static_cast<i32>(m_requiredInputs.fullTokens.size() - id));
+        else
+            maxChange = -std::min(-count,id);
+        m_curr += maxChange;
+    }
+
+    pl::PatternLanguage *IdentifierHighlighter::getPatternLanguage() {
+        return m_viewPatternEditor->getPatternLanguage()->get();
+    }
+
+    void IdentifierHighlighter::RequiredInputs::setTypes() {
+        auto &types = m_identifierHighlighter->getPatternLanguage()->getInternals().parser->getTypes();
+        std::ranges::copy(types.begin(), types.end(), std::inserter(definedTypes, definedTypes.begin()));
+    }
+
+    void IdentifierHighlighter::RequiredInputs::setNamespaces() {
+        auto &namespaces = m_identifierHighlighter->getPatternLanguage()->getInternals().preprocessor->getNamespaces();
+        usedNamespaces.resize(namespaces.size());
+        std::ranges::copy(namespaces, usedNamespaces.begin());
+    }
+
+    void IdentifierHighlighter::RequiredInputs::setImports() {
+        auto *preprocessor = m_identifierHighlighter->getPatternLanguage()->getInternals().preprocessor.get();
+        std::ranges::copy(preprocessor->getParsedImports().begin(), preprocessor->getParsedImports().end(), std::inserter(parsedImports, parsedImports.begin()));
+        m_identifierHighlighter->clearVariables();
+        for (auto &[name, tokens]: parsedImports) {
+            importedHeaders[name] = tokens[0].location.source->content;
+            if (importedHeaders[name].empty() || importedHeaders[name] == "\n")
+                continue;
+            fullTokens = tokens;
+            editedText = importedHeaders[name];
+            m_identifierHighlighter->loadText();
+            m_identifierHighlighter->processSource();
+        }
+    }
+
+    void IdentifierHighlighter::RequiredInputs::setText() {
+        ui::TextEditor *editor = m_identifierHighlighter->m_viewPatternEditor->getTextEditor();
+        if (editor == nullptr)
+            return;
+        fullTokens.clear();
+        auto &result = m_identifierHighlighter->getPatternLanguage()->getInternals().preprocessor->getResult();
+        std::ranges::copy(result.begin(),result.end(),std::back_inserter(fullTokens));
+        editedText = editor->getText();
+        m_identifierHighlighter->loadText();
+
+    }
+
+    void IdentifierHighlighter::RequiredInputs::setRequiredInputs() {
+        setTypes();
+        setNamespaces();
+        setImports();
+        setText();
+    }
+
+    void IdentifierHighlighter::RequiredInputs::applyLinesOfColors(bool colorizeIdentifiers) {
+        if (m_identifierHighlighter->getViewPatternEditor() == nullptr)
+            return;
+        ui::TextEditor *editor = m_identifierHighlighter->getViewPatternEditor()->getTextEditor();
+        if (editor == nullptr)
+            return;
+        i32 line = 0;
+        for (const auto &lineOfColors: linesOfColors) {
+            editor->setColorizedLine(line, lineOfColors, false, colorizeIdentifiers);
+            line++;
+        }
+    }
+
+    void IdentifierHighlighter::updateRequiredInputs() {
+        m_requiredInputs.m_identifierHighlighter = this;
+        m_requiredInputs.setRequiredInputs();
+    }
+
+    RequiredInputs& IdentifierHighlighter::getRequiredInputs() {
+        return m_requiredInputs;
+    }
+
+    ViewPatternEditor* IdentifierHighlighter::getViewPatternEditor() {
+        return m_viewPatternEditor;
+    }
+
+    template<typename T>
+    T *IdentifierHighlighter::getValue(const i32 index) {
+        return const_cast<T*>(std::get_if<T>(&m_curr[index].value));
+    }
+
+
+    void IdentifierHighlighter::setViewPatternEditor(ViewPatternEditor *viewPatternEditor) {
+        m_viewPatternEditor = viewPatternEditor;
+    }
+
+    bool IdentifierHighlighter::begin() {
+        m_originalPosition = m_curr;
+
+        return true;
+    }
+
+    void IdentifierHighlighter::partBegin() {
+        m_partOriginalPosition = m_curr;
+    }
+
+    void IdentifierHighlighter::reset() {
+        m_curr = m_originalPosition;
+    }
+
+    void IdentifierHighlighter::partReset() {
+        m_curr = m_partOriginalPosition;
+    }
+
+    bool IdentifierHighlighter::resetIfFailed(const bool value) {
+        if (!value) reset();
+
+        return value;
+    }
+
+    template<auto S>
+    bool IdentifierHighlighter::sequenceImpl() {
+        if constexpr (S == Normal)
+            return true;
+        else if constexpr (S == Not)
+            return false;
+        else
+            std::unreachable();
+    }
+
+    template<auto S>
+    bool IdentifierHighlighter::matchOne(const Token &token) {
+        if constexpr (S == Normal) {
+            if (!peek(token)) {
+                partReset();
+                return false;
+            }
+
+            next();
+            return true;
+        } else if constexpr (S == Not) {
+            if (!peek(token))
+                return true;
+
+            next();
+            partReset();
+            return false;
+        } else
+            std::unreachable();
+    }
+
+    template<auto S>
+    bool IdentifierHighlighter::sequenceImpl(const auto &... args) {
+        return (matchOne<S>(args) && ...);
+    }
+
+    template<auto S>
+    bool IdentifierHighlighter::sequence(const Token &token, const auto &... args) {
+        partBegin();
+        return sequenceImpl<S>(token, args...);
+    }
+
+    bool IdentifierHighlighter::isValid() {
+        Token token;
+        try {
+            token = m_curr[0];
+        }
+        catch (const std::out_of_range &e) {
+            log::error("IdentifierHighlighter::isValid: Out of range error: {}", e.what());
+            return false;
+        }
+        return isLocationValid(token.location);
+    }
+
+    bool IdentifierHighlighter::peek(const Token &token, const i32 index) {
+        if (!isValid())
+            return false;
+        i32 id = getTokenId();
+        if (id+index < 0 || id+index >= (i32)m_requiredInputs.fullTokens.size())
+            return false;
+        return m_curr[index].type == token.type && m_curr[index] == token.value;
+    }
+
+    bool IdentifierHighlighter::getIdentifierName(std::string &identifierName, Identifier *identifier) {
+        auto keyword = getValue<Keyword>(0);
+        identifier = getValue<Identifier>(0);
+
+        if (identifier != nullptr) {
+            identifierName = identifier->get();
+            return true;
+        } else if (keyword != nullptr) {
+            identifier = nullptr;
+            if (peek(tkn::Keyword::Parent)) {
+                identifierName = "Parent";
+                return true;
+            }
+
+            if (peek(tkn::Keyword::This)) {
+                identifierName = "This";
+                return true;
+            }
+        }
+        identifier = nullptr;
+        return false;
+    }
+
+    IdentifierHighlighter::IdentifierHighlighter()  = default;
+    IdentifierHighlighter::~IdentifierHighlighter()  = default;
+
+// Returns a chain of identifiers like a.b.c or a::b::c
+    bool IdentifierHighlighter::getFullName(std::string &identifierName, std::vector<Identifier *> &identifiers, bool preserveCurr) {
+        Identifier *identifier = nullptr;
+
+        if (!peek(tkn::Literal::Identifier) || getTokenId() < 1)
+            return getIdentifierName(identifierName, identifier);
+
+        forwardIdentifierName(identifierName, identifiers, preserveCurr);
+        return true;
+    }
+
+    bool IdentifierHighlighter::forwardIdentifierName(std::string &identifierName, std::vector<Identifier *> &identifiers, bool preserveCurr ) {
+        auto curr = m_curr;
+        auto *identifier = getValue<Identifier>(0);
+        std::string current;
+
+        if (identifier != nullptr) {
+            identifiers.push_back(identifier);
+            identifierName += identifier->get();
+        }  else if (getIdentifierName(current, identifier)) {
+            identifiers.push_back(identifier);
+            identifierName += current;
+        } else {
+            m_curr = curr;
+            return false;
+        }
+
+        skipArray(200, true);
+
+        while ((peek(tkn::Operator::ScopeResolution, 1) || peek(tkn::Separator::Dot, 1))) {
+            next();
+
+            if (peek(tkn::Operator::ScopeResolution))
+                identifierName += "::";
+            else if (peek(tkn::Separator::Dot))
+                identifierName += ".";
+            else {
+                m_curr = curr;
+                return false;
+            }
+            next();
+
+            if (getIdentifierName(current, identifier)) {
+                identifiers.push_back(identifier);
+                identifierName += current;
+
+               skipArray(200, true);
+
+            } else {
+                m_curr = curr;
+                return false;
+            }
+        }
+        if (preserveCurr)
+            m_curr = curr;
+        return true;
+    }
+
+// Adds namespace if it exists
+    bool IdentifierHighlighter::getQualifiedName(std::string &identifierName, std::vector<Identifier *> &identifiers, bool useDefinitions, bool preserveCurr) {
+
+        std::string shortName;
+        std::string qualifiedName;
+
+        if (!getFullName(identifierName, identifiers, preserveCurr))
+            return false;
+
+        if (std::ranges::find(m_UDTs, identifierName) != m_UDTs.end())
+            return true;
+        std::vector<std::string> vectorString;
+        if (identifierName.contains("::")) {
+            vectorString = wolv::util::splitString(identifierName, "::");
+            if (vectorString.size() > 1) {
+                shortName = vectorString.back();
+                vectorString.pop_back();
+                identifierName = wolv::util::combineStrings(vectorString, "::");
+            }
+        }
+        bool found = true;
+        for (const auto &name : vectorString) {
+            found = found || std::ranges::find(m_requiredInputs.usedNamespaces, name) != m_requiredInputs.usedNamespaces.end();
+        }
+        if (found) {
+            if (!shortName.empty())
+                identifierName = fmt::format("{}::{}", identifierName, shortName);
+            return true;
+        }
+
+        if (useDefinitions) {
+            if (m_functionDefinitions.contains(identifierName) || m_UDTDefinitions.contains(identifierName)) {
+                if (!shortName.empty())
+                    identifierName = fmt::format("{}::{}", identifierName, shortName);
+                return true;
+            }
+            std::string nameSpace;
+            for (const auto &[name, definition]: m_UDTDefinitions) {
+                findNamespace(nameSpace, definition.tokenIndex);
+
+                if (!nameSpace.empty() && !identifierName.contains(nameSpace)) {
+                    qualifiedName = fmt::format("{}::{}", nameSpace, identifierName);
+
+                    if (name == qualifiedName) {
+                        identifierName = qualifiedName;
+                        if (!shortName.empty())
+                            identifierName = fmt::format("{}::{}", identifierName, shortName);
+                        return true;
+                    }
+                }
+
+                if (name == identifierName) {
+                    identifierName = name;
+                    if (!shortName.empty())
+                        identifierName = fmt::format("{}::{}", identifierName, shortName);
+                    return true;
+                }
+            }
+        }
+
+        if (identifierName.empty())
+            return false;
+        return true;
+    }
+
+    std::vector<TokenInterval> IdentifierHighlighter::searchRangeForBlocks(TokenInterval interval) {
+        m_curr = m_startToken + interval.m_start;
+        std::vector<TokenInterval> result;
+
+        u32 nestedLevel = 0;
+        std::vector<i32> tokenStack;
+        while (m_curr != m_startToken + interval.m_end) {
+
+            if (sequence(tkn::Separator::LeftBrace)) {
+                auto tokenId = getTokenId() - 1;
+                tokenStack.push_back(tokenId);
+                nestedLevel++;
+            } else if (sequence(tkn::Separator::RightBrace)) {
+                nestedLevel--;
+
+                if (tokenStack.empty())
+                    return result;
+                TokenInterval range(tokenStack.back(), getTokenId() - 1);
+                tokenStack.pop_back();
+
+                result.push_back(range);
+
+                if (nestedLevel == 0) {
+                    skipAttribute();
+                    break;
+                }
+
+            } else if (peek(tkn::Separator::EndOfProgram))
+                return result;
+            else
+                next();
+        }
+        return result;
+    }
+
+// Finds the token range of a function, namespace or UDT
+    bool IdentifierHighlighter::getTokenRange(std::vector<Token> keywords, UnorderedBlocks &tokenRange,
+                                        OrderedBlocks &tokenRangeInv, bool fullName, VariableScopes *blocks) {
+
+        bool addArgumentBlock = !fullName;
+        if (getTokenId() < 1)
+            return false;
+        std::string name;
+        if (fullName) {
+            std::vector<Identifier *> identifiers;
+            if (!getFullName(name, identifiers))
+                return false;
+        } else {
+            Identifier *identifier = nullptr;
+            if (!getIdentifierName(name, identifier))
+                return false;
+            std::string nameSpace;
+            findNamespace(nameSpace, getTokenId());
+            if (!nameSpace.empty())
+                name = fmt::format("{}::{}", nameSpace, name);
+        }
+
+        i32 tokenCount = m_requiredInputs.fullTokens.size();
+        auto saveCurr = m_curr - 1;
+        skipTemplate(200);
+        next();
+        if (sequence(tkn::Operator::Colon)) {
+            while (peek(tkn::Literal::Identifier)) {
+                std::vector<Identifier *> identifiers;
+                std::string identifierName;
+                if (!getFullName(identifierName, identifiers, false))
+                    break;
+                if (std::ranges::find(m_inheritances[name], identifierName) == m_inheritances[name].end())
+                    m_inheritances[name].insert(identifierName);
+                skipTemplate(200);
+                next(2);
+            }
+        }
+
+        m_curr = saveCurr;
+        if (peek(tkn::ValueType::Auto))
+            next(-1);
+        i32 index1 = getTokenId();
+        bool result = true;
+        for (const auto &keyword: keywords)
+            result = result && !peek(keyword);
+        if (result)
+            return false;
+        std::vector<TokenInterval> blocksFound = searchRangeForBlocks(TokenInterval(index1, tokenCount-1));
+        if (blocks != nullptr)
+            for (auto range: blocksFound)
+                blocks->operator[](name).insert(range);
+        i32 index2 = getTokenId();
+
+        if (index2 > index1 && index2 < tokenCount) {
+            if (fullName) {
+                tokenRangeInv[TokenInterval(index1, index2)] = name;
+            } else {
+                tokenRange[name] = TokenInterval(index1, index2);
+            }
+            if (blocks != nullptr) {
+                if (addArgumentBlock) {
+                    auto tokenIndex = blocks->operator[](name).begin()->m_start;
+                    blocks->operator[](name).insert(TokenInterval(index1, tokenIndex));
+                }
+                blocks->operator[](name).insert(TokenInterval(index1, index2));
+            }
+            return true;
+        }
+        return false;
+    }
+
+// Searches through tokens and loads all the ranges of one kind. First namespaces are searched.
+    void IdentifierHighlighter::getTokenRanges(IdentifierType identifierTypeToSearch) {
+
+        if (m_requiredInputs.fullTokens.size() == 1)
+            return;
+
+        Identifier *identifier;
+        IdentifierType identifierType;
+        m_startToken = SafeTokenIterator(m_requiredInputs.fullTokens.begin(), m_requiredInputs.fullTokens.end());
+        for (auto tokenId : m_identifierTokenIds) {
+            m_curr = m_startToken + tokenId;
+            if (identifier = getValue<Identifier>(0); identifier != nullptr) {
+                identifierType = identifier->getType();
+                auto& name = identifier->get();
+
+                if (identifierType == identifierTypeToSearch) {
+                    switch (identifierType) {
+                        case IdentifierType::Function:
+                            if (!m_functionTokenRange.contains(name))
+                                getTokenRange({tkn::Keyword::Function}, m_functionTokenRange, m_namespaceTokenRange, false, &m_functionBlocks);
+                            break;
+                        case IdentifierType::NameSpace:
+                            if (std::ranges::find(m_requiredInputs.usedNamespaces, name) == m_requiredInputs.usedNamespaces.end())
+                                m_requiredInputs.usedNamespaces.push_back(name);
+                            getTokenRange({tkn::Keyword::Namespace}, m_functionTokenRange, m_namespaceTokenRange, true, nullptr);
+                            break;
+                        case IdentifierType::UDT:
+                            if (!m_UDTTokenRange.contains(name))
+                                getTokenRange({tkn::Keyword::Struct, tkn::Keyword::Union, tkn::Keyword::Enum, tkn::Keyword::Bitfield}, m_UDTTokenRange, m_namespaceTokenRange, false, &m_UDTBlocks);
+                            break;
+                        case IdentifierType::Attribute:
+                            linkAttribute();
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+        }
+    }
+
+    void IdentifierHighlighter::skipDelimiters(i32 maxSkipCount, Token delimiters[2], i8 increment) {
+        auto curr = m_curr;
+        i32 skipCount = 0;
+        i32 depth = 0;
+
+        if (!isValid())
+            return;
+        i32 tokenId = getTokenId();
+        auto tokenCount = m_requiredInputs.fullTokens.size();
+
+        if (tokenId == -1 || tokenId >= (i32) tokenCount-1)
+            return;
+        i32 skipCountLimit =
+                increment > 0 ? std::min(maxSkipCount, (i32) tokenCount - 1 - tokenId) : std::min(maxSkipCount, tokenId);
+        next(increment);
+        skipCountLimit -= increment;
+
+        if (peek(delimiters[0])) {
+            next(increment);
+            skipCountLimit -= increment;
+            while (skipCount < skipCountLimit) {
+
+                if (delimiters[0].value == tkn::Operator::BoolLessThan.value && peek(tkn::Separator::LeftParenthesis)) {
+                    Token parentheses[2] = {tkn::Separator::LeftParenthesis, tkn::Separator::RightParenthesis};
+                    next(-increment);
+                    skipCountLimit += increment;
+                    skipDelimiters(maxSkipCount, parentheses, 1);
+                } else if (delimiters[0].value == tkn::Operator::BoolGreaterThan.value && peek(tkn::Separator::RightParenthesis)) {
+                    Token parentheses[2] = {tkn::Separator::RightParenthesis, tkn::Separator::LeftParenthesis};
+                    next(-increment);
+                    skipCountLimit += increment;
+                    skipDelimiters(maxSkipCount,parentheses, -1);
+                }
+
+                if (peek(delimiters[1])) {
+
+                    if (depth == 0)
+                        return;
+                    depth--;
+                } else if (peek(delimiters[0]))
+                    depth++;
+                else if (peek(tkn::Separator::Semicolon)) {
+                    if (increment < 0)
+                        m_curr = curr;
+                    return;
+                } else if (peek(tkn::Literal::Identifier)) {
+
+                    if (peek(tkn::Separator::Dot,1) && peek(tkn::Literal::Identifier,2) )
+
+                        m_memberChains.insert(getTokenId());
+                    else if (peek(tkn::Operator::ScopeResolution,1) && peek(tkn::Literal::Identifier,2))
+
+                        m_scopeChains.insert(getTokenId());
+                    else if (auto identifier = std::get_if<Identifier>(&m_requiredInputs.fullTokens.at(getTokenId()).value);identifier != nullptr && identifier->getType() == IdentifierType::Unknown)
+                        m_taggedIdentifiers.insert(getTokenId());
+                }
+                next(increment);
+                skipCount++;
+            }
+        }
+        m_curr = curr;
+   }
+
+    void IdentifierHighlighter::skipTemplate(i32 maxSkipCount, bool forward) {
+        Token delimiters[2];
+
+        if (forward) {
+            delimiters[0] = Token(tkn::Operator::BoolLessThan);
+            delimiters[1] = Token(tkn::Operator::BoolGreaterThan);
+        } else {
+            delimiters[0] = Token(tkn::Operator::BoolGreaterThan);
+            delimiters[1] = Token(tkn::Operator::BoolLessThan);
+        }
+        skipDelimiters(maxSkipCount, delimiters, forward ? 1 : -1);
+    }
+
+    void IdentifierHighlighter::skipArray(i32 maxSkipCount, bool forward) {
+        Token delimiters[2];
+
+        if (forward) {
+            delimiters[0] = Token(tkn::Separator::LeftBracket);
+            delimiters[1] = Token(tkn::Separator::RightBracket);
+        } else {
+            delimiters[0] = Token(tkn::Separator::RightBracket);
+            delimiters[1] = Token(tkn::Separator::LeftBracket);
+        }
+        skipDelimiters(maxSkipCount, delimiters, forward ? 1 : -1);
+    }
+
+// Used to skip references,pointers,...
+    void IdentifierHighlighter::skipToken(Token token, i8 step) {
+
+        if (peek(token, step))
+            next(step);
+    }
+
+    void IdentifierHighlighter::skipAttribute() {
+
+        if (sequence(tkn::Separator::LeftBracket, tkn::Separator::LeftBracket)) {
+            while (!sequence(tkn::Separator::RightBracket, tkn::Separator::RightBracket))
+                next();
+        }
+    }
+
+// Takes an identifier chain resolves the type of the end from the rest iteratively.
+    bool IdentifierHighlighter::resolveIdentifierType(Definition &result, std::string identifierName) {
+        std::string separator;
+
+        if (identifierName.contains("::"))
+            separator = "::";
+        else
+            separator = ".";
+        auto vectorString = wolv::util::splitString(identifierName, separator);
+
+        std::string nameSpace;
+        u32 index = 0;
+        std::string currentName = vectorString[index];
+        index++;
+        std::string variableParentType;
+
+        Definition definition;
+
+        if (vectorString.size() > 1) {
+
+            if (findIdentifierDefinition(definition, currentName)) {
+                variableParentType = definition.typeStr;
+                auto tokenIndex = getTokenId();
+                setIdentifierColor(tokenIndex, definition.idType);
+                skipArray(200, true);
+                next();
+            } else
+                return false;
+        }
+        while (index < vectorString.size()) {
+
+            if ( separator == ".") {
+                currentName = vectorString[index];
+                next();
+
+                if (findIdentifierDefinition(result, currentName, variableParentType)) {
+                    variableParentType = result.typeStr;
+                    auto tokenIndex = getTokenId();
+                    setIdentifierColor(tokenIndex, result.idType);
+                    skipArray(200, true);
+                    next();
+                } else
+                    return false;
+
+            } else if (separator == "::") {
+                next();
+
+                if (std::ranges::find(m_requiredInputs.usedNamespaces, currentName) != m_requiredInputs.usedNamespaces.end()) {
+                    nameSpace += currentName + "::";
+
+                    variableParentType = vectorString[index];
+                    currentName = variableParentType;
+
+                } else if (std::ranges::find(m_UDTs, currentName) != m_UDTs.end()) {
+                    variableParentType = currentName;
+
+                    if (!nameSpace.empty() && !variableParentType.contains(nameSpace))
+                        variableParentType.insert(0, nameSpace);
+
+                    else if (findNamespace(nameSpace) && !variableParentType.contains(nameSpace))
+                        variableParentType = fmt::format("{}::{}", nameSpace, variableParentType);
+
+                    currentName = vectorString[index];
+
+                    if (findIdentifierDefinition(result, currentName, variableParentType)) {
+                        variableParentType = result.typeStr;
+                        auto tokenIndex = getTokenId();
+                        setIdentifierColor(tokenIndex, result.idType);
+                        skipArray(200, true);
+                        next();
+                    } else
+                        return false;
+                }
+            }
+            index++;
+        }
+
+        return true;
+    }
+
+// If contex then find it otherwise check if it belongs in map
+    bool IdentifierHighlighter::findOrContains(std::string &context, UnorderedBlocks tokenRange, VariableMap variableMap) {
+
+        if (context.empty())
+            return findScope(context, tokenRange);
+        else
+            return variableMap.contains(context);
+    }
+
+    void IdentifierHighlighter::setBlockInstancesColor(const std::string &name, const Definition &definition, const TokenInterval &block) {
+
+        if (definition.idType == IdentifierType::Unknown)
+            return;
+        for (auto instance: m_instances[name]) {
+
+            if (block.contains(instance)) {
+                if (auto identifier = std::get_if<Identifier>(&m_requiredInputs.fullTokens.at(instance).value);
+                    identifier != nullptr && identifier->getType() == IdentifierType::Unknown)
+                    setIdentifierColor(instance, definition.idType);
+            }
+        }
+    }
+
+    bool IdentifierHighlighter::findIdentifierDefinition(Definition &result, const std::string &optionalIdentifierName, std::string optionalName, bool setInstances) {
+        auto curr = m_curr;
+        bool isFunction = false;
+        auto tokenId = getTokenId();
+        std::vector<Definition> definitions;
+        std::string name = optionalName;
+        result.idType = IdentifierType::Unknown;
+        std::string identifierName = optionalIdentifierName;
+
+        if (optionalIdentifierName.empty()) {
+            std::vector<Identifier *> identifiers;
+            getFullName(identifierName, identifiers);
+        }
+        TokenInterval tokenRange;
+        Scopes blocks;
+        Scopes::iterator blocksIterBegin, blocksIterEnd;
+
+        if (findOrContains(name, m_UDTTokenRange, m_UDTVariables) && m_UDTVariables[name].contains(identifierName)) {
+            definitions = m_UDTVariables[name][identifierName];
+            tokenRange = m_UDTTokenRange[name];
+            blocksIterBegin = m_UDTBlocks[name].begin();
+            blocksIterEnd = m_UDTBlocks[name].end();
+
+        } else if (findOrContains(name, m_functionTokenRange, m_functionVariables) &&
+                   m_functionVariables[name].contains(identifierName)) {
+            isFunction = true;
+            definitions = m_functionVariables[name][identifierName];
+            tokenRange = m_functionTokenRange[name];
+            blocksIterBegin = m_functionBlocks[name].begin();
+            blocksIterEnd = m_functionBlocks[name].end();
+            --blocksIterEnd;
+        } else if (m_globalVariables.contains(identifierName)) {
+            definitions = m_globalVariables[identifierName];
+            tokenRange = TokenInterval(0, m_requiredInputs.fullTokens.size());
+            blocks.insert(tokenRange);
+            blocksIterBegin = blocks.begin();
+            blocksIterEnd = blocks.end();
+        } else if (name == "hex::type::Json" || name == "Object") {
+            result.idType = IdentifierType::LocalVariable;
+            result.typeStr = "Object";
+            return true;
+        }
+
+        if (isFunction) {
+            for (auto block = blocksIterBegin; block != blocksIterEnd; block++) {
+
+                if (tokenId > block->m_start && tokenId < block->m_end) {
+                    blocksIterBegin = block;
+                    break;
+                }
+            }
+            for (const auto &definition : definitions) {
+                for (auto block = blocksIterBegin; block != blocksIterEnd; block++) {
+
+                    if (definition.tokenIndex > block->m_start && definition.tokenIndex < block->m_end) {
+                        result = definition;
+                        m_curr = curr;
+
+                        if (setInstances)
+                            setBlockInstancesColor(identifierName, definition, *block);
+                        return true;
+                    }
+                }
+            }
+            auto it = std::ranges::find_if(definitions, [&](const Definition &definition) {
+                return definition.tokenIndex > tokenRange.m_start && definition.tokenIndex < tokenRange.m_end;
+            });
+
+            if (it != definitions.end()) {
+                result = *it;
+                m_curr = curr;
+
+                if (setInstances)
+                    setBlockInstancesColor(identifierName, *it, tokenRange);
+                return true;
+            }
+        } else {
+            for (auto block = blocksIterBegin; block != blocksIterEnd; block++) {
+
+                if (tokenId > block->m_start && tokenId < block->m_end) {
+                    blocksIterBegin = block;
+                    break;
+                }
+            }
+            for (auto block = blocksIterBegin; block != blocksIterEnd; block++) {
+                auto it = std::ranges::find_if(definitions, [&](const Definition &d) {
+                    return d.tokenIndex > block->m_start && d.tokenIndex < block->m_end;
+                });
+                if (it != definitions.end()) {
+                    result = *it;
+                    m_curr = curr;
+                    if (setInstances)
+                        setBlockInstancesColor(identifierName, *it, *block);
+                    return true;
+                }
+            }
+        }
+        m_curr = curr;
+        return false;
+    }
+
+    using Definition = IdentifierHighlighter::Definition;
+
+    bool IdentifierHighlighter::colorOperatorDotChain() {
+        std::vector<Identifier *> identifiers;
+        std::string variableName;
+        auto tokenCount = m_requiredInputs.fullTokens.size();
+
+        if (!getQualifiedName(variableName, identifiers, true))
+            return false;
+
+        auto vectorString = wolv::util::splitString(variableName, ".");
+        u32 index = 0;
+
+
+        u32 currentLine = m_curr->location.line - 1;
+        u32 startingLineTokenIndex = m_firstTokenIdOfLine.at(currentLine);
+
+        if (startingLineTokenIndex == 0xFFFFFFFFu || startingLineTokenIndex > tokenCount)
+            return false;
+
+        if (auto *keyword = std::get_if<Keyword>(&m_requiredInputs.fullTokens.at(startingLineTokenIndex).value);
+                keyword != nullptr && *keyword == Keyword::Import) {
+            while (index < vectorString.size()) {
+                auto tokenIndex = getTokenId();
+                setIdentifierColor(tokenIndex, IdentifierType::NameSpace);
+                next(2);
+                index++;
+            }
+            return true;
+        } else {
+            std::string variableParentType;
+            Definition definition;
+            std::string currentName = vectorString[index];
+            index++;
+            bool brokenChain = false;
+
+            if (findIdentifierDefinition(definition, currentName)) {
+                variableParentType = definition.typeStr;
+                auto tokenIndex = getTokenId();
+                setIdentifierColor(tokenIndex, definition.idType);
+                skipArray(200, true);
+                next();
+            } else {
+                auto tokenIndex = getTokenId();
+                setIdentifierColor(tokenIndex, IdentifierType::Unknown);
+                skipArray(200, true);
+                next();
+                brokenChain = true;
+            }
+
+            while (index < vectorString.size()) {
+                currentName = vectorString[index];
+                next();
+                Definition result=definition;
+                Definition parentDefinition = result;
+
+                if (findIdentifierDefinition(result, currentName, variableParentType) && !brokenChain) {
+                    variableParentType = result.typeStr;
+                    auto tokenIndex = getTokenId();
+                    setIdentifierColor(tokenIndex, result.idType);
+                    skipArray(200, true);
+                    next();
+                } else if (auto udtVars = m_UDTVariables[result.typeStr];udtVars.contains(vectorString[index-1])) {
+                    auto saveCurr = m_curr;
+                    std::string templateName;
+                    auto instances = m_instances[variableParentType];
+                    for (auto instance : instances) {
+                        if (auto *identifier = std::get_if<Identifier>(&m_requiredInputs.fullTokens.at(instance).value); identifier != nullptr && identifier->getType() == IdentifierType::TemplateArgument) {
+                            auto tokenRange = m_UDTTokenRange[result.typeStr];
+                            auto tokenIndex = m_firstTokenIdOfLine.at(getLocation(parentDefinition.tokenIndex).line - 1);
+                            i32 argNumber = getArgumentNumber(tokenRange.m_start, instance);
+                            getTokenIdForArgument(tokenIndex, argNumber, tkn::Operator::BoolLessThan);
+                            if (auto *identifier2 = std::get_if<Identifier>(&m_curr->value); identifier2 != nullptr) {
+                                templateName = identifier2->get();
+                                break;
+                            }
+                        }
+                    }
+                    if (!templateName.empty() && findIdentifierDefinition(result, currentName, templateName) ) {
+                        variableParentType = result.typeStr;
+                        m_curr = saveCurr;
+                        auto tokenIndex = getTokenId();
+                        setIdentifierColor(tokenIndex, result.idType);
+                        skipArray(200, true);
+                        next();
+                    } else{
+                        if (m_typeDefMap.contains(variableParentType)) {
+                            std::string typeName;
+                            instances = m_instances[variableParentType];
+                            for (auto instance: instances) {
+                                if (auto *identifier = std::get_if<Identifier>(&m_requiredInputs.fullTokens.at(instance).value);
+                                        identifier != nullptr && identifier->getType() == IdentifierType::Typedef) {
+                                    if (auto *identifier2 = std::get_if<Identifier>(&m_requiredInputs.fullTokens.at(instance + 2).value);
+                                            identifier2 != nullptr) {
+                                        typeName = identifier2->get();
+                                        break;
+                                    }
+                                }
+                            }
+                            if (!typeName.empty() && findIdentifierDefinition(result, currentName, typeName)) {
+                                variableParentType = result.typeStr;
+                                m_curr = saveCurr;
+                                auto tokenIndex = getTokenId();
+                                setIdentifierColor(tokenIndex, result.idType);
+                                skipArray(200, true);
+                                next();
+                            }
+                        }
+                    }
+                } else {
+                    brokenChain = true;
+                    auto tokenIndex = getTokenId();
+                    setIdentifierColor(tokenIndex, IdentifierType::Unknown);
+                    skipArray(200, true);
+                    next();
+                }
+                index++;
+            }
+        }
+        return true;
+    }
+
+    bool IdentifierHighlighter::colorSeparatorScopeChain() {
+        if (!colorRealSeparatorScopeChain())
+            return colorImplicitSeparatorScopeChain();
+        return true;
+    }
+
+    bool IdentifierHighlighter::colorImplicitSeparatorScopeChain() {
+        auto identifier = getValue<Identifier>(0);
+        if (identifier == nullptr)
+            return false;
+        std::string identifierName = identifier->get();
+        std::string nameSpace;
+        if (!findNamespace(nameSpace))
+            return false;
+        std::string qualifiedName = fmt::format("{}::{}", nameSpace, identifierName);
+        if (m_UDTDefinitions.contains(qualifiedName)) {
+            setIdentifierColor(-1, IdentifierType::UDT);
+            return true;
+        } else if (m_functionDefinitions.contains(qualifiedName)) {
+            setIdentifierColor(-1, IdentifierType::Function);
+            return true;
+        } else
+            return false;
+
+    }
+
+    bool IdentifierHighlighter::colorRealSeparatorScopeChain() {
+        std::vector<Identifier *> identifiers;
+        std::string identifierName;
+
+        if (!getQualifiedName(identifierName, identifiers, true)) {
+            return false;
+        }
+
+        auto tokenCount = m_requiredInputs.fullTokens.size();
+        auto vectorString = wolv::util::splitString(identifierName, "::");
+        auto vectorStringCount = vectorString.size();
+        if (identifiers.size() != vectorStringCount)
+            return false;
+        auto curr = m_curr;
+        std::string nameSpace;
+
+        for (u32 i = 0; i < vectorStringCount ; i++) {
+            auto name = vectorString[i];
+            auto identifier = identifiers[i];
+
+            if (std::ranges::find(m_requiredInputs.usedNamespaces, name) != m_requiredInputs.usedNamespaces.end()) {
+                setIdentifierColor(-1, IdentifierType::NameSpace);
+                nameSpace += name + "::";
+            } else if (m_UDTDefinitions.contains(nameSpace+name)) {
+                name.insert(0, nameSpace);
+                auto udtDefinition = m_UDTDefinitions[name];
+                auto definitionIndex = udtDefinition.tokenIndex-1;
+                if (auto *keyword = std::get_if<Keyword>(&m_requiredInputs.fullTokens.at(definitionIndex).value); keyword != nullptr) {
+                    setIdentifierColor(-1, IdentifierType::UDT);
+                    if (*keyword == Keyword::Enum) {
+                        next();
+                        if (!sequence(tkn::Operator::ScopeResolution) || vectorStringCount != i+2 ||
+                            !m_UDTVariables.contains(name))
+                            return false;
+                        const auto& variableName = vectorString[i+1];
+                        if (!m_UDTVariables[name].contains(variableName))
+                            return false;
+                        auto variableDefinition = m_UDTVariables[name][variableName][0];
+                        setIdentifierColor(-1, variableDefinition.idType);
+                        return true;
+                    } else
+                        return true;
+                } else
+                    return false;
+
+            } else if (identifier->getType() == IdentifierType::Function) {
+                setIdentifierColor(-1, IdentifierType::Function);
+                return true;
+            } else if (std::ranges::find(m_UDTs, nameSpace+name) != m_UDTs.end()) {
+                setIdentifierColor(-1, IdentifierType::UDT);
+                if (vectorStringCount == i+1)
+                    return true;
+                next();
+                if (!sequence(tkn::Operator::ScopeResolution) || vectorStringCount != i+2)
+                    return false;
+                setIdentifierColor(-1, IdentifierType::PatternVariable);
+                return true;
+            } else
+                return false;
+            next(2);
+        }
+        m_curr = curr;
+
+        if (std::ranges::find(m_requiredInputs.usedNamespaces, identifierName) != m_requiredInputs.usedNamespaces.end()) {
+            setIdentifierColor(-1, IdentifierType::NameSpace);
+            return true;
+        }
+
+        i32 index = getTokenId();
+
+        if (index < (i32) tokenCount - 1 && index > 2) {
+            auto nextToken = m_curr[1];
+            auto *separator = std::get_if<Token::Separator>(&nextToken.value);
+            auto *operatorToken = std::get_if<Token::Operator>(&nextToken.value);
+
+            if ((separator != nullptr && *separator == Separator::Semicolon) ||
+                (operatorToken != nullptr && *operatorToken == Operator::BoolLessThan)) {
+                auto previousToken = m_curr[-1];
+                auto previousPreviousToken = m_curr[-2];
+                operatorToken = std::get_if<Operator>(&previousToken.value);
+                auto *identifier2 = std::get_if<Identifier>(&previousPreviousToken.value);
+
+                if (operatorToken != nullptr && identifier2 != nullptr && *operatorToken == Operator::ScopeResolution) {
+
+                    if (identifier2->getType() == IdentifierType::UDT) {
+                        setIdentifierColor(-1, IdentifierType::LocalVariable);
+                        return true;
+
+                    } else if (identifier2->getType() == IdentifierType::NameSpace) {
+                        setIdentifierColor(-1, IdentifierType::UDT);
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+// finds the name of the token range that the given or the current token index is in.
+    bool IdentifierHighlighter::findScope(std::string &name, const UnorderedBlocks &map, i32 optionalTokenId) {
+        auto tokenId = optionalTokenId ==-1 ? getTokenId() : optionalTokenId;
+
+        for (const auto &[scopeName, range]: map) {
+
+            if (range.contains(tokenId)) {
+                name = scopeName;
+                return true;
+            }
+        }
+        return false;
+    }
+
+// Finds the namespace of the given or the current token index.
+    bool IdentifierHighlighter::findNamespace(std::string &nameSpace, i32 optionalTokenId) {
+        nameSpace = "";
+
+        for (auto [interval, name]: m_namespaceTokenRange) {
+            i32 tokenId = optionalTokenId == -1 ? getTokenId() : optionalTokenId;
+
+            if (tokenId > interval.m_start && tokenId < interval.m_end) {
+
+                if (nameSpace.empty())
+                    nameSpace = name;
+                else
+                    nameSpace = fmt::format("{}::{}", name,  nameSpace);
+            }
+        }
+
+        return !nameSpace.empty();
+    }
+
+//The context is the name of the function or UDT that the variable is in aka its parent.
+    std::string IdentifierHighlighter::findIdentifierTypeStr(const std::string &identifierName, std::string context) {
+        Definition result;
+        findIdentifierDefinition(result, identifierName, context);
+        return result.typeStr;
+    }
+
+
+     IdentifierHighlighter::IdentifierType IdentifierHighlighter::findIdentifierType(const std::string &identifierName, std::string context) {
+        Definition result;
+        findIdentifierDefinition(result, identifierName, context);
+        return result.idType;
+    }
+
+// Creates a map from the attribute function to the type of the argument it takes.
+    void IdentifierHighlighter::linkAttribute() {
+        auto curr = m_curr;
+        bool qualifiedAttribute = false;
+
+        while (sequence(tkn::Literal::Identifier, tkn::Operator::ScopeResolution))
+            qualifiedAttribute = true;
+
+        if (qualifiedAttribute) {
+            auto identifier = getValue<Identifier>(0);
+
+            if (identifier != nullptr)
+                setIdentifierColor(-1, IdentifierType::Attribute);
+            m_curr = curr;
+            identifier = getValue<Identifier>(0);
+
+            if (identifier != nullptr)
+                setIdentifierColor(-1, IdentifierType::NameSpace);
+        } else
+            m_curr = curr;
+
+        std::string functionName;
+        next();
+
+        if (sequence(tkn::Separator::LeftParenthesis, tkn::Literal::String)) {
+            functionName = getValue<Literal>(-1)->toString(false);
+        } else if (sequence(tkn::Separator::LeftParenthesis, tkn::Literal::Identifier)) {
+            next(-1);
+            std::vector<Identifier *> identifiers;
+            if (!getFullName(functionName, identifiers, false))
+                functionName = getValue<Identifier>(0)->get();
+        } else
+            return;
+
+        if (!functionName.contains("::")) {
+            std::string namespaceName;
+
+            if (findNamespace(namespaceName))
+                functionName = fmt::format("{}::{}", namespaceName, functionName);
+        } else {
+
+            auto vectorString = wolv::util::splitString(functionName, "::");
+            vectorString.pop_back();
+            for (const auto &nameSpace: vectorString) {
+
+                if (std::ranges::find(m_requiredInputs.usedNamespaces, nameSpace) == m_requiredInputs.usedNamespaces.end())
+                    m_requiredInputs.usedNamespaces.push_back(nameSpace);
+            }
+        }
+        m_curr = curr;
+        i32 tokenIndex = getTokenId();
+        if (tokenIndex > 3)
+            next(-3);
+        else
+            return;
+        if (peek(tkn::Separator::RightBrace,0)) {
+
+            while (!peek(tkn::Separator::Semicolon, -1) && tokenIndex > 0) {
+                bool foundComment = false;
+                while (peek(tkn::Literal::Comment, -1) || peek(tkn::Literal::DocComment, -1)) {
+                    next(-1);
+                    foundComment = true;
+                }
+                if (!foundComment)
+                    next(-1);
+                tokenIndex = getTokenId();
+            }
+        } else {
+            tokenIndex = m_firstTokenIdOfLine.at(m_curr->location.line - 1);
+        }
+
+        while (peek(tkn::Literal::Comment) || peek(tkn::Literal::DocComment))
+            next();
+
+        Identifier *identifier;
+        std::string UDTName;
+        while (sequence(tkn::Literal::Identifier, tkn::Operator::ScopeResolution)) {
+            identifier = getValue<Identifier>(-2);
+            UDTName += identifier->get() + "::";
+        }
+
+        if (sequence(tkn::Literal::Identifier)) {
+            identifier = getValue<Identifier>(-1);
+            UDTName += identifier->get();
+
+            if (!UDTName.contains("::")) {
+                std::string namespaceName;
+
+                if (findNamespace(namespaceName))
+                    UDTName = fmt::format("{}::{}", namespaceName, UDTName);
+            }
+            if (m_requiredInputs.definedTypes.contains(UDTName))
+                m_attributeFunctionArgumentType[functionName] = UDTName;
+
+        } else if (sequence(tkn::ValueType::Any)) {
+            auto valueType = getValue<ValueType>(-1);
+            m_attributeFunctionArgumentType[functionName] = Token::getTypeName(*valueType);
+        } else {
+            if (findScope(UDTName, m_UDTTokenRange) && !UDTName.empty())
+                m_attributeFunctionArgumentType[functionName] = UDTName;
+        }
+    }
+
+// This function assumes that the first variable in the link that concatenates sequences including the Parent keyword started with Parent and was removed. Uses a function to find
+// all the parents of a variable, If there are subsequent elements in the link that are Parent then for each parent it finds all the grandparents and puts them in a vector called
+// parentTypes. It stops when a link that's not Parent is found amd only returns the last generation of parents.
+    bool IdentifierHighlighter::findAllParentTypes(std::vector<std::string> &parentTypes,
+                                             std::vector<Identifier *> &identifiers, std::string &optionalFullName) {
+        auto fullName = optionalFullName;
+
+        if (optionalFullName.empty())
+            forwardIdentifierName(fullName, identifiers);
+
+        auto nameParts = wolv::util::splitString(fullName, ".");
+        std::vector<std::string> grandpaTypes;
+        findParentTypes(parentTypes);
+
+        if (parentTypes.empty())
+            return false;
+
+        auto currentName = nameParts[0];
+        nameParts.erase(nameParts.begin());
+        auto identifier = identifiers[0];
+        identifiers.erase(identifiers.begin());
+
+        while (currentName == "Parent" && !nameParts.empty()) {
+            for (const auto &parentType: parentTypes)
+                findParentTypes(grandpaTypes, parentType);
+
+            currentName = nameParts[0];
+            nameParts.erase(nameParts.begin());
+            identifier = identifiers[0];
+            identifiers.erase(identifiers.begin());
+            parentTypes = grandpaTypes;
+            grandpaTypes.clear();
+        }
+
+        nameParts.insert(nameParts.begin(), currentName);
+        identifiers.insert(identifiers.begin(), identifier);
+        optionalFullName = wolv::util::combineStrings(nameParts, ".");
+        return true;
+    }
+
+// Searches for parents through every custom type,i.e. for structs that have members
+// of the same type as the one being searched and places them in a vector called parentTypes.
+    bool IdentifierHighlighter::findParentTypes(std::vector<std::string> &parentTypes, const std::string &optionalUDTName) {
+        std::string UDTName;
+        std::string functionName;
+        bool isFunction = false;
+        if (optionalUDTName.empty()) {
+            if (!findScope(UDTName, m_UDTTokenRange)) {
+                if (!findScope(functionName, m_functionTokenRange)) {
+                    return false;
+                } else {
+                    isFunction = true;
+                }
+            }
+        } else
+            UDTName = optionalUDTName;
+
+        bool found = false;
+        if (!isFunction) {
+            for (const auto &[name, variables]: m_UDTVariables) {
+                for (const auto &[variableName, definitions]: variables) {
+                    for (const auto &definition: definitions) {
+
+                        if (definition.typeStr == UDTName) {
+
+                            if (std::ranges::find(parentTypes, name) == parentTypes.end()) {
+                                parentTypes.push_back(name);
+                                found = true;
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            auto curr = m_curr;
+            for (const auto &[name, range] : m_UDTTokenRange) {
+                auto startToken = SafeTokenIterator(m_requiredInputs.fullTokens.begin() + range.m_start, m_requiredInputs.fullTokens.begin() + range.m_end);
+                auto endToken = SafeTokenIterator(m_requiredInputs.fullTokens.begin() + range.m_end, m_requiredInputs.fullTokens.end());
+
+                for ( m_curr = startToken; endToken > m_curr; next()) {
+                    if (auto *identifier = std::get_if<Identifier>(&m_curr->value); identifier != nullptr) {
+                        auto identifierName = identifier->get();
+                        auto identifierType = identifier->getType();
+                        if (identifierName == functionName && identifierType == IdentifierType::Function) {
+                            parentTypes.push_back(name);
+                            found = true;
+                        }
+                    }
+                }
+            }
+            m_curr = curr;
+        }
+        return found;
+    }
+
+// this function searches all the parents recursively until it can match the variable name at the end of the chain
+// and selects its type to colour the variable because the search only occurs pn type declarations which we know
+// the types of. Once the end link is found then all the previous links are also assigned the types that were found
+// for them during the search.
+    bool IdentifierHighlighter::tryParentType(const std::string &parentType, std::string &variableName,
+                                                           std::optional<Definition> &result,
+                                                           std::vector<Identifier *> &identifiers) {
+
+        auto vectorString = wolv::util::splitString(variableName, ".");
+        auto count = vectorString.size();
+        auto UDTName = parentType;
+        auto currentName = vectorString[0];
+
+        if (m_UDTVariables.contains(UDTName) && m_UDTVariables[UDTName].contains(currentName)) {
+            auto definitions = m_UDTVariables[UDTName][currentName];
+            for (const auto &definition: definitions) {
+                UDTName = definition.typeStr;
+
+                if (count == 1) {
+                    setIdentifierColor(-1, definition.idType);
+                    result = definition;
+                    return true;
+                }
+                if (!vectorString.empty())
+                    vectorString.erase(vectorString.begin());
+                variableName = wolv::util::combineStrings(vectorString, ".");
+                Identifier *identifier = identifiers[0];
+                identifiers.erase(identifiers.begin());
+                skipArray(200, true);
+                next(2);
+
+                if (tryParentType(UDTName, variableName, result, identifiers)) {
+                    next(-1);
+                    skipArray(200, false);
+                    next(-1);
+                    setIdentifierColor(-1, definition.idType);
+                    return true;
+                }
+
+                identifiers.insert(identifiers.begin(), identifier);
+                variableName += "." + currentName;
+                next(-1);
+                skipArray(200, false);
+                next(-1);
+            }
+
+            return false;
+        } else
+            return false;
+        return false;
+    }
+
+// Handles Parent keyword.
+    std::optional<Definition> IdentifierHighlighter::setChildrenTypes() {
+        auto curr = m_curr;
+        std::string fullName;
+        std::vector<Identifier *> identifiers;
+        std::vector<Definition> definitions;
+        std::optional<Definition> result;
+
+        forwardIdentifierName(fullName, identifiers);
+
+        std::vector<std::string> parentTypes;
+        auto vectorString = wolv::util::splitString(fullName, ".");
+        if (vectorString[0] == "Parent") {
+            vectorString.erase(vectorString.begin());
+            fullName = wolv::util::combineStrings(vectorString, ".");
+            identifiers.erase(identifiers.begin());
+            if (!findAllParentTypes(parentTypes, identifiers, fullName)) {
+                m_curr = curr;
+                return std::nullopt;
+            }
+        } else {
+            m_curr = curr;
+            return std::nullopt;
+        }
+
+        for (const auto &parentType: parentTypes) {
+            m_curr = curr;
+            while (peek(tkn::Keyword::Parent))
+                next(2);
+
+            if (tryParentType(parentType, fullName, result, identifiers)) {
+
+                if (result.has_value())
+                    definitions.push_back(result.value());
+            } else {
+                m_curr = curr;
+                return std::nullopt;
+            }
+        }
+        // Todo: Are all definitions supposed to be the same? If not, which one should be used?
+        // for now, use the first one.
+        if (!definitions.empty())
+            result = definitions[0];
+        m_curr = curr;
+        return result;
+    }
+
+    const IdentifierHighlighter::IdentifierTypeColor IdentifierHighlighter::m_identifierTypeColor = {
+            {Identifier::IdentifierType::Macro,                  ui::TextEditor::PaletteIndex::PreprocIdentifier},
+            {Identifier::IdentifierType::UDT,                    ui::TextEditor::PaletteIndex::UserDefinedType},
+            {Identifier::IdentifierType::Function,               ui::TextEditor::PaletteIndex::Function},
+            {Identifier::IdentifierType::Attribute,              ui::TextEditor::PaletteIndex::Attribute},
+            {Identifier::IdentifierType::NameSpace,              ui::TextEditor::PaletteIndex::NameSpace},
+            {Identifier::IdentifierType::Typedef,                ui::TextEditor::PaletteIndex::TypeDef},
+            {Identifier::IdentifierType::PatternVariable,        ui::TextEditor::PaletteIndex::PatternVariable},
+            {Identifier::IdentifierType::LocalVariable,          ui::TextEditor::PaletteIndex::LocalVariable},
+            {Identifier::IdentifierType::CalculatedPointer,      ui::TextEditor::PaletteIndex::CalculatedPointer},
+            {Identifier::IdentifierType::TemplateArgument,       ui::TextEditor::PaletteIndex::TemplateArgument},
+            {Identifier::IdentifierType::PlacedVariable,         ui::TextEditor::PaletteIndex::PlacedVariable},
+            {Identifier::IdentifierType::View,                   ui::TextEditor::PaletteIndex::View},
+            {Identifier::IdentifierType::FunctionVariable,       ui::TextEditor::PaletteIndex::FunctionVariable},
+            {Identifier::IdentifierType::FunctionParameter,      ui::TextEditor::PaletteIndex::FunctionParameter},
+            {Identifier::IdentifierType::Unknown,                ui::TextEditor::PaletteIndex::UnkIdentifier},
+            {Identifier::IdentifierType::FunctionUnknown,        ui::TextEditor::PaletteIndex::UnkIdentifier},
+            {Identifier::IdentifierType::MemberUnknown,          ui::TextEditor::PaletteIndex::UnkIdentifier},
+            {Identifier::IdentifierType::ScopeResolutionUnknown, ui::TextEditor::PaletteIndex::UnkIdentifier},
+            {Identifier::IdentifierType::GlobalVariable,         ui::TextEditor::PaletteIndex::GlobalVariable},
+    };
+
+// creates a map from variable names to a vector of token indices
+// od every instance of the variable name in the code.
+    void IdentifierHighlighter::setInitialColors() {
+
+        m_startToken = m_originalPosition = m_partOriginalPosition = SafeTokenIterator(m_requiredInputs.fullTokens.begin(), m_requiredInputs.fullTokens.end());
+        for (auto tokenId : m_identifierTokenIds) {
+            m_curr = m_startToken + tokenId;
+            if (auto identifier = getValue<Identifier>(0); identifier != nullptr) {
+
+                if (auto identifierType = identifier->getType(); identifierType != IdentifierType::Unknown && identifierType != IdentifierType::MemberUnknown &&identifierType != IdentifierType::FunctionUnknown && identifierType != IdentifierType::ScopeResolutionUnknown)
+                    setIdentifierColor(-1, identifierType);
+            }
+        }
+    }
+
+    void IdentifierHighlighter::setTokenIds() {
+        m_identifierTokenIds.clear();
+        m_startToken = m_originalPosition = m_partOriginalPosition = SafeTokenIterator(m_requiredInputs.fullTokens.begin(), m_requiredInputs.fullTokens.end());
+        auto endToken = SafeTokenIterator(m_requiredInputs.fullTokens.end(), m_requiredInputs.fullTokens.end());
+        m_curr = m_startToken;
+        while (endToken > m_curr) {
+            if (sequence(tkn::Literal::Identifier)) {
+                auto tokenId = getTokenId() - 1;
+                m_identifierTokenIds.insert(tokenId);
+            } else
+                next();
+        }
+    }
+
+    void IdentifierHighlighter::loadInstances() {
+        std::map<std::string, std::vector<i32>> instances;
+        m_startToken = m_originalPosition = m_partOriginalPosition = SafeTokenIterator(m_requiredInputs.fullTokens.begin(), m_requiredInputs.fullTokens.end());
+        for (auto identifierTokenId : m_identifierTokenIds) {
+            m_curr = m_startToken + identifierTokenId;
+            std::string name;
+
+            if (auto identifier = getValue<Identifier>(0); identifier != nullptr) {
+                auto identifierType = identifier->getType();
+
+                name = identifier->get();
+
+                if (identifierType == IdentifierType::Typedef) {
+                    auto curr = m_curr;
+                    skipTemplate(200, true);
+                    next();
+                    if (sequence(tkn::Operator::Assign, tkn::Literal::Identifier)) {
+                        next(-1);
+                        i32 fullNameTokenId = getTokenId();
+                        std::vector<Identifier *> identifiers;
+                        std::string typeName;
+                        if (!getFullName(typeName, identifiers, false)) {
+                            auto identifier2 = getValue<Identifier>(0);
+                            if (identifier2 != nullptr) {
+                                typeName = identifier2->get();
+                            }
+                        } else {
+                            auto count = std::count(typeName.begin(), typeName.end(), ':') >> 1;
+                            for (auto i = 0; i < count; i++) {
+                                setIdentifierColor(fullNameTokenId, IdentifierType::NameSpace);
+                                fullNameTokenId += 2;
+                            }
+                        }
+                        setIdentifierColor(fullNameTokenId, IdentifierType::UDT);
+                        if (!m_typeDefMap.contains(name) && !typeName.empty()) {
+                            m_typeDefMap[name] = typeName;
+                            m_typeDefInvMap[typeName] = name;
+                        }
+                        auto start = m_curr;
+                        skipTemplate(200, true);
+                        auto end = m_curr;
+                        for (m_curr = start; end > m_curr; next()) {
+                            if (auto identifier2 = getValue<Identifier>(0); identifier2 != nullptr) {
+                                auto tokenId = getTokenId();
+                                setIdentifierColor(tokenId, IdentifierType::TemplateArgument);
+                            }
+                        }
+                    }
+                    m_curr = curr;
+                } else {
+                    name = identifier->get();
+                    auto curr = m_curr;
+                    auto tokenIndex = getTokenId();
+                    skipArray(200, true);
+                    next();
+                    bool chainStarted = false;
+                    while (sequence(tkn::Operator::ScopeResolution, tkn::Literal::Identifier)) {
+
+                        if (identifier = getValue<Identifier>(-1); identifier != nullptr)
+                            name += "::" + identifier->get();
+                        std::string nameSpace;
+                        if (!chainStarted) {
+                            chainStarted = true;
+                            m_scopeChains.insert(tokenIndex);
+                        } else if (findNamespace(nameSpace) && !nameSpace.empty()) {
+                            m_scopeChains.insert(tokenIndex);
+                        }
+
+                        curr = m_curr;
+                    }
+                    while (sequence(tkn::Separator::Dot, tkn::Literal::Identifier)) {
+
+                        if (identifier = getValue<Identifier>(-1); identifier != nullptr)
+                            name += "." + identifier->get();
+
+                        if (!chainStarted) {
+                            chainStarted = true;
+                            m_memberChains.insert(tokenIndex);
+                        }
+                        skipArray(200, true);
+                        curr = m_curr;
+                    }
+                    if (peek(tkn::Literal::Identifier)) {
+                        std::string nameSpace;
+                        if (findNamespace(nameSpace) && !nameSpace.empty() && std::ranges::find(m_UDTs, fmt::format("{}::{}",nameSpace, name)) != m_UDTs.end()) {
+                            m_scopeChains.insert(tokenIndex);
+                        }
+                    }
+                    m_curr = curr;
+                }
+                auto id = getTokenId();
+
+                if (instances.contains(name)) {
+                    auto &nameInstances = instances[name];
+
+                    if (std::ranges::find(nameInstances, id) == nameInstances.end())
+                        nameInstances.push_back(id);
+                } else
+                    instances[name].push_back(id);
+            }
+        }
+        m_instances = std::move(instances);
+    }
+
+// Get the location of a given token index
+    pl::core::Location IdentifierHighlighter::getLocation(i32 tokenId) {
+
+        if (tokenId >= (i32) m_requiredInputs.fullTokens.size())
+            return Location::Empty();
+        return m_requiredInputs.fullTokens.at(tokenId).location;
+    }
+
+    i32 IdentifierHighlighter::getTokenId(SafeTokenIterator tokenIterator) {
+        auto start = m_requiredInputs.fullTokens.data();
+        auto m_start = &tokenIterator.front();
+        auto m_end = &tokenIterator.back();
+        if (m_start < start || start > m_end) {
+            throw std::out_of_range("iterator out of range");
+        }
+        return m_start - start;
+    }
+
+    i32 IdentifierHighlighter::getTokenId() {
+        auto start = m_requiredInputs.fullTokens.data();
+        auto m_start = &m_curr.front();
+        auto m_end = &m_curr.back();
+        if (m_start < start || start > m_end) {
+            throw std::out_of_range("iterator out of range");
+        }
+        return m_start - start;
+    }
+
+// Get the token index for a given location.
+    i32 IdentifierHighlighter::getTokenId(pl::core::Location location) {
+
+        if (location == m_requiredInputs.fullTokens.at(0).location)
+            return 0;
+        if (location == m_requiredInputs.fullTokens.back().location)
+            return (i32) m_requiredInputs.fullTokens.size() - 1;
+        if (!isLocationValid(location))
+            return -1;
+        auto line1 = location.line - 1;
+        auto tokenCount = m_requiredInputs.fullTokens.size();
+        auto lineCount = m_firstTokenIdOfLine.size();
+        if (line1 >= lineCount || tokenCount == 0)
+            return -1;
+        auto line2 = nextLine(line1);
+        i32 tokenStart = m_firstTokenIdOfLine[line1];
+        i32 tokenEnd = tokenCount - 1;
+
+        if (line2 < lineCount)
+            tokenEnd = m_firstTokenIdOfLine[line2] - 1;
+
+        if (tokenStart == -1 || tokenEnd == -1 || tokenStart >= (i32) tokenCount)
+            return -1;
+
+        for (i32 i = tokenStart; i <= tokenEnd; i++) {
+            auto location2 = m_requiredInputs.fullTokens[i].location;
+            if (location2.column <= location.column && location2.column + location2.length >= location.column)
+                return i + 1;
+        }
+        return -1;
+    }
+
+    void IdentifierHighlighter::setIdentifierColor(i32 tokenId, const IdentifierType &type) {
+        const Token *constToken;
+
+        if (tokenId == -1) {
+            constToken = &m_curr[0];
+            tokenId = getTokenId();
+        } else
+            constToken = &m_requiredInputs.fullTokens.at(tokenId);
+
+        auto token = const_cast<Token *>(constToken);
+
+        if (token->type == Token::Type::Identifier && (!m_tokenColors.contains(tokenId) || m_tokenColors.at(tokenId) == ui::TextEditor::PaletteIndex::Default || m_tokenColors.at(tokenId) == ui::TextEditor::PaletteIndex::UnkIdentifier))
+            m_tokenColors[tokenId]  = m_identifierTypeColor.at(type);
+
+    }
+
+    void IdentifierHighlighter::setColor(i32 tokenId, const IdentifierType &type) {
+
+        if (tokenId == -1)
+            tokenId = getTokenId();
+
+        setIdentifierColor(tokenId, type);
+    }
+
+    void IdentifierHighlighter::colorRemainingIdentifierTokens() {
+        std::vector<i32> taggedIdentifiers(m_taggedIdentifiers.begin(), m_taggedIdentifiers.end());
+        m_taggedIdentifiers.clear();
+        m_startToken = m_originalPosition = m_partOriginalPosition = SafeTokenIterator(m_requiredInputs.fullTokens.begin(), m_requiredInputs.fullTokens.end());
+
+        for (auto tokenId : m_identifierTokenIds) {
+            m_curr = m_startToken + tokenId;
+
+            if (!taggedIdentifiers.empty() && tokenId > taggedIdentifiers.back()) {
+                next(taggedIdentifiers.back() - tokenId);
+                taggedIdentifiers.pop_back();
+            }
+
+            if (peek(tkn::Keyword::Import, -1)) {
+                do {
+                    if (auto identifier = const_cast<Identifier *>(getValue<Token::Identifier>(0)); identifier != nullptr) {
+                        setIdentifierColor(-1, IdentifierType::NameSpace);
+                        if (std::ranges::find(m_requiredInputs.usedNamespaces, identifier->get()) == m_requiredInputs.usedNamespaces.end()) {
+                            m_requiredInputs.usedNamespaces.push_back(identifier->get());
+                        }
+                    }
+                } while (sequence(tkn::Literal::Identifier,tkn::Separator::Dot));
+                if (peek(tkn::Separator::EndOfProgram))
+                    return;
+                next();
+                if (sequence(tkn::Keyword::As, tkn::Literal::Identifier)) {
+                    next(-1);
+                    if (auto identifier = const_cast<Identifier *>(getValue<Token::Identifier>(0)); identifier != nullptr) {
+                        setIdentifierColor(-1, IdentifierType::NameSpace);
+                        if (std::ranges::find(m_requiredInputs.usedNamespaces, identifier->get()) == m_requiredInputs.usedNamespaces.end()) {
+                            m_requiredInputs.usedNamespaces.push_back(identifier->get());
+                        }
+                    }
+                }
+            }
+            auto identifier = getValue<Token::Identifier>(0);
+            Token::Identifier::IdentifierType identifierType;
+            if (identifier == nullptr) {
+                continue;
+            }
+            identifierType = identifier->getType();
+            std::string variableName = identifier->get();
+
+            if (m_tokenColors.contains(tokenId) && (m_tokenColors.at(tokenId) != ui::TextEditor::PaletteIndex::Default && identifierType != IdentifierType::Unknown)) {
+                continue;
+            }
+            Definition definition;
+            std::string nameSpace;
+            if (peek(tkn::Keyword::Parent, -2)) {
+                auto save = m_curr;
+                next(-2);
+                while (peek(tkn::Keyword::Parent, -2))
+                    next(-2);
+                auto optional = setChildrenTypes();
+
+                if (optional.has_value())
+                    setIdentifierColor(-1, optional->idType);
+                else {
+                    m_curr = save;
+                    setIdentifierColor(-1, IdentifierType::Unknown);
+                    continue;
+                }
+                m_curr = save;
+                continue;
+            }
+            if (peek(tkn::Operator::ScopeResolution, 1)) {
+                if (std::ranges::find(m_requiredInputs.usedNamespaces, variableName) != m_requiredInputs.usedNamespaces.end()) {
+                    setIdentifierColor(-1, IdentifierType::NameSpace);
+                    continue;
+                }
+            }
+            if (peek(tkn::Operator::ScopeResolution, -1)) {
+                auto save = m_curr;
+                next(-2);
+                if (auto parentIdentifier = const_cast<Identifier *>(getValue<Token::Identifier>(0)); parentIdentifier != nullptr) {
+                    next(2);
+                    if (parentIdentifier->getType() == IdentifierType::UDT) {
+                        auto parentName = parentIdentifier->get();
+                        auto typeName = findIdentifierType(variableName, parentName);
+                        setIdentifierColor(-1, typeName);
+                    }
+                }
+                m_curr = save;
+                continue;
+            }
+            if (findIdentifierDefinition(definition)) {
+                identifierType = definition.idType;
+                setIdentifierColor(-1, identifierType);
+                continue;
+            }
+            if (findNamespace(nameSpace,tokenId)) {
+                auto fullName = fmt::format("{}::{}",nameSpace, variableName);
+                auto typeName = findIdentifierType(fullName, "");
+                if (typeName != IdentifierType::Unknown) {
+                    setIdentifierColor(-1, typeName);
+                    continue;
+                }
+            }
+            if (std::ranges::find(m_UDTs, variableName) != m_UDTs.end()) {
+                if (m_typeDefMap.contains(variableName))
+                    setIdentifierColor(-1, IdentifierType::Typedef);
+                else
+                    setIdentifierColor(-1, IdentifierType::UDT);
+                continue;
+            }
+            if (peek(tkn::Keyword::From, -1)) {
+                setIdentifierColor(-1, IdentifierType::GlobalVariable);
+                continue;
+            }
+            setIdentifierColor(-1, IdentifierType::Unknown);
+        }
+    }
+
+    i32 IdentifierHighlighter::setRequestedIdentifierColors(bool colorizeIdentifiers) {
+        if (m_tokenColors.empty() || m_firstTokenIdOfLine.empty() || m_requiredInputs.fullTokens.size() < 2)
+            return 0;
+        ui::TextEditor *editor = m_viewPatternEditor->getTextEditor();
+        if (editor == nullptr) {
+            log::warn("Text editor not found, provider is null");
+            return -1;
+        }
+
+
+        auto topLine = 0;
+        while (m_firstTokenIdOfLine.at(topLine) == -1)
+            topLine++;
+        auto bottomLine = previousLine(m_firstTokenIdOfLine.size());
+        if (editor->getLines().size() != (i32) (bottomLine - 1))
+            return -1;
+
+        m_requiredInputs.linesOfColors.resize(m_lines.size());
+        std::vector<i32> identifierTokenIds(m_identifierTokenIds.begin(), m_identifierTokenIds.end());
+        i32 identifierTokenIdsLength = (i32) identifierTokenIds.size();
+        i32 startIndex = 0;
+        i32 endIndex = 0;
+        for (u32 line = topLine; line < bottomLine; line = nextLine(line)) {
+            if (m_lines[line].size() != (u32) editor->getLines().unfoldedLineBytes(line))
+                return -1;
+            if (m_lines[line].empty())
+                continue;
+            m_requiredInputs.linesOfColors[line] = std::string(m_lines[line].size(), 0);
+            auto &lineOfColors = m_requiredInputs.linesOfColors[line];
+            while (startIndex < identifierTokenIdsLength && identifierTokenIds[startIndex] < m_firstTokenIdOfLine.at(line))
+                startIndex++;
+            endIndex = startIndex;
+            while (endIndex < identifierTokenIdsLength && identifierTokenIds[endIndex] < m_firstTokenIdOfLine.at(nextLine(line)))
+                endIndex++;
+            if (startIndex >= identifierTokenIdsLength || endIndex <= 0)
+                continue;
+
+            for (auto index = startIndex; index < endIndex; index++) {
+                auto tokenIndex = identifierTokenIds[index];
+                auto *token = &m_requiredInputs.fullTokens.at(tokenIndex);
+                if (m_tokenColors.contains(tokenIndex)) {
+                    u8 color = (u8) m_tokenColors.at(tokenIndex);
+                    u32 tokenLength = token->location.length;
+                    u32 tokenOffset = token->location.column - 1;
+                    if (token->location.line != line + 1)
+                        continue;
+                    if (tokenOffset + tokenLength - 1 >= m_lines[line].size())
+                        continue;
+                    for (u32 j = 0; j < tokenLength; j++)
+                        lineOfColors[tokenOffset + j] = color;
+                }
+            }
+
+            editor->setColorizedLine(line, lineOfColors, true, colorizeIdentifiers);
+        }
+        return 0;
+    }
+
+    void IdentifierHighlighter::recurseInheritances(std::string name) {
+        if (auto iterator = m_inheritances.find(name); iterator != m_inheritances.end()) {
+            auto inheritances = std::move(iterator->second);
+            m_inheritances.erase(iterator);
+            for (const auto& inheritance: inheritances) {
+                recurseInheritances(inheritance);
+                auto definitions = m_UDTVariables[inheritance];
+                if (definitions.empty())
+                    definitions = m_ImportedUDTVariables[inheritance];
+                for (const auto &[variableName, variableDefinitions]: definitions) {
+                    auto tokenRange = m_UDTTokenRange[name];
+                    u32 tokenIndex = tokenRange.m_start;
+                    for (auto token = tokenRange.m_start; token < tokenRange.m_end; token++) {
+
+                        if (auto operatorTkn = std::get_if<Operator>(&m_requiredInputs.fullTokens.at(token).value);
+                                operatorTkn != nullptr && *operatorTkn == Token::Operator::Colon)
+                            tokenIndex = token + 1;
+                    }
+                    for (auto variableDefinition: variableDefinitions) {
+                        variableDefinition.tokenIndex = tokenIndex;
+                        m_UDTVariables[name][variableName].push_back(variableDefinition);
+                    }
+                }
+            }
+        }
+    }
+
+    void IdentifierHighlighter::appendInheritances() {
+        for (auto iterator = m_inheritances.begin(); iterator != m_inheritances.end(); iterator = m_inheritances.begin())
+            recurseInheritances(iterator->first);
+    }
+
+// Get the string of the argument type. This works on function arguments and non-type template arguments.
+    std::string IdentifierHighlighter::getArgumentTypeName(i32 rangeStart, Token delimiter2) {
+        auto curr = m_curr;
+        i32 parameterIndex = getArgumentNumber(rangeStart, getTokenId());
+        Token delimiter;
+        std::string typeStr;
+
+        if (parameterIndex > 0)
+            delimiter = tkn::Separator::Comma;
+        else
+            delimiter = delimiter2;
+
+        while (!peek(delimiter))
+            next(-1);
+        skipToken(tkn::Keyword::Reference);
+        next();
+
+        if (peek(tkn::ValueType::Any))
+            typeStr = Token::getTypeName(*getValue<Token::ValueType>(0));
+        else if (peek(tkn::Literal::Identifier)) {
+            std::vector<Identifier *> identifiers;
+            getQualifiedName(typeStr, identifiers, true, false);
+        }
+
+        m_curr = curr;
+        return typeStr;
+    }
+
+    bool IdentifierHighlighter::isTokenIdValid(i32 tokenId) {
+        return tokenId >= 0 && tokenId < (i32) m_requiredInputs.fullTokens.size();
+    }
+
+    bool IdentifierHighlighter::isLocationValid(hex::plugin::builtin::IdentifierHighlighter::Location location) {
+        const pl::api::Source *source;
+        try {
+            source = location.source;
+        } catch  (const std::out_of_range &e) {
+            log::error("IdentifierHighlighter::isLocationValid: Out of range error: {}", e.what());
+            return false;
+        }
+        if (source == nullptr)
+            return false;
+        i32 line = location.line - 1;
+        i32 col = location.column - 1;
+        i32 length = location.length;
+
+        if ( line < 0 || line >= (i32) m_lines.size())
+            return false;
+
+        if ( col < 0 || col > (i32) m_lines[line].size())
+            return false;
+
+        if (length < 0)
+            return false;
+        if (line < (i32) m_lines.size() && length > (i32) m_lines[line].size()-col)
+            length -= (i32)( m_lines[line].size()-col);
+        while (line < (i32) m_lines.size() && m_firstTokenIdOfLine[line] == m_firstTokenIdOfLine[line + 1]) {
+            length -= (i32) m_lines[line].size();
+            line++;
+        }
+        if (line < (i32) m_lines.size())
+            return length <= (i32) m_lines[line].size()-col || m_firstTokenIdOfLine[line + 1] == -1;
+        return false;
+    }
+
+// Find the string of the variable type. This works on function variables, views,
+// local variables as well as on calculated pointers and pattern variables.
+    std::string IdentifierHighlighter::getVariableTypeName() {
+        auto curr = m_curr;
+        auto varTokenId = getTokenId();
+
+        if (!isTokenIdValid(varTokenId))
+            return "";
+
+        std::string typeStr;
+        skipToken(tkn::Operator::Star, -1);
+
+        while (peek(tkn::Separator::Comma, -1))
+            next(-2);
+
+        if (peek(tkn::ValueType::Any, -1))
+            typeStr = Token::getTypeName(*getValue<Token::ValueType>(-1));
+        else if (peek(tkn::Keyword::Signed, -1))
+            typeStr = "signed";
+        else if (peek(tkn::Keyword::Unsigned, -1))
+            typeStr = "unsigned";
+        else {
+            skipTemplate(200, false);
+            next(-1);
+
+            if (peek(tkn::Literal::Identifier)) {
+                typeStr = getValue<Token::Identifier>(0)->get();
+                next(-1);
+            }
+            std::string nameSpace;
+            while (peek(tkn::Operator::ScopeResolution)) {
+                next(-1);
+                nameSpace.insert(0, "::");
+                nameSpace.insert(0, getValue<Token::Identifier>(0)->get());
+                next(-1);
+            }
+            typeStr = nameSpace + typeStr;
+            if (m_requiredInputs.definedTypes.contains(typeStr)) {
+                m_curr = curr;
+                return typeStr;
+            }
+            std::vector<std::string> candidates;
+            for (const auto &name: m_UDTs) {
+                auto vectorString = wolv::util::splitString(name, "::");
+
+                if (typeStr == vectorString.back())
+                    candidates.push_back(name);
+            }
+
+            if (candidates.size() == 1) {
+                m_curr = curr;
+                return candidates[0];
+            }
+        }
+        m_curr = curr;
+        return typeStr;
+    }
+
+// Definitions of global variables and placed variables.
+    void IdentifierHighlighter::loadGlobalDefinitions(Scopes tokenRangeSet, std::vector<IdentifierType> identifierTypes, Variables &variables) {
+        m_startToken = m_originalPosition = m_partOriginalPosition = SafeTokenIterator(m_requiredInputs.fullTokens.begin(), m_requiredInputs.fullTokens.end());
+
+        for (auto range: tokenRangeSet) {
+            auto startToken = SafeTokenIterator(m_requiredInputs.fullTokens.begin() + range.m_start, m_requiredInputs.fullTokens.begin() + range.m_end);
+            auto endToken = SafeTokenIterator(m_requiredInputs.fullTokens.begin() + range.m_end, m_requiredInputs.fullTokens.end());
+
+            for ( m_curr = startToken; endToken > m_curr; next()) {
+
+                if (peek(tkn::Literal::Identifier)) {
+                    auto identifier = getValue<Token::Identifier>(0);
+                    auto identifierType = identifier->getType();
+                    auto identifierName = identifier->get();
+
+                    if (std::ranges::find(identifierTypes, identifierType) != identifierTypes.end()) {
+                        std::string typeStr = getVariableTypeName();
+
+                        if (typeStr.empty())
+                            continue;
+                        i32 tokenId = getTokenId();
+                        Definition definition(identifierType, typeStr, tokenId, m_curr->location);
+                        variables[identifierName].push_back(definition);
+                        continue;
+                    }
+                }
+            }
+        }
+    }
+
+// Definitions of variables and arguments in functions and user defined types.
+    void IdentifierHighlighter::loadVariableDefinitions(UnorderedBlocks tokenRangeMap, Token delimiter1, Token delimiter2,
+                                                        std::vector<IdentifierType> identifierTypes,
+                                                        bool isArgument, VariableMap &variableMap) {
+        for (const auto &[name, range]: tokenRangeMap) {
+            m_curr = m_startToken;
+            auto endToken = m_startToken;
+            next(range.m_start);
+
+            if (isArgument) {
+                while (!peek(delimiter1)) {
+                    if (peek(tkn::Separator::EndOfProgram))
+                        return;
+                    if (peek(tkn::Separator::LeftBrace))
+                        break;
+                    next();
+                }
+
+                if (peek(tkn::Separator::LeftBrace))
+                    continue;
+                endToken = m_curr;
+                while (!peek(delimiter2)) {
+                    if (peek(tkn::Separator::EndOfProgram))
+                        return;
+                    if (peek(tkn::Separator::LeftBrace))
+                        break;
+                    next();
+                }
+
+                if (peek(tkn::Separator::LeftBrace))
+                    continue;
+                auto temp = m_curr;
+                m_curr = endToken;
+                endToken = temp;
+            } else
+                endToken = endToken + range.m_end;
+
+            Keyword *keyword;
+            for (keyword = std::get_if<Keyword>(&m_requiredInputs.fullTokens.at(range.m_start).value); endToken > m_curr; next()) {
+                if (peek(tkn::Separator::EndOfProgram))
+                    return;
+                if (peek(tkn::Literal::Identifier)) {
+                    auto identifier = getValue<Token::Identifier>(0);
+
+                    if (identifier == nullptr)
+                        continue;
+                    auto identifierType = identifier->getType();
+                    auto identifierName = identifier->get();
+
+                    if (std::ranges::find(identifierTypes, identifierType) != identifierTypes.end()) {
+                        std::string typeStr;
+
+                        if (keyword != nullptr && (*keyword == Keyword::Enum)) {
+                            typeStr = name;
+                        } else if (isArgument) {
+                            typeStr = getArgumentTypeName(range.m_start, delimiter1);
+                        } else {
+                            typeStr = getVariableTypeName();
+                            if (typeStr.empty() && keyword != nullptr && *keyword == Keyword::Bitfield)
+                                typeStr = "bits";
+                            if (m_typeDefMap.contains(typeStr))
+                                typeStr = m_typeDefMap[typeStr];
+                        }
+
+                        if (typeStr.empty())
+                            continue;
+                        Definition definition(identifierType, typeStr, getTokenId(), m_curr->location);
+                        variableMap[name][identifierName].push_back(definition);
+                        continue;
+                    }
+                }
+            }
+        }
+    }
+
+// Definitions of user defined types and functions.
+    void IdentifierHighlighter::loadTypeDefinitions(UnorderedBlocks tokenRangeMap, std::vector<IdentifierType> identifierTypes, Definitions &types) {
+        for (const auto &[name, range]: tokenRangeMap) {
+
+            m_curr = m_startToken + range.m_start+1;
+
+            if (!peek(tkn::Literal::Identifier))
+                continue;
+            auto identifier = getValue<Token::Identifier>(0);
+            if (identifier == nullptr)
+                continue;
+            auto identifierType = identifier->getType();
+
+            if (std::ranges::find(identifierTypes, identifierType) == identifierTypes.end())
+                continue;
+            auto identifierName = identifier->get();
+            if (!name.ends_with(identifierName))
+                continue;
+            types[name] = ParentDefinition(identifierType, getTokenId(), m_curr->location);
+        }
+    }
+
+// Once types are loaded from parsed tokens we can create
+// maps of variable names to their definitions.
+    void IdentifierHighlighter::getDefinitions() {
+        using IdentifierType::LocalVariable;
+        using IdentifierType::PatternVariable;
+        using IdentifierType::CalculatedPointer;
+        using IdentifierType::GlobalVariable;
+        using IdentifierType::PlacedVariable;
+        using IdentifierType::View;
+        using IdentifierType::FunctionVariable;
+        using IdentifierType::FunctionParameter;
+        using IdentifierType::TemplateArgument;
+        using IdentifierType::UDT;
+        using IdentifierType::Function;
+
+        m_UDTDefinitions.clear();
+        loadTypeDefinitions(m_UDTTokenRange, {UDT}, m_UDTDefinitions);
+
+        m_globalVariables.clear();
+        loadGlobalDefinitions(m_globalTokenRange, {GlobalVariable, PlacedVariable}, m_globalVariables);
+
+        m_UDTVariables.clear();
+        loadVariableDefinitions(m_UDTTokenRange, tkn::Operator::BoolLessThan, tkn::Operator::BoolGreaterThan, {TemplateArgument}, true, m_UDTVariables);
+
+        loadVariableDefinitions(m_UDTTokenRange, tkn::Operator::BoolLessThan, tkn::Operator::BoolGreaterThan, {LocalVariable, PatternVariable, CalculatedPointer}, false, m_UDTVariables);
+        appendInheritances();
+
+        m_functionDefinitions.clear();
+        loadTypeDefinitions(m_functionTokenRange, {Function}, m_functionDefinitions);
+
+        m_functionVariables.clear();
+        loadVariableDefinitions(m_functionTokenRange, tkn::Separator::LeftParenthesis, tkn::Separator::RightParenthesis,
+                                {FunctionParameter}, true, m_functionVariables);
+
+        loadVariableDefinitions(m_functionTokenRange, tkn::Separator::LeftParenthesis, tkn::Separator::RightParenthesis,
+                                {View,FunctionVariable}, false, m_functionVariables);
+    }
+
+
+// Load the source code into the text highlighter, splits
+// the text into lines and creates a lookup table for the
+// first token id of each line.
+    void IdentifierHighlighter::loadText() {
+        u32 tokenCount = m_requiredInputs.fullTokens.size();
+        if (tokenCount == 0)
+            return;
+
+        if (!m_lines.empty())
+            m_lines.clear();
+
+        if (m_requiredInputs.editedText.empty()) {
+            ui::TextEditor *editor = m_viewPatternEditor->getTextEditor();
+            if (editor != nullptr)
+                m_requiredInputs.editedText = editor->getText();
+            else
+                log::warn("Text editor not found, provider is null");
+        }
+
+        m_lines = wolv::util::splitString(m_requiredInputs.editedText, "\n");
+        m_lines.emplace_back("");
+        m_firstTokenIdOfLine.clear();
+
+
+        u32 tokenId = 0;
+        u32 lineIndex = m_requiredInputs.fullTokens.at(tokenId).location.line - 1;
+        u32 count = m_requiredInputs.fullTokens.at(tokenCount - 1).location.line + 1;
+        m_firstTokenIdOfLine.resize(count, -1);
+        m_firstTokenIdOfLine.at(lineIndex) = 0;
+        tokenId++;
+        u32 currentLine = lineIndex;
+        while ( currentLine < count) {
+            while (lineIndex  <= currentLine && tokenId + 1 <= tokenCount) {
+                lineIndex = m_requiredInputs.fullTokens.at(tokenId).location.line - 1;
+                tokenId++;
+            }
+            if (tokenId > tokenCount - 1)
+                break;
+            if (tokenId > 0)
+                tokenId--;
+            constexpr auto commentType = pl::core::Token::Type::Comment;
+            constexpr auto docCommentType = pl::core::Token::Type::DocComment;
+            auto type = m_requiredInputs.fullTokens.at(tokenId).type;
+            if ((type == docCommentType || type == commentType)) {
+                auto *comment = std::get_if<pl::core::Token::Comment>(&(m_requiredInputs.fullTokens.at(tokenId).value));
+                auto *docComment = std::get_if<pl::core::Token::DocComment>(&(m_requiredInputs.fullTokens.at(tokenId).value));
+                if ((comment != nullptr && !comment->singleLine) || (docComment != nullptr && !docComment->singleLine)) {
+                    auto commentTokenId = tokenId;
+                    auto commentStartLine = m_requiredInputs.fullTokens.at(tokenId).location.line - 1;
+                    std::string value = m_requiredInputs.fullTokens.at(tokenId).getFormattedValue();
+                    auto commentEndLine = commentStartLine + std::count(value.begin(), value.end(), '\n');
+                    m_firstTokenIdOfLine.at(commentStartLine) = commentTokenId;
+                    for (u32 i =  commentStartLine + 1; i <= commentEndLine; i++) {
+                        m_firstTokenIdOfLine.at(i) = -1;
+                    }
+                    lineIndex = commentEndLine;
+                } else
+                    m_firstTokenIdOfLine.at(lineIndex) = tokenId;
+            } else
+                m_firstTokenIdOfLine.at(lineIndex) = tokenId;
+
+            tokenId++;
+            currentLine = lineIndex;
+        }
+
+        if (tokenCount > 0 && m_firstTokenIdOfLine.back() != (i32) tokenCount - 1)
+            m_firstTokenIdOfLine.push_back(tokenCount - 1);
+    }
+
+// Some tokens span many lines and some lines have no tokens. This
+// function helps to find the next line number in loops over tokens.
+    u32 IdentifierHighlighter::nextLine(u32 line) {
+        if (line >= m_firstTokenIdOfLine.size())
+            return line;
+        auto currentTokenId = m_firstTokenIdOfLine.at(line);
+        u32 i = 1;
+        while (line + i < m_firstTokenIdOfLine.size() &&
+               (m_firstTokenIdOfLine.at(line + i) == currentTokenId || m_firstTokenIdOfLine.at(line + i) == (i32) 0xFFFFFFFF))
+            i++;
+        return i + line;
+    }
+
+    u32 IdentifierHighlighter::previousLine(u32 line) {
+        if (line == 0)
+            return 0;
+        if (line >= m_firstTokenIdOfLine.size())
+            return line - 1;
+        auto currentTokenId = m_firstTokenIdOfLine.at(line);
+        u32 i = 1;
+        while (i <= line && line < m_firstTokenIdOfLine.size() &&
+               (m_firstTokenIdOfLine.at(line - i) == currentTokenId || m_firstTokenIdOfLine.at(line - i) == (i32) 0xFFFFFFFF))
+            i++;
+        return line - i;
+    }
+
+// global token ranges are the complement (aka inverse) of the union
+// of the UDT and function token ranges
+    void IdentifierHighlighter::invertGlobalTokenRange() {
+        std::set<TokenInterval> ranges;
+        auto size = m_globalTokenRange.size();
+        auto tokenCount = m_requiredInputs.fullTokens.size();
+
+        if (size == 0) {
+            ranges.insert(TokenInterval(0, tokenCount));
+        } else {
+            auto it = m_globalTokenRange.begin();
+            auto it2 = std::next(it);
+            if (it->m_start != 0)
+                ranges.insert(TokenInterval(0, it->m_start - 1));
+            while (it2 != m_globalTokenRange.end()) {
+
+                if (it->m_end < it2->m_start)
+                    ranges.insert(TokenInterval(it->m_end + 1, it2->m_start - 1));
+                else
+                    ranges.insert(TokenInterval(it->m_start, it2->m_end));
+                it = it2;
+                it2 = std::next(it);
+            }
+
+            if (it->m_end < (i32) (tokenCount-1))
+                ranges.insert(TokenInterval(it->m_end + 1, tokenCount-1));
+        }
+        m_globalTokenRange = ranges;
+    }
+
+// 0 for 1st argument, 1 for 2nd argument, etc. Obtained counting commas.
+    i32 IdentifierHighlighter::getArgumentNumber(i32 start, i32 arg) {
+        i32 count = 0;
+        m_curr = m_startToken;
+        auto endToken = m_startToken + arg;
+        next(start);
+        while (endToken > m_curr) {
+
+            if (peek(tkn::Separator::Comma))
+                count++;
+            next();
+        }
+        return count;
+    }
+
+// The inverse of getArgumentNumber.
+    void IdentifierHighlighter::getTokenIdForArgument(i32 start, i32 argNumber, Token delimiter) {
+        m_curr = m_startToken;
+        next(start);
+        while (!peek(delimiter)) {
+            if (peek(tkn::Separator::EndOfProgram))
+                return;
+            next();
+        }
+        next();
+        i32 count = 0;
+        while (count < argNumber && !peek(tkn::Separator::EndOfProgram)) {
+
+            if (peek(tkn::Separator::Comma))
+                count++;
+            next();
+        }
+    }
+
+// Changes auto type string in definitions to the actual type string.
+    void IdentifierHighlighter::resolveAutos(VariableMap &variableMap, UnorderedBlocks &tokenRange) {
+        auto curr = m_curr;
+        std::string UDTName;
+        for (auto &[name, variables]: variableMap) {
+            for (auto &[variableName, definitions]: variables) {
+                for (auto &definition: definitions) {
+
+                    if (definition.typeStr == "auto" && (definition.idType == Token::Identifier::IdentifierType::TemplateArgument || definition.idType == Token::Identifier::IdentifierType::FunctionParameter)) {
+                        auto argumentIndex = getArgumentNumber(tokenRange[name].m_start, definition.tokenIndex);
+
+                        if (tokenRange == m_UDTTokenRange || !m_attributeFunctionArgumentType.contains(name) ||
+                            m_attributeFunctionArgumentType[name].empty()) {
+
+                            auto instances = m_instances[name];
+                            for (auto instance: instances) {
+
+                                if (std::abs(definition.tokenIndex - instance) <= 5)
+                                    continue;
+                                Token delimiter;
+
+                                if (tokenRange == m_UDTTokenRange)
+                                    delimiter = tkn::Operator::BoolLessThan;
+                                else
+                                    delimiter = tkn::Separator::LeftParenthesis;
+                                std::string fullName;
+                                std::vector<Identifier *> identifiers;
+                                getTokenIdForArgument(instance, argumentIndex,delimiter);
+                                forwardIdentifierName(fullName, identifiers);
+
+                                if (fullName.starts_with("Parent.")) {
+                                    auto fixedDefinition = setChildrenTypes();
+
+                                    if (fixedDefinition.has_value() &&
+                                        m_UDTDefinitions.contains(fixedDefinition->typeStr)) {
+                                        definition.typeStr = fixedDefinition->typeStr;
+                                        continue;
+                                    }
+                                } else if (fullName.contains(".")) {
+                                    Definition definitionTemp;
+                                    resolveIdentifierType(definitionTemp,fullName);
+                                    definition.typeStr = definitionTemp.typeStr;
+                                } else {
+                                    auto typeName = findIdentifierTypeStr(fullName);
+                                    definition.typeStr = typeName;
+                                }
+                            }
+                        } else {
+                            UDTName = m_attributeFunctionArgumentType[name];
+                            if (m_UDTDefinitions.contains(UDTName)) {
+                                definition.typeStr = UDTName;
+                                continue;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        m_curr = curr;
+    }
+
+    void IdentifierHighlighter::fixAutos() {
+        resolveAutos(m_functionVariables, m_functionTokenRange);
+        resolveAutos(m_UDTVariables, m_UDTTokenRange);
+    }
+
+    void IdentifierHighlighter::fixChains() {
+
+        if (!m_scopeChains.empty()) {
+            for (auto chain: m_scopeChains) {
+                m_curr = m_startToken + chain;
+                colorSeparatorScopeChain();
+            }
+        }
+
+        if (!m_memberChains.empty()) {
+            for (auto chain: m_memberChains) {
+                m_curr = m_startToken + chain;
+                colorOperatorDotChain();
+            }
+        }
+    }
+
+// Calculates the union of all the UDT and function token ranges
+// and inverts the result.
+    void IdentifierHighlighter::getGlobalTokenRanges() {
+        std::set<TokenInterval> ranges;
+        for (const auto &[name, range]: m_UDTTokenRange)
+            ranges.insert(range);
+        for (const auto &[name, range]: m_functionTokenRange)
+            ranges.insert(range);
+
+        if (!ranges.empty()) {
+            auto rit = ranges.rbegin();
+            auto rnext = std::next(rit);
+            while (rnext != ranges.rend()) {
+                if (rit->contains(*rnext)) {
+                    ranges.erase(*rnext);
+                    rnext = std::next(rit);
+                } else if (rnext->contiguous(*rit)) {
+                    TokenInterval range = *rnext;
+                    range.m_end = rit->m_end;
+                    ranges.erase(*rnext);
+                    ranges.erase(*rit);
+                    ranges.insert(range);
+                    rit = std::set<TokenInterval>::reverse_iterator(ranges.find(range));
+                    rit--;
+                    rnext = std::next(rit);
+                } else {
+                    rit++;
+                    rnext = std::next(rit);
+                }
+            }
+        }
+        m_globalTokenRange = ranges;
+        invertGlobalTokenRange();
+        for (auto tokenRange: m_globalTokenRange) {
+
+            if ((u32) tokenRange.m_end == m_requiredInputs.fullTokens.size()) {
+                tokenRange.m_end -= 1;
+                m_globalBlocks.insert(tokenRange);
+            }
+        }
+    }
+
+// Parser labels global variables that are not placed as
+// function variables.
+    void IdentifierHighlighter::fixGlobalVariables() {
+        for (const auto &[name, definitions]: m_globalVariables) {
+            for (const auto &definition: definitions) {
+                auto token = m_requiredInputs.fullTokens.at(definition.tokenIndex - 1);
+                if (auto identifier = std::get_if<Token::Identifier>(&token.value); identifier != nullptr) {
+                    if (identifier->get() == definition.typeStr) {
+                        identifier->setType(IdentifierType::UDT, true);
+                        setIdentifierColor(definition.tokenIndex - 1, IdentifierType::UDT);
+                    }
+                }
+            }
+        }
+        m_startToken = m_originalPosition = m_partOriginalPosition = SafeTokenIterator(m_requiredInputs.fullTokens.begin(), m_requiredInputs.fullTokens.end());
+        i32 tokenLength = m_requiredInputs.fullTokens.size();
+        i32 tokenIdsSize = m_identifierTokenIds.size();
+        for (auto range: m_globalTokenRange) {
+            i32 startIndex = 0;
+            std::vector<i32> tokenIds(m_identifierTokenIds.begin(), m_identifierTokenIds.end());
+
+            if (tokenIds.empty())
+                return;
+            while (startIndex < tokenIdsSize && tokenIds[startIndex] < range.m_start)
+                startIndex++;
+            if (startIndex >= tokenIdsSize)
+                continue;
+            i32 endIndex = startIndex;
+            while (endIndex < tokenIdsSize && tokenIds[endIndex] < range.m_end)
+                endIndex++;
+            if (endIndex >= tokenIdsSize)
+                endIndex = tokenIdsSize - 1;
+
+            for (i32 index = startIndex; index < endIndex; index++) {
+                m_curr = m_startToken + tokenIds[index];
+
+                if (auto identifier = getValue<Token::Identifier>(0); identifier != nullptr) {
+                    auto identifierType = identifier->getType();
+                    auto identifierName = identifier->get();
+
+                    if (identifierType == IdentifierType::FunctionVariable) {
+                        identifier->setType(IdentifierType::GlobalVariable, true);
+                        setIdentifierColor(-1, IdentifierType::GlobalVariable);
+                    } else if (identifierType == IdentifierType::View) {
+                        identifier->setType(IdentifierType::PlacedVariable, true);
+                        setIdentifierColor(-1,IdentifierType::PlacedVariable);
+                    } else if (identifierType == IdentifierType::Unknown) {
+                        if (std::ranges::find(m_UDTs,identifierName) != m_UDTs.end() && tokenIds[index] < tokenLength && !peek(tkn::Separator::Dot,1) && tokenIds[index] > 0 && !peek(tkn::Separator::Dot,-1) ) {
+                            identifier->setType(IdentifierType::UDT, true);
+                            setIdentifierColor(-1, IdentifierType::UDT);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    void IdentifierHighlighter::clearVariables() {
+        m_inheritances.clear();
+        m_globalTokenRange.clear();
+        m_globalVariables.clear();
+        m_globalBlocks.clear();
+        m_namespaceTokenRange.clear();
+        m_UDTDefinitions.clear();
+        m_UDTBlocks.clear();
+        m_UDTTokenRange.clear();
+        m_functionDefinitions.clear();
+        m_functionBlocks.clear();
+        m_functionTokenRange.clear();
+        m_functionVariables.clear();
+        m_attributeFunctionArgumentType.clear();
+        m_memberChains.clear();
+        m_scopeChains.clear();
+        m_tokenColors.clear();
+    }
+    void IdentifierHighlighter::processSource() {
+        m_UDTVariables.clear();
+        m_UDTTokenRange.clear();
+        setTokenIds();
+        getTokenRanges(IdentifierType::UDT);
+        loadVariableDefinitions(m_UDTTokenRange, tkn::Operator::BoolLessThan, tkn::Operator::BoolGreaterThan,
+                                {IdentifierType::TemplateArgument}, true, m_UDTVariables);
+
+        loadVariableDefinitions(m_UDTTokenRange, tkn::Operator::BoolLessThan, tkn::Operator::BoolGreaterThan,
+                                {IdentifierType::LocalVariable, IdentifierType::PatternVariable, IdentifierType::CalculatedPointer}, false, m_UDTVariables);
+        m_ImportedUDTVariables.insert(m_UDTVariables.begin(), m_UDTVariables.end());
+    }
+
+
+// Only update if needed. Must wait for the parser to finish first.
+    void IdentifierHighlighter::highlightSourceCode() {
+        bool wasInterrupted = false;
+        m_viewPatternEditor->resetInterrupt();
+        ON_SCOPE_EXIT {
+            m_viewPatternEditor->incrementRunningHighlighters(-1);
+            m_viewPatternEditor->setChangesWereColored(!wasInterrupted);
+        };
+        try {
+            clearVariables();
+            if (!m_UDTs.empty())
+                m_UDTs.clear();
+            for (auto &[name, type]: m_requiredInputs.definedTypes)
+                m_UDTs.push_back(name);
+
+            if (!m_globalTokenRange.empty())
+                m_globalTokenRange.clear();
+
+            if (m_requiredInputs.fullTokens.size() > 1) {
+                m_globalTokenRange.insert(TokenInterval(0, m_requiredInputs.fullTokens.size() - 1));
+                setTokenIds();
+                getTokenRanges(IdentifierType::NameSpace);
+                getTokenRanges(IdentifierType::UDT);
+                getTokenRanges(IdentifierType::Function);
+                getGlobalTokenRanges();
+                fixGlobalVariables();
+                setInitialColors();
+                loadInstances();
+                getTokenRanges(IdentifierType::Attribute);
+                getDefinitions();
+                fixAutos();
+                fixChains();
+                colorRemainingIdentifierTokens();
+            }
+        } catch (const std::out_of_range &e) {
+            log::debug("TextHighlighter::highlightSourceCode: Out of range error: {}", e.what());
+            wasInterrupted = true;
+            return;
+        }
+    }
+}

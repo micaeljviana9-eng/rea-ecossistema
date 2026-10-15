@@ -1,0 +1,11 @@
+{
+    "hex.yara.information_section.advanced_data_info": "Дополнительная информация",
+    "hex.yara.information_section.advanced_data_info.no_information": "Информация не найдена",
+    "hex.yara_rules.view.yara.header.matches": "Совпадения",
+    "hex.yara_rules.view.yara.header.rules": "Правила",
+    "hex.yara_rules.view.yara.match": "Найти совпадения",
+    "hex.yara_rules.view.yara.matches.variable": "Переменная",
+    "hex.yara_rules.view.yara.matching": "Поиск совпадений...",
+    "hex.yara_rules.view.yara.name": "Правила YARA",
+    "hex.yara_rules.view.yara.rule_added": "Правило YARA добавлено!"
+}

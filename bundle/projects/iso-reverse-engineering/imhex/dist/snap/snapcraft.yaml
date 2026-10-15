@@ -1,0 +1,169 @@
+name: imhex
+title: ImHex
+base: core26
+version: ${IMHEX_VERSION_STRING}
+summary: Hex editor for reverse engineering
+description: ImHex is a hex editor for reverse engineering, reverse engineering, and analyzing binary files. It provides a powerful and flexible interface for working with binary data, including features like pattern matching, scripting, and a customizable user interface.
+grade: stable
+confinement: classic
+contact: https://github.com/WerWolv/ImHex/discussions
+issues: https://github.com/WerWolv/ImHex/issues
+source-code: https://github.com/WerWolv/ImHex
+website: https://imhex.werwolv.net
+donation: https://github.com/sponsors/WerWolv
+license: GPL-2.0-only
+icon: resources/icon.svg
+adopt-info: imhex
+
+platforms:
+  amd64:
+  arm64:
+
+apps:
+  imhex:
+    command: usr/local/bin/imhex
+    command-chain:
+      - bin/gpu-2604-wrapper
+    desktop: usr/local/share/applications/imhex.desktop
+    environment:
+      LD_LIBRARY_PATH: '$SNAP/usr/local/lib:$LD_LIBRARY_PATH'
+      __EGL_VENDOR_LIBRARY_DIRS: '/usr/share/glvnd/egl_vendor.d'
+      GLYCIN_DATA_DIR: '$SNAP/usr/share'
+      LIBDECOR_PLUGIN_DIR: '$SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/libdecor/plugins-1'
+      PATH: '$SNAP/usr/local/bin:$SNAP/usr/bin:$PATH'
+      XDG_DATA_DIRS: '$SNAP/usr/local/share:$SNAP/usr/share:$XDG_DATA_DIRS'
+      XDG_DATA_HOME: '$SNAP_USER_DATA'
+
+parts:
+  imhex:
+    plugin: cmake
+    source: .
+    build-attributes:
+      - enable-patchelf
+    build-environment:
+      - CC: /usr/bin/gcc-16
+      - CXX: /usr/bin/g++-16
+    cmake-parameters:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DIMHEX_PATTERNS_PULL_MASTER=ON
+      - -DIMHEX_BUNDLE_PLUGIN_SDK=OFF
+    cmake-generator: Ninja
+    build-packages:
+      - cmake
+      - ninja-build
+      - gcc-16
+      - g++-16
+      - git
+      - pkg-config
+      - libgl1-mesa-dev
+      - libglu1-mesa-dev
+      - libmagic-dev
+      - libmbedtls-dev
+      - libfontconfig-dev
+      - libfreetype-dev
+      - libdbus-1-dev
+      - libcurl4-gnutls-dev
+      - zlib1g-dev
+      - libbz2-dev
+      - liblzma-dev
+      - libzstd-dev
+      - liblz4-dev
+      - libssh2-1-dev
+      - libmd4c-dev
+      - libmd4c-html0-dev
+      - libwayland-dev
+      - libwayland-bin
+      - wayland-protocols
+      - libxkbcommon-dev
+      - libx11-dev
+      - libxrandr-dev
+      - libxinerama-dev
+      - libxcursor-dev
+      - libxi-dev
+      - libxext-dev
+    stage-packages:
+      - libwayland-client0
+      - libwayland-cursor0
+      - libxkbcommon0
+      - libx11-6
+      - libxrandr2
+      - libxinerama1
+      - libxcursor1
+      - libxi6
+      - libxext6
+      - libmagic1t64
+      - libmbedtls21
+      - libfontconfig1
+      - libfreetype6
+      - libdbus-1-3
+      - libcurl3t64-gnutls
+      - libgtk-3-0t64
+      - zlib1g
+      - libbz2-1.0
+      - liblzma5
+      - libzstd1
+      - liblz4-1
+      - libssh2-1t64
+      - libnotify-bin
+      - zenity
+      - glycin-loaders
+      - libdecor-0-0
+      - libdecor-0-plugin-1-gtk
+    prime:
+      - -usr/include/*
+      - -usr/local/include/*
+      - -usr/lib/**/*.a
+      - -usr/local/lib/**/*.a
+      - -usr/lib/**/*.la
+      - -usr/local/lib/**/*.la
+      - -usr/share/doc/*
+      - -usr/share/man/*
+      - -usr/bin/bwrap
+  mesa-2604:
+    plugin: nil
+    stage-snaps:
+      - mesa-2604/latest/stable
+    prime:
+      - -meta.mesa-2604
+      - -snap.mesa-2604
+
+  gpu-2604:
+    after:
+      - imhex
+      - mesa-2604
+    source: https://github.com/canonical/gpu-snap.git
+    plugin: dump
+    build-packages:
+      - patchelf
+    override-prime: |
+      craftctl default
+      test -x "${CRAFT_PRIME}/bin/gpu-2604-provider-wrapper"
+      test -d "${CRAFT_PRIME}/mesa-2604/usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}"
+      ${CRAFT_PART_SRC}/bin/gpu-2604-cleanup mesa-2604
+      # Classic snaps cannot declare interfaces, so invoke the provider directly.
+      cat > "${CRAFT_PRIME}/bin/gpu-2604-wrapper" <<'EOF'
+      #!/bin/sh
+      provider="$SNAP/bin/gpu-2604-provider-wrapper"
+      if [ ! -x "$provider" ]; then
+        echo 'ERROR: bundled mesa-2604 provider is missing' >&2
+        exit 1
+      fi
+      exec "$provider" "$@"
+      EOF
+      chmod 0755 "${CRAFT_PRIME}/bin/gpu-2604-wrapper"
+      mesa_lib="\$ORIGIN/../../../../mesa-2604/usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}"
+      for loader in "${CRAFT_PRIME}"/usr/libexec/glycin-loaders/*/glycin-*; do
+        loader_rpath=$(patchelf --print-rpath "$loader")
+        patchelf --force-rpath --set-rpath "${loader_rpath}:${mesa_lib}" "$loader"
+      done
+      # Classic snaps see the host at /usr, so point glycin at this snap's loaders.
+      sed -i 's|^Exec=/usr/|Exec=/snap/imhex/current/usr/|' "${CRAFT_PRIME}"/usr/share/glycin-loaders/*/conf.d/*.conf
+      # Glycin's host-oriented bwrap sandbox cannot resolve a classic snap's runtime.
+      cat > "${CRAFT_PRIME}/usr/local/bin/bwrap" <<'EOF'
+      #!/bin/sh
+      echo 'Creating new namespace failed: disabled for classic snap' >&2
+      exit 1
+      EOF
+      chmod 0755 "${CRAFT_PRIME}/usr/local/bin/bwrap"
+    prime:
+      - bin/gpu-2604-wrapper

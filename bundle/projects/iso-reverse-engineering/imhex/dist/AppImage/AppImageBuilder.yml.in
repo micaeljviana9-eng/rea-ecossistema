@@ -1,0 +1,148 @@
+# appimage-builder recipe see https://appimage-builder.readthedocs.io for details
+version: 1
+AppDir:
+  path: .AppDir
+  app_info:
+    id: imhex
+    name: ImHex
+    icon: imhex
+    version: "${VERSION}"
+    exec: usr/bin/imhex
+    exec_args: $@
+  apt:
+    arch:
+    - "${ARCHITECTURE_PACKAGE}"
+    - all
+    allow_unauthenticated: true
+    sources:
+      - sourceline: "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ resolute main restricted universe multiverse"
+        key_url: "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x871920D1991BC93C"
+      - sourceline: "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ resolute-updates main restricted universe multiverse"
+        key_url: "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x871920D1991BC93C"
+      - sourceline: "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ resolute-backports main restricted universe multiverse"
+        key_url: "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x871920D1991BC93C"
+      - sourceline: "deb [arch=amd64] http://security.ubuntu.com/ubuntu resolute-security main restricted universe multiverse"
+        key_url: "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x871920D1991BC93C"
+      - sourceline: "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ resolute main restricted universe multiverse"
+        key_url: "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x871920D1991BC93C"
+      - sourceline: "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ resolute-updates main restricted universe multiverse"
+        key_url: "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x871920D1991BC93C"
+      - sourceline: "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ resolute-backports main restricted universe multiverse"
+        key_url: "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x871920D1991BC93C"
+    include:
+    - libbz2-1.0
+    - libcap2
+    - libcurl3t64-gnutls
+    - libdecor-0-plugin-1-gtk
+    - libdbus-1-3
+    - libfontconfig1
+    - libfreetype6
+    - libgtk-3-0t64
+    - liblz4-1
+    - liblzma5
+    - libmagic1t64
+    - libmbedcrypto16
+    - libmbedtls21
+    - libnss-systemd
+    - libpciaccess0
+    - libssh2-1t64
+    - libsystemd0
+    - libwayland-client0
+    - libwayland-cursor0
+    - libx11-6
+    - libxkbcommon0
+    - libxcursor1
+    - libxcb-sync1
+    - libxext6
+    - libxfixes3
+    - libxi6
+    - libxinerama1
+    - libxrandr2
+    - libxshmfence1
+    - libzstd1
+    - zlib1g
+    - adwaita-icon-theme
+    - gtk-update-icon-cache
+  files:
+    include:
+    - /lib*/ld-linux-*.so.*
+    - /usr/lib/locale/locale-archive
+    - /usr/local/share/fonts/adwaita-sans-fonts/AdwaitaSans-Regular.ttf
+    - /usr/local/share/icons/Adwaita/icon-theme.cache
+    - /usr/local/share/icons/Adwaita/index.theme
+    - /usr/local/share/icons/AdwaitaLegacy/icon-theme.cache
+    - /usr/local/share/icons/AdwaitaLegacy/index.theme
+    - /usr/local/share/icons/Papirus-Dark/16x16/symbolic/actions/window-close-symbolic.svg
+    - /usr/local/share/icons/Papirus-Dark/icon-theme.cache
+    - /usr/local/share/icons/Papirus-Dark/index.theme
+    - /usr/local/share/icons/breeze-dark/icon-theme.cache
+    - /usr/local/share/icons/breeze-dark/index.theme
+    - /usr/local/share/icons/breeze/icon-theme.cache
+    - /usr/local/share/icons/breeze/index.theme
+    - /usr/local/share/icons/hicolor/icon-theme.cache
+    - /usr/local/share/themes/Default/gtk-3.0/gtk-keys.css
+    - /usr/local/share/themes/adw-gtk3-dark/gtk-3.0/gtk-dark.css
+    - /usr/share/X11/xkb/compat/accessx
+    - /usr/share/X11/xkb/compat/basic
+    - /usr/share/X11/xkb/compat/caps
+    - /usr/share/X11/xkb/compat/complete
+    - /usr/share/X11/xkb/compat/iso9995
+    - /usr/share/X11/xkb/compat/ledcaps
+    - /usr/share/X11/xkb/compat/lednum
+    - /usr/share/X11/xkb/compat/ledscroll
+    - /usr/share/X11/xkb/compat/level5
+    - /usr/share/X11/xkb/compat/misc
+    - /usr/share/X11/xkb/compat/mousekeys
+    - /usr/share/X11/xkb/compat/xfree86
+    - /usr/share/X11/xkb/keycodes/aliases
+    - /usr/share/X11/xkb/keycodes/evdev
+    - /usr/share/X11/xkb/rules/evdev
+    - /usr/share/X11/xkb/symbols/inet
+    - /usr/share/X11/xkb/symbols/keypad
+    - /usr/share/X11/xkb/symbols/pc
+    - /usr/share/X11/xkb/symbols/srvr_ctrl
+    - /usr/share/X11/xkb/symbols/us
+    - /usr/share/X11/xkb/types/basic
+    - /usr/share/X11/xkb/types/complete
+    - /usr/share/X11/xkb/types/extra
+    - /usr/share/X11/xkb/types/iso9995
+    - /usr/share/X11/xkb/types/level5
+    - /usr/share/X11/xkb/types/mousekeys
+    - /usr/share/X11/xkb/types/numpad
+    - /usr/share/X11/xkb/types/pc
+    - /usr/share/icons/Adwaita/icon-theme.cache
+    - /usr/share/mime/mime.cache
+    exclude:
+    - usr/share/man
+    - usr/share/doc/*/README.*
+    - usr/share/doc/*/changelog.*
+    - usr/share/doc/*/NEWS.*
+    - usr/share/doc/*/TODO.*
+  runtime:
+    env:
+      APPDIR_LIBRARY_PATH: '$APPDIR/usr/lib/${ARCHITECTURE_APPIMAGE_BUILDER}-linux-gnu:$APPDIR/lib/${ARCHITECTURE_APPIMAGE_BUILDER}-linux-gnu:$APPDIR/usr/lib:$APPDIR/usr/lib/${ARCHITECTURE_APPIMAGE_BUILDER}-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders'
+      GTK_EXE_PREFIX: $APPDIR/usr
+      GTK_DATA_PREFIX: $APPDIR
+      XDG_DATA_DIRS: '/usr/local/share:/usr/share:$APPDIR/usr/share:$XDG_DATA_DIRS:$APPDIR/usr/local/share:$APPDIR/usr/local/lib:$APPDIR/usr/local/share'
+      XDG_CONFIG_DIRS: '$XDG_CONFIG_DIRS:$APPDIR/usr/local/share'
+  test:
+    fedora-42:
+      image: WerWolv/tests-env:fedora-42
+      command: ./AppRun
+    debian-bookworm:
+      image: WerWolv/tests-env:debian-bookworm
+      command: ./AppRun
+    archlinux-latest:
+      image: WerWolv/tests-env:archlinux-latest
+      command: ./AppRun
+    centos-10:
+      image: WerWolv/tests-env:centos-10
+      command: ./AppRun
+    ubuntu-noble:
+      image: WerWolv/tests-env:ubuntu-noble
+      command: ./AppRun
+AppImage:
+  arch: "${ARCHITECTURE_APPIMAGE_BUILDER}"
+  comp: zstd
+  update-information: gh-releases-zsync|WerWolv|ImHex|${GITHUB_RELEASE_TAG}|imhex-*-${ARCHITECTURE_FILE_NAME}.AppImage.zsync
+  file_name: imhex-${VERSION}-${ARCHITECTURE_FILE_NAME}.AppImage
