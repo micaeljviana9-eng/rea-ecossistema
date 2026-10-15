@@ -1,0 +1,45677 @@
+from collections.abc import Iterator
+import enum
+from typing import Optional
+
+import lief.assembly
+from lief.assembly.x86 import operands as operands
+
+
+class OPCODE(enum.Enum):
+    PHI = 0
+
+    INLINEASM = 1
+
+    INLINEASM_BR = 2
+
+    CFI_INSTRUCTION = 3
+
+    EH_LABEL = 4
+
+    GC_LABEL = 5
+
+    ANNOTATION_LABEL = 6
+
+    KILL = 7
+
+    EXTRACT_SUBREG = 8
+
+    INSERT_SUBREG = 9
+
+    IMPLICIT_DEF = 10
+
+    INIT_UNDEF = 11
+
+    SUBREG_TO_REG = 12
+
+    COPY_TO_REGCLASS = 13
+
+    DBG_VALUE = 14
+
+    DBG_VALUE_LIST = 15
+
+    DBG_INSTR_REF = 16
+
+    DBG_PHI = 17
+
+    DBG_LABEL = 18
+
+    REG_SEQUENCE = 19
+
+    COPY = 20
+
+    COPY_LANEMASK = 21
+
+    BUNDLE = 22
+
+    LIFETIME_START = 23
+
+    LIFETIME_END = 24
+
+    PSEUDO_PROBE = 25
+
+    ARITH_FENCE = 26
+
+    STACKMAP = 27
+
+    FENTRY_CALL = 28
+
+    PATCHPOINT = 29
+
+    LOAD_STACK_GUARD = 30
+
+    PREALLOCATED_SETUP = 31
+
+    PREALLOCATED_ARG = 32
+
+    STATEPOINT = 33
+
+    LOCAL_ESCAPE = 34
+
+    FAULTING_OP = 35
+
+    PATCHABLE_OP = 36
+
+    PATCHABLE_FUNCTION_ENTER = 37
+
+    PATCHABLE_RET = 38
+
+    PATCHABLE_FUNCTION_EXIT = 39
+
+    PATCHABLE_TAIL_CALL = 40
+
+    PATCHABLE_EVENT_CALL = 41
+
+    PATCHABLE_TYPED_EVENT_CALL = 42
+
+    ICALL_BRANCH_FUNNEL = 43
+
+    FAKE_USE = 44
+
+    MEMBARRIER = 45
+
+    JUMP_TABLE_DEBUG_INFO = 46
+
+    RELOC_NONE = 47
+
+    CONVERGENCECTRL_ENTRY = 48
+
+    CONVERGENCECTRL_ANCHOR = 49
+
+    CONVERGENCECTRL_LOOP = 50
+
+    CONVERGENCECTRL_GLUE = 51
+
+    G_ASSERT_SEXT = 52
+
+    G_ASSERT_ZEXT = 53
+
+    G_ASSERT_ALIGN = 54
+
+    G_ADD = 55
+
+    G_SUB = 56
+
+    G_MUL = 57
+
+    G_SDIV = 58
+
+    G_UDIV = 59
+
+    G_SREM = 60
+
+    G_UREM = 61
+
+    G_SDIVREM = 62
+
+    G_UDIVREM = 63
+
+    G_AND = 64
+
+    G_OR = 65
+
+    G_XOR = 66
+
+    G_ABDS = 67
+
+    G_ABDU = 68
+
+    G_UAVGFLOOR = 69
+
+    G_UAVGCEIL = 70
+
+    G_SAVGFLOOR = 71
+
+    G_SAVGCEIL = 72
+
+    G_IMPLICIT_DEF = 73
+
+    G_PHI = 74
+
+    G_FRAME_INDEX = 75
+
+    G_GLOBAL_VALUE = 76
+
+    G_PTRAUTH_GLOBAL_VALUE = 77
+
+    G_CONSTANT_POOL = 78
+
+    G_EXTRACT = 79
+
+    G_UNMERGE_VALUES = 80
+
+    G_INSERT = 81
+
+    G_MERGE_VALUES = 82
+
+    G_BUILD_VECTOR = 83
+
+    G_BUILD_VECTOR_TRUNC = 84
+
+    G_CONCAT_VECTORS = 85
+
+    G_PTRTOINT = 86
+
+    G_INTTOPTR = 87
+
+    G_BITCAST = 88
+
+    G_FREEZE = 89
+
+    G_CONSTANT_FOLD_BARRIER = 90
+
+    G_INTRINSIC_FPTRUNC_ROUND = 91
+
+    G_INTRINSIC_TRUNC = 92
+
+    G_INTRINSIC_ROUND = 93
+
+    G_INTRINSIC_LRINT = 94
+
+    G_INTRINSIC_LLRINT = 95
+
+    G_INTRINSIC_ROUNDEVEN = 96
+
+    G_READCYCLECOUNTER = 97
+
+    G_READSTEADYCOUNTER = 98
+
+    G_LOAD = 99
+
+    G_SEXTLOAD = 100
+
+    G_ZEXTLOAD = 101
+
+    G_FPEXTLOAD = 102
+
+    G_INDEXED_LOAD = 103
+
+    G_INDEXED_SEXTLOAD = 104
+
+    G_INDEXED_ZEXTLOAD = 105
+
+    G_STORE = 106
+
+    G_FPTRUNCSTORE = 107
+
+    G_INDEXED_STORE = 108
+
+    G_ATOMIC_CMPXCHG_WITH_SUCCESS = 109
+
+    G_ATOMIC_CMPXCHG = 110
+
+    G_ATOMICRMW_XCHG = 111
+
+    G_ATOMICRMW_ADD = 112
+
+    G_ATOMICRMW_SUB = 113
+
+    G_ATOMICRMW_AND = 114
+
+    G_ATOMICRMW_NAND = 115
+
+    G_ATOMICRMW_OR = 116
+
+    G_ATOMICRMW_XOR = 117
+
+    G_ATOMICRMW_MAX = 118
+
+    G_ATOMICRMW_MIN = 119
+
+    G_ATOMICRMW_UMAX = 120
+
+    G_ATOMICRMW_UMIN = 121
+
+    G_ATOMICRMW_FADD = 122
+
+    G_ATOMICRMW_FSUB = 123
+
+    G_ATOMICRMW_FMAX = 124
+
+    G_ATOMICRMW_FMIN = 125
+
+    G_ATOMICRMW_FMAXIMUM = 126
+
+    G_ATOMICRMW_FMINIMUM = 127
+
+    G_ATOMICRMW_FMAXIMUMNUM = 128
+
+    G_ATOMICRMW_FMINIMUMNUM = 129
+
+    G_ATOMICRMW_UINC_WRAP = 130
+
+    G_ATOMICRMW_UDEC_WRAP = 131
+
+    G_ATOMICRMW_USUB_COND = 132
+
+    G_ATOMICRMW_USUB_SAT = 133
+
+    G_FENCE = 134
+
+    G_PREFETCH = 135
+
+    G_BRCOND = 136
+
+    G_BRINDIRECT = 137
+
+    G_INVOKE_REGION_START = 138
+
+    G_INTRINSIC = 139
+
+    G_INTRINSIC_W_SIDE_EFFECTS = 140
+
+    G_INTRINSIC_CONVERGENT = 141
+
+    G_INTRINSIC_CONVERGENT_W_SIDE_EFFECTS = 142
+
+    G_ANYEXT = 143
+
+    G_TRUNC = 144
+
+    G_TRUNC_SSAT_S = 145
+
+    G_TRUNC_SSAT_U = 146
+
+    G_TRUNC_USAT_U = 147
+
+    G_CONSTANT = 148
+
+    G_FCONSTANT = 149
+
+    G_VASTART = 150
+
+    G_VAARG = 151
+
+    G_SEXT = 152
+
+    G_SEXT_INREG = 153
+
+    G_ZEXT = 154
+
+    G_SHL = 155
+
+    G_LSHR = 156
+
+    G_ASHR = 157
+
+    G_FSHL = 158
+
+    G_FSHR = 159
+
+    G_ROTR = 160
+
+    G_ROTL = 161
+
+    G_ICMP = 162
+
+    G_FCMP = 163
+
+    G_SCMP = 164
+
+    G_UCMP = 165
+
+    G_SELECT = 166
+
+    G_UADDO = 167
+
+    G_UADDE = 168
+
+    G_USUBO = 169
+
+    G_USUBE = 170
+
+    G_SADDO = 171
+
+    G_SADDE = 172
+
+    G_SSUBO = 173
+
+    G_SSUBE = 174
+
+    G_UMULO = 175
+
+    G_SMULO = 176
+
+    G_UMULH = 177
+
+    G_SMULH = 178
+
+    G_UADDSAT = 179
+
+    G_SADDSAT = 180
+
+    G_USUBSAT = 181
+
+    G_SSUBSAT = 182
+
+    G_USHLSAT = 183
+
+    G_SSHLSAT = 184
+
+    G_SMULFIX = 185
+
+    G_UMULFIX = 186
+
+    G_SMULFIXSAT = 187
+
+    G_UMULFIXSAT = 188
+
+    G_SDIVFIX = 189
+
+    G_UDIVFIX = 190
+
+    G_SDIVFIXSAT = 191
+
+    G_UDIVFIXSAT = 192
+
+    G_FADD = 193
+
+    G_FSUB = 194
+
+    G_FMUL = 195
+
+    G_FMA = 196
+
+    G_FMAD = 197
+
+    G_FDIV = 198
+
+    G_FREM = 199
+
+    G_FMODF = 200
+
+    G_FPOW = 201
+
+    G_FPOWI = 202
+
+    G_FEXP = 203
+
+    G_FEXP2 = 204
+
+    G_FEXP10 = 205
+
+    G_FLOG = 206
+
+    G_FLOG2 = 207
+
+    G_FLOG10 = 208
+
+    G_FLDEXP = 209
+
+    G_FFREXP = 210
+
+    G_FNEG = 211
+
+    G_FPEXT = 212
+
+    G_FPTRUNC = 213
+
+    G_FPTOSI = 214
+
+    G_FPTOUI = 215
+
+    G_SITOFP = 216
+
+    G_UITOFP = 217
+
+    G_FPTOSI_SAT = 218
+
+    G_FPTOUI_SAT = 219
+
+    G_FABS = 220
+
+    G_FCOPYSIGN = 221
+
+    G_IS_FPCLASS = 222
+
+    G_FCANONICALIZE = 223
+
+    G_FMINNUM = 224
+
+    G_FMAXNUM = 225
+
+    G_FMINNUM_IEEE = 226
+
+    G_FMAXNUM_IEEE = 227
+
+    G_FMINIMUM = 228
+
+    G_FMAXIMUM = 229
+
+    G_FMINIMUMNUM = 230
+
+    G_FMAXIMUMNUM = 231
+
+    G_GET_FPENV = 232
+
+    G_SET_FPENV = 233
+
+    G_RESET_FPENV = 234
+
+    G_GET_FPMODE = 235
+
+    G_SET_FPMODE = 236
+
+    G_RESET_FPMODE = 237
+
+    G_GET_ROUNDING = 238
+
+    G_SET_ROUNDING = 239
+
+    G_PTR_ADD = 240
+
+    G_PTRMASK = 241
+
+    G_SMIN = 242
+
+    G_SMAX = 243
+
+    G_UMIN = 244
+
+    G_UMAX = 245
+
+    G_ABS = 246
+
+    G_LROUND = 247
+
+    G_LLROUND = 248
+
+    G_BR = 249
+
+    G_BRJT = 250
+
+    G_VSCALE = 251
+
+    G_INSERT_SUBVECTOR = 252
+
+    G_EXTRACT_SUBVECTOR = 253
+
+    G_INSERT_VECTOR_ELT = 254
+
+    G_EXTRACT_VECTOR_ELT = 255
+
+    G_SHUFFLE_VECTOR = 256
+
+    G_SPLAT_VECTOR = 257
+
+    G_STEP_VECTOR = 258
+
+    G_VECTOR_COMPRESS = 259
+
+    G_CTTZ = 260
+
+    G_CTTZ_ZERO_POISON = 261
+
+    G_CTLZ = 262
+
+    G_CTLZ_ZERO_POISON = 263
+
+    G_CTLS = 264
+
+    G_CTPOP = 265
+
+    G_BSWAP = 266
+
+    G_BITREVERSE = 267
+
+    G_CLMUL = 268
+
+    G_FCEIL = 269
+
+    G_FCOS = 270
+
+    G_FSIN = 271
+
+    G_FSINCOS = 272
+
+    G_FTAN = 273
+
+    G_FACOS = 274
+
+    G_FASIN = 275
+
+    G_FATAN = 276
+
+    G_FATAN2 = 277
+
+    G_FCOSH = 278
+
+    G_FSINH = 279
+
+    G_FTANH = 280
+
+    G_FSQRT = 281
+
+    G_FFLOOR = 282
+
+    G_FRINT = 283
+
+    G_FNEARBYINT = 284
+
+    G_ADDRSPACE_CAST = 285
+
+    G_BLOCK_ADDR = 286
+
+    G_JUMP_TABLE = 287
+
+    G_DYN_STACKALLOC = 288
+
+    G_STACKSAVE = 289
+
+    G_STACKRESTORE = 290
+
+    G_STRICT_FADD = 291
+
+    G_STRICT_FSUB = 292
+
+    G_STRICT_FMUL = 293
+
+    G_STRICT_FDIV = 294
+
+    G_STRICT_FREM = 295
+
+    G_STRICT_FMA = 296
+
+    G_STRICT_FSQRT = 297
+
+    G_STRICT_FLDEXP = 298
+
+    G_STRICT_FCMP = 299
+
+    G_STRICT_FCMPS = 300
+
+    G_READ_REGISTER = 301
+
+    G_WRITE_REGISTER = 302
+
+    G_MEMCPY = 303
+
+    G_MEMCPY_INLINE = 304
+
+    G_MEMMOVE = 305
+
+    G_MEMSET = 306
+
+    G_BZERO = 307
+
+    G_MEMSET_INLINE = 308
+
+    G_TRAP = 309
+
+    G_DEBUGTRAP = 310
+
+    G_UBSANTRAP = 311
+
+    G_VECREDUCE_SEQ_FADD = 312
+
+    G_VECREDUCE_SEQ_FMUL = 313
+
+    G_VECREDUCE_FADD = 314
+
+    G_VECREDUCE_FMUL = 315
+
+    G_VECREDUCE_FMAX = 316
+
+    G_VECREDUCE_FMIN = 317
+
+    G_VECREDUCE_FMAXIMUM = 318
+
+    G_VECREDUCE_FMINIMUM = 319
+
+    G_VECREDUCE_ADD = 320
+
+    G_VECREDUCE_MUL = 321
+
+    G_VECREDUCE_AND = 322
+
+    G_VECREDUCE_OR = 323
+
+    G_VECREDUCE_XOR = 324
+
+    G_VECREDUCE_SMAX = 325
+
+    G_VECREDUCE_SMIN = 326
+
+    G_VECREDUCE_UMAX = 327
+
+    G_VECREDUCE_UMIN = 328
+
+    G_SBFX = 329
+
+    G_UBFX = 330
+
+    ADD16ri_DB = 331
+
+    ADD16rr_DB = 332
+
+    ADD32ri_DB = 333
+
+    ADD32rr_DB = 334
+
+    ADD64ri32_DB = 335
+
+    ADD64rr_DB = 336
+
+    ADD8ri_DB = 337
+
+    ADD8rr_DB = 338
+
+    AVX1_SETALLONES = 339
+
+    AVX2_SETALLONES = 340
+
+    AVX512_128_SET0 = 341
+
+    AVX512_128_SETALLONES = 342
+
+    AVX512_256_SET0 = 343
+
+    AVX512_256_SETALLONES = 344
+
+    AVX512_512_SET0 = 345
+
+    AVX512_512_SETALLONES = 346
+
+    AVX512_512_SEXT_MASK_32 = 347
+
+    AVX512_512_SEXT_MASK_64 = 348
+
+    AVX512_FsFLD0F128 = 349
+
+    AVX512_FsFLD0SD = 350
+
+    AVX512_FsFLD0SH = 351
+
+    AVX512_FsFLD0SS = 352
+
+    AVX_SET0 = 353
+
+    CALL64m_RVMARKER = 354
+
+    CALL64pcrel32_RVMARKER = 355
+
+    CALL64r_ImpCall = 356
+
+    CALL64r_RVMARKER = 357
+
+    FsFLD0F128 = 358
+
+    FsFLD0SD = 359
+
+    FsFLD0SH = 360
+
+    FsFLD0SS = 361
+
+    G_FILD = 362
+
+    G_FIST = 363
+
+    G_FLDCW16 = 364
+
+    G_FNSTCW16 = 365
+
+    G_WRAPPER_RIP = 366
+
+    INDIRECT_THUNK_CALL32 = 367
+
+    INDIRECT_THUNK_CALL64 = 368
+
+    INDIRECT_THUNK_TCRETURN32 = 369
+
+    INDIRECT_THUNK_TCRETURN64 = 370
+
+    KSET0B = 371
+
+    KSET0D = 372
+
+    KSET0Q = 373
+
+    KSET0W = 374
+
+    KSET1B = 375
+
+    KSET1D = 376
+
+    KSET1Q = 377
+
+    KSET1W = 378
+
+    LCMPXCHG16B_NO_RBX = 379
+
+    LCMPXCHG16B_SAVE_RBX = 380
+
+    MMX_SET0 = 381
+
+    MORESTACK_RET = 382
+
+    MORESTACK_RET_RESTORE_R10 = 383
+
+    MOV32ImmSExti8 = 384
+
+    MOV32r0 = 385
+
+    MOV32r1 = 386
+
+    MOV32r_1 = 387
+
+    MOV32ri64 = 388
+
+    MOV64ImmSExti8 = 389
+
+    MOVSHPmr = 390
+
+    MOVSHPrm = 391
+
+    MWAITX = 392
+
+    MWAITX_SAVE_RBX = 393
+
+    PLDTILECFGV = 394
+
+    PLEA32r = 395
+
+    PLEA64r = 396
+
+    PTDPBF16PSV = 397
+
+    PTDPBSSDV = 398
+
+    PTDPBSUDV = 399
+
+    PTDPBUSDV = 400
+
+    PTDPBUUDV = 401
+
+    PTDPFP16PSV = 402
+
+    PTILELOADDRST1V = 403
+
+    PTILELOADDRSV = 404
+
+    PTILELOADDT1V = 405
+
+    PTILELOADDV = 406
+
+    PTILESTOREDV = 407
+
+    PTILEZEROV = 408
+
+    RDFLAGS32 = 409
+
+    RDFLAGS64 = 410
+
+    SEH_BeginEpilogue = 411
+
+    SEH_EndEpilogue = 412
+
+    SEH_EndPrologue = 413
+
+    SEH_Push2Regs = 414
+
+    SEH_PushFrame = 415
+
+    SEH_PushReg = 416
+
+    SEH_SaveReg = 417
+
+    SEH_SaveXMM = 418
+
+    SEH_SetFrame = 419
+
+    SEH_SplitChained = 420
+
+    SEH_SplitChainedAtEndOfBlock = 421
+
+    SEH_StackAlign = 422
+
+    SEH_StackAlloc = 423
+
+    SEH_UnwindV2Start = 424
+
+    SEH_UnwindVersion = 425
+
+    SETB_C32r = 426
+
+    SETB_C64r = 427
+
+    SHLDROT32ri = 428
+
+    SHLDROT64ri = 429
+
+    SHRDROT32ri = 430
+
+    SHRDROT64ri = 431
+
+    VMOVAPSZ128mr_NOVLX = 432
+
+    VMOVAPSZ128rm_NOVLX = 433
+
+    VMOVAPSZ256mr_NOVLX = 434
+
+    VMOVAPSZ256rm_NOVLX = 435
+
+    VMOVUPSZ128mr_NOVLX = 436
+
+    VMOVUPSZ128rm_NOVLX = 437
+
+    VMOVUPSZ256mr_NOVLX = 438
+
+    VMOVUPSZ256rm_NOVLX = 439
+
+    V_SET0 = 440
+
+    V_SETALLONES = 441
+
+    WRFLAGS32 = 442
+
+    WRFLAGS64 = 443
+
+    XABORT_DEF = 444
+
+    XOR32_FP = 445
+
+    XOR64_FP = 446
+
+    AAA = 447
+
+    AAD8i8 = 448
+
+    AADD32mr = 449
+
+    AADD32mr_EVEX = 450
+
+    AADD64mr = 451
+
+    AADD64mr_EVEX = 452
+
+    AAM8i8 = 453
+
+    AAND32mr = 454
+
+    AAND32mr_EVEX = 455
+
+    AAND64mr = 456
+
+    AAND64mr_EVEX = 457
+
+    AAS = 458
+
+    ABS_F = 459
+
+    ABS_Fp32 = 460
+
+    ABS_Fp64 = 461
+
+    ABS_Fp80 = 462
+
+    ADC16i16 = 463
+
+    ADC16mi = 464
+
+    ADC16mi8 = 465
+
+    ADC16mi8_EVEX = 466
+
+    ADC16mi8_ND = 467
+
+    ADC16mi_EVEX = 468
+
+    ADC16mi_ND = 469
+
+    ADC16mr = 470
+
+    ADC16mr_EVEX = 471
+
+    ADC16mr_ND = 472
+
+    ADC16ri = 473
+
+    ADC16ri8 = 474
+
+    ADC16ri8_EVEX = 475
+
+    ADC16ri8_ND = 476
+
+    ADC16ri_EVEX = 477
+
+    ADC16ri_ND = 478
+
+    ADC16rm = 479
+
+    ADC16rm_EVEX = 480
+
+    ADC16rm_ND = 481
+
+    ADC16rr = 482
+
+    ADC16rr_EVEX = 483
+
+    ADC16rr_EVEX_REV = 484
+
+    ADC16rr_ND = 485
+
+    ADC16rr_ND_REV = 486
+
+    ADC16rr_REV = 487
+
+    ADC32i32 = 488
+
+    ADC32mi = 489
+
+    ADC32mi8 = 490
+
+    ADC32mi8_EVEX = 491
+
+    ADC32mi8_ND = 492
+
+    ADC32mi_EVEX = 493
+
+    ADC32mi_ND = 494
+
+    ADC32mr = 495
+
+    ADC32mr_EVEX = 496
+
+    ADC32mr_ND = 497
+
+    ADC32ri = 498
+
+    ADC32ri8 = 499
+
+    ADC32ri8_EVEX = 500
+
+    ADC32ri8_ND = 501
+
+    ADC32ri_EVEX = 502
+
+    ADC32ri_ND = 503
+
+    ADC32rm = 504
+
+    ADC32rm_EVEX = 505
+
+    ADC32rm_ND = 506
+
+    ADC32rr = 507
+
+    ADC32rr_EVEX = 508
+
+    ADC32rr_EVEX_REV = 509
+
+    ADC32rr_ND = 510
+
+    ADC32rr_ND_REV = 511
+
+    ADC32rr_REV = 512
+
+    ADC64i32 = 513
+
+    ADC64mi32 = 514
+
+    ADC64mi32_EVEX = 515
+
+    ADC64mi32_ND = 516
+
+    ADC64mi8 = 517
+
+    ADC64mi8_EVEX = 518
+
+    ADC64mi8_ND = 519
+
+    ADC64mr = 520
+
+    ADC64mr_EVEX = 521
+
+    ADC64mr_ND = 522
+
+    ADC64ri32 = 523
+
+    ADC64ri32_EVEX = 524
+
+    ADC64ri32_ND = 525
+
+    ADC64ri8 = 526
+
+    ADC64ri8_EVEX = 527
+
+    ADC64ri8_ND = 528
+
+    ADC64rm = 529
+
+    ADC64rm_EVEX = 530
+
+    ADC64rm_ND = 531
+
+    ADC64rr = 532
+
+    ADC64rr_EVEX = 533
+
+    ADC64rr_EVEX_REV = 534
+
+    ADC64rr_ND = 535
+
+    ADC64rr_ND_REV = 536
+
+    ADC64rr_REV = 537
+
+    ADC8i8 = 538
+
+    ADC8mi = 539
+
+    ADC8mi8 = 540
+
+    ADC8mi_EVEX = 541
+
+    ADC8mi_ND = 542
+
+    ADC8mr = 543
+
+    ADC8mr_EVEX = 544
+
+    ADC8mr_ND = 545
+
+    ADC8ri = 546
+
+    ADC8ri8 = 547
+
+    ADC8ri_EVEX = 548
+
+    ADC8ri_ND = 549
+
+    ADC8rm = 550
+
+    ADC8rm_EVEX = 551
+
+    ADC8rm_ND = 552
+
+    ADC8rr = 553
+
+    ADC8rr_EVEX = 554
+
+    ADC8rr_EVEX_REV = 555
+
+    ADC8rr_ND = 556
+
+    ADC8rr_ND_REV = 557
+
+    ADC8rr_REV = 558
+
+    ADCX32rm = 559
+
+    ADCX32rm_EVEX = 560
+
+    ADCX32rm_ND = 561
+
+    ADCX32rr = 562
+
+    ADCX32rr_EVEX = 563
+
+    ADCX32rr_ND = 564
+
+    ADCX64rm = 565
+
+    ADCX64rm_EVEX = 566
+
+    ADCX64rm_ND = 567
+
+    ADCX64rr = 568
+
+    ADCX64rr_EVEX = 569
+
+    ADCX64rr_ND = 570
+
+    ADD16i16 = 571
+
+    ADD16mi = 572
+
+    ADD16mi8 = 573
+
+    ADD16mi8_EVEX = 574
+
+    ADD16mi8_ND = 575
+
+    ADD16mi8_NF = 576
+
+    ADD16mi8_NF_ND = 577
+
+    ADD16mi_EVEX = 578
+
+    ADD16mi_ND = 579
+
+    ADD16mi_NF = 580
+
+    ADD16mi_NF_ND = 581
+
+    ADD16mr = 582
+
+    ADD16mr_EVEX = 583
+
+    ADD16mr_ND = 584
+
+    ADD16mr_NF = 585
+
+    ADD16mr_NF_ND = 586
+
+    ADD16ri = 587
+
+    ADD16ri8 = 588
+
+    ADD16ri8_EVEX = 589
+
+    ADD16ri8_ND = 590
+
+    ADD16ri8_NF = 591
+
+    ADD16ri8_NF_ND = 592
+
+    ADD16ri_EVEX = 593
+
+    ADD16ri_ND = 594
+
+    ADD16ri_NF = 595
+
+    ADD16ri_NF_ND = 596
+
+    ADD16rm = 597
+
+    ADD16rm_EVEX = 598
+
+    ADD16rm_ND = 599
+
+    ADD16rm_NF = 600
+
+    ADD16rm_NF_ND = 601
+
+    ADD16rr = 602
+
+    ADD16rr_EVEX = 603
+
+    ADD16rr_EVEX_REV = 604
+
+    ADD16rr_ND = 605
+
+    ADD16rr_ND_REV = 606
+
+    ADD16rr_NF = 607
+
+    ADD16rr_NF_ND = 608
+
+    ADD16rr_NF_ND_REV = 609
+
+    ADD16rr_NF_REV = 610
+
+    ADD16rr_REV = 611
+
+    ADD32i32 = 612
+
+    ADD32mi = 613
+
+    ADD32mi8 = 614
+
+    ADD32mi8_EVEX = 615
+
+    ADD32mi8_ND = 616
+
+    ADD32mi8_NF = 617
+
+    ADD32mi8_NF_ND = 618
+
+    ADD32mi_EVEX = 619
+
+    ADD32mi_ND = 620
+
+    ADD32mi_NF = 621
+
+    ADD32mi_NF_ND = 622
+
+    ADD32mr = 623
+
+    ADD32mr_EVEX = 624
+
+    ADD32mr_ND = 625
+
+    ADD32mr_NF = 626
+
+    ADD32mr_NF_ND = 627
+
+    ADD32ri = 628
+
+    ADD32ri8 = 629
+
+    ADD32ri8_EVEX = 630
+
+    ADD32ri8_ND = 631
+
+    ADD32ri8_NF = 632
+
+    ADD32ri8_NF_ND = 633
+
+    ADD32ri_EVEX = 634
+
+    ADD32ri_ND = 635
+
+    ADD32ri_NF = 636
+
+    ADD32ri_NF_ND = 637
+
+    ADD32rm = 638
+
+    ADD32rm_EVEX = 639
+
+    ADD32rm_ND = 640
+
+    ADD32rm_NF = 641
+
+    ADD32rm_NF_ND = 642
+
+    ADD32rr = 643
+
+    ADD32rr_EVEX = 644
+
+    ADD32rr_EVEX_REV = 645
+
+    ADD32rr_ND = 646
+
+    ADD32rr_ND_REV = 647
+
+    ADD32rr_NF = 648
+
+    ADD32rr_NF_ND = 649
+
+    ADD32rr_NF_ND_REV = 650
+
+    ADD32rr_NF_REV = 651
+
+    ADD32rr_REV = 652
+
+    ADD64i32 = 653
+
+    ADD64mi32 = 654
+
+    ADD64mi32_EVEX = 655
+
+    ADD64mi32_ND = 656
+
+    ADD64mi32_NF = 657
+
+    ADD64mi32_NF_ND = 658
+
+    ADD64mi8 = 659
+
+    ADD64mi8_EVEX = 660
+
+    ADD64mi8_ND = 661
+
+    ADD64mi8_NF = 662
+
+    ADD64mi8_NF_ND = 663
+
+    ADD64mr = 664
+
+    ADD64mr_EVEX = 665
+
+    ADD64mr_ND = 666
+
+    ADD64mr_NF = 667
+
+    ADD64mr_NF_ND = 668
+
+    ADD64ri32 = 669
+
+    ADD64ri32_EVEX = 670
+
+    ADD64ri32_ND = 671
+
+    ADD64ri32_NF = 672
+
+    ADD64ri32_NF_ND = 673
+
+    ADD64ri8 = 674
+
+    ADD64ri8_EVEX = 675
+
+    ADD64ri8_ND = 676
+
+    ADD64ri8_NF = 677
+
+    ADD64ri8_NF_ND = 678
+
+    ADD64rm = 679
+
+    ADD64rm_EVEX = 680
+
+    ADD64rm_ND = 681
+
+    ADD64rm_NF = 682
+
+    ADD64rm_NF_ND = 683
+
+    ADD64rr = 684
+
+    ADD64rr_EVEX = 685
+
+    ADD64rr_EVEX_REV = 686
+
+    ADD64rr_ND = 687
+
+    ADD64rr_ND_REV = 688
+
+    ADD64rr_NF = 689
+
+    ADD64rr_NF_ND = 690
+
+    ADD64rr_NF_ND_REV = 691
+
+    ADD64rr_NF_REV = 692
+
+    ADD64rr_REV = 693
+
+    ADD8i8 = 694
+
+    ADD8mi = 695
+
+    ADD8mi8 = 696
+
+    ADD8mi_EVEX = 697
+
+    ADD8mi_ND = 698
+
+    ADD8mi_NF = 699
+
+    ADD8mi_NF_ND = 700
+
+    ADD8mr = 701
+
+    ADD8mr_EVEX = 702
+
+    ADD8mr_ND = 703
+
+    ADD8mr_NF = 704
+
+    ADD8mr_NF_ND = 705
+
+    ADD8ri = 706
+
+    ADD8ri8 = 707
+
+    ADD8ri_EVEX = 708
+
+    ADD8ri_ND = 709
+
+    ADD8ri_NF = 710
+
+    ADD8ri_NF_ND = 711
+
+    ADD8rm = 712
+
+    ADD8rm_EVEX = 713
+
+    ADD8rm_ND = 714
+
+    ADD8rm_NF = 715
+
+    ADD8rm_NF_ND = 716
+
+    ADD8rr = 717
+
+    ADD8rr_EVEX = 718
+
+    ADD8rr_EVEX_REV = 719
+
+    ADD8rr_ND = 720
+
+    ADD8rr_ND_REV = 721
+
+    ADD8rr_NF = 722
+
+    ADD8rr_NF_ND = 723
+
+    ADD8rr_NF_ND_REV = 724
+
+    ADD8rr_NF_REV = 725
+
+    ADD8rr_REV = 726
+
+    ADDPDrm = 727
+
+    ADDPDrr = 728
+
+    ADDPSrm = 729
+
+    ADDPSrr = 730
+
+    ADDR16_PREFIX = 731
+
+    ADDR32_PREFIX = 732
+
+    ADDSDrm = 733
+
+    ADDSDrm_Int = 734
+
+    ADDSDrr = 735
+
+    ADDSDrr_Int = 736
+
+    ADDSSrm = 737
+
+    ADDSSrm_Int = 738
+
+    ADDSSrr = 739
+
+    ADDSSrr_Int = 740
+
+    ADDSUBPDrm = 741
+
+    ADDSUBPDrr = 742
+
+    ADDSUBPSrm = 743
+
+    ADDSUBPSrr = 744
+
+    ADD_F32m = 745
+
+    ADD_F64m = 746
+
+    ADD_FI16m = 747
+
+    ADD_FI32m = 748
+
+    ADD_FPrST0 = 749
+
+    ADD_FST0r = 750
+
+    ADD_Fp32 = 751
+
+    ADD_Fp32m = 752
+
+    ADD_Fp64 = 753
+
+    ADD_Fp64m = 754
+
+    ADD_Fp64m32 = 755
+
+    ADD_Fp80 = 756
+
+    ADD_Fp80m32 = 757
+
+    ADD_Fp80m64 = 758
+
+    ADD_FpI16m32 = 759
+
+    ADD_FpI16m64 = 760
+
+    ADD_FpI16m80 = 761
+
+    ADD_FpI32m32 = 762
+
+    ADD_FpI32m64 = 763
+
+    ADD_FpI32m80 = 764
+
+    ADD_FrST0 = 765
+
+    ADJCALLSTACKDOWN32 = 766
+
+    ADJCALLSTACKDOWN64 = 767
+
+    ADJCALLSTACKUP32 = 768
+
+    ADJCALLSTACKUP64 = 769
+
+    ADOX32rm = 770
+
+    ADOX32rm_EVEX = 771
+
+    ADOX32rm_ND = 772
+
+    ADOX32rr = 773
+
+    ADOX32rr_EVEX = 774
+
+    ADOX32rr_ND = 775
+
+    ADOX64rm = 776
+
+    ADOX64rm_EVEX = 777
+
+    ADOX64rm_ND = 778
+
+    ADOX64rr = 779
+
+    ADOX64rr_EVEX = 780
+
+    ADOX64rr_ND = 781
+
+    AESDEC128KL = 782
+
+    AESDEC256KL = 783
+
+    AESDECLASTrm = 784
+
+    AESDECLASTrr = 785
+
+    AESDECWIDE128KL = 786
+
+    AESDECWIDE256KL = 787
+
+    AESDECrm = 788
+
+    AESDECrr = 789
+
+    AESENC128KL = 790
+
+    AESENC256KL = 791
+
+    AESENCLASTrm = 792
+
+    AESENCLASTrr = 793
+
+    AESENCWIDE128KL = 794
+
+    AESENCWIDE256KL = 795
+
+    AESENCrm = 796
+
+    AESENCrr = 797
+
+    AESIMCrm = 798
+
+    AESIMCrr = 799
+
+    AESKEYGENASSISTrmi = 800
+
+    AESKEYGENASSISTrri = 801
+
+    AND16i16 = 802
+
+    AND16mi = 803
+
+    AND16mi8 = 804
+
+    AND16mi8_EVEX = 805
+
+    AND16mi8_ND = 806
+
+    AND16mi8_NF = 807
+
+    AND16mi8_NF_ND = 808
+
+    AND16mi_EVEX = 809
+
+    AND16mi_ND = 810
+
+    AND16mi_NF = 811
+
+    AND16mi_NF_ND = 812
+
+    AND16mr = 813
+
+    AND16mr_EVEX = 814
+
+    AND16mr_ND = 815
+
+    AND16mr_NF = 816
+
+    AND16mr_NF_ND = 817
+
+    AND16ri = 818
+
+    AND16ri8 = 819
+
+    AND16ri8_EVEX = 820
+
+    AND16ri8_ND = 821
+
+    AND16ri8_NF = 822
+
+    AND16ri8_NF_ND = 823
+
+    AND16ri_EVEX = 824
+
+    AND16ri_ND = 825
+
+    AND16ri_NF = 826
+
+    AND16ri_NF_ND = 827
+
+    AND16rm = 828
+
+    AND16rm_EVEX = 829
+
+    AND16rm_ND = 830
+
+    AND16rm_NF = 831
+
+    AND16rm_NF_ND = 832
+
+    AND16rr = 833
+
+    AND16rr_EVEX = 834
+
+    AND16rr_EVEX_REV = 835
+
+    AND16rr_ND = 836
+
+    AND16rr_ND_REV = 837
+
+    AND16rr_NF = 838
+
+    AND16rr_NF_ND = 839
+
+    AND16rr_NF_ND_REV = 840
+
+    AND16rr_NF_REV = 841
+
+    AND16rr_REV = 842
+
+    AND32i32 = 843
+
+    AND32mi = 844
+
+    AND32mi8 = 845
+
+    AND32mi8_EVEX = 846
+
+    AND32mi8_ND = 847
+
+    AND32mi8_NF = 848
+
+    AND32mi8_NF_ND = 849
+
+    AND32mi_EVEX = 850
+
+    AND32mi_ND = 851
+
+    AND32mi_NF = 852
+
+    AND32mi_NF_ND = 853
+
+    AND32mr = 854
+
+    AND32mr_EVEX = 855
+
+    AND32mr_ND = 856
+
+    AND32mr_NF = 857
+
+    AND32mr_NF_ND = 858
+
+    AND32ri = 859
+
+    AND32ri8 = 860
+
+    AND32ri8_EVEX = 861
+
+    AND32ri8_ND = 862
+
+    AND32ri8_NF = 863
+
+    AND32ri8_NF_ND = 864
+
+    AND32ri_EVEX = 865
+
+    AND32ri_ND = 866
+
+    AND32ri_NF = 867
+
+    AND32ri_NF_ND = 868
+
+    AND32rm = 869
+
+    AND32rm_EVEX = 870
+
+    AND32rm_ND = 871
+
+    AND32rm_NF = 872
+
+    AND32rm_NF_ND = 873
+
+    AND32rr = 874
+
+    AND32rr_EVEX = 875
+
+    AND32rr_EVEX_REV = 876
+
+    AND32rr_ND = 877
+
+    AND32rr_ND_REV = 878
+
+    AND32rr_NF = 879
+
+    AND32rr_NF_ND = 880
+
+    AND32rr_NF_ND_REV = 881
+
+    AND32rr_NF_REV = 882
+
+    AND32rr_REV = 883
+
+    AND64i32 = 884
+
+    AND64mi32 = 885
+
+    AND64mi32_EVEX = 886
+
+    AND64mi32_ND = 887
+
+    AND64mi32_NF = 888
+
+    AND64mi32_NF_ND = 889
+
+    AND64mi8 = 890
+
+    AND64mi8_EVEX = 891
+
+    AND64mi8_ND = 892
+
+    AND64mi8_NF = 893
+
+    AND64mi8_NF_ND = 894
+
+    AND64mr = 895
+
+    AND64mr_EVEX = 896
+
+    AND64mr_ND = 897
+
+    AND64mr_NF = 898
+
+    AND64mr_NF_ND = 899
+
+    AND64ri32 = 900
+
+    AND64ri32_EVEX = 901
+
+    AND64ri32_ND = 902
+
+    AND64ri32_NF = 903
+
+    AND64ri32_NF_ND = 904
+
+    AND64ri8 = 905
+
+    AND64ri8_EVEX = 906
+
+    AND64ri8_ND = 907
+
+    AND64ri8_NF = 908
+
+    AND64ri8_NF_ND = 909
+
+    AND64rm = 910
+
+    AND64rm_EVEX = 911
+
+    AND64rm_ND = 912
+
+    AND64rm_NF = 913
+
+    AND64rm_NF_ND = 914
+
+    AND64rr = 915
+
+    AND64rr_EVEX = 916
+
+    AND64rr_EVEX_REV = 917
+
+    AND64rr_ND = 918
+
+    AND64rr_ND_REV = 919
+
+    AND64rr_NF = 920
+
+    AND64rr_NF_ND = 921
+
+    AND64rr_NF_ND_REV = 922
+
+    AND64rr_NF_REV = 923
+
+    AND64rr_REV = 924
+
+    AND8i8 = 925
+
+    AND8mi = 926
+
+    AND8mi8 = 927
+
+    AND8mi_EVEX = 928
+
+    AND8mi_ND = 929
+
+    AND8mi_NF = 930
+
+    AND8mi_NF_ND = 931
+
+    AND8mr = 932
+
+    AND8mr_EVEX = 933
+
+    AND8mr_ND = 934
+
+    AND8mr_NF = 935
+
+    AND8mr_NF_ND = 936
+
+    AND8ri = 937
+
+    AND8ri8 = 938
+
+    AND8ri_EVEX = 939
+
+    AND8ri_ND = 940
+
+    AND8ri_NF = 941
+
+    AND8ri_NF_ND = 942
+
+    AND8rm = 943
+
+    AND8rm_EVEX = 944
+
+    AND8rm_ND = 945
+
+    AND8rm_NF = 946
+
+    AND8rm_NF_ND = 947
+
+    AND8rr = 948
+
+    AND8rr_EVEX = 949
+
+    AND8rr_EVEX_REV = 950
+
+    AND8rr_ND = 951
+
+    AND8rr_ND_REV = 952
+
+    AND8rr_NF = 953
+
+    AND8rr_NF_ND = 954
+
+    AND8rr_NF_ND_REV = 955
+
+    AND8rr_NF_REV = 956
+
+    AND8rr_REV = 957
+
+    ANDN32rm = 958
+
+    ANDN32rm_EVEX = 959
+
+    ANDN32rm_NF = 960
+
+    ANDN32rr = 961
+
+    ANDN32rr_EVEX = 962
+
+    ANDN32rr_NF = 963
+
+    ANDN64rm = 964
+
+    ANDN64rm_EVEX = 965
+
+    ANDN64rm_NF = 966
+
+    ANDN64rr = 967
+
+    ANDN64rr_EVEX = 968
+
+    ANDN64rr_NF = 969
+
+    ANDNPDrm = 970
+
+    ANDNPDrr = 971
+
+    ANDNPSrm = 972
+
+    ANDNPSrr = 973
+
+    ANDPDrm = 974
+
+    ANDPDrr = 975
+
+    ANDPSrm = 976
+
+    ANDPSrr = 977
+
+    AOR32mr = 978
+
+    AOR32mr_EVEX = 979
+
+    AOR64mr = 980
+
+    AOR64mr_EVEX = 981
+
+    ARPL16mr = 982
+
+    ARPL16rr = 983
+
+    ASAN_CHECK_MEMACCESS = 984
+
+    AXOR32mr = 985
+
+    AXOR32mr_EVEX = 986
+
+    AXOR64mr = 987
+
+    AXOR64mr_EVEX = 988
+
+    BEXTR32rm = 989
+
+    BEXTR32rm_EVEX = 990
+
+    BEXTR32rm_NF = 991
+
+    BEXTR32rr = 992
+
+    BEXTR32rr_EVEX = 993
+
+    BEXTR32rr_NF = 994
+
+    BEXTR64rm = 995
+
+    BEXTR64rm_EVEX = 996
+
+    BEXTR64rm_NF = 997
+
+    BEXTR64rr = 998
+
+    BEXTR64rr_EVEX = 999
+
+    BEXTR64rr_NF = 1000
+
+    BEXTRI32mi = 1001
+
+    BEXTRI32ri = 1002
+
+    BEXTRI64mi = 1003
+
+    BEXTRI64ri = 1004
+
+    BLCFILL32rm = 1005
+
+    BLCFILL32rr = 1006
+
+    BLCFILL64rm = 1007
+
+    BLCFILL64rr = 1008
+
+    BLCI32rm = 1009
+
+    BLCI32rr = 1010
+
+    BLCI64rm = 1011
+
+    BLCI64rr = 1012
+
+    BLCIC32rm = 1013
+
+    BLCIC32rr = 1014
+
+    BLCIC64rm = 1015
+
+    BLCIC64rr = 1016
+
+    BLCMSK32rm = 1017
+
+    BLCMSK32rr = 1018
+
+    BLCMSK64rm = 1019
+
+    BLCMSK64rr = 1020
+
+    BLCS32rm = 1021
+
+    BLCS32rr = 1022
+
+    BLCS64rm = 1023
+
+    BLCS64rr = 1024
+
+    BLENDPDrmi = 1025
+
+    BLENDPDrri = 1026
+
+    BLENDPSrmi = 1027
+
+    BLENDPSrri = 1028
+
+    BLENDVPDrm0 = 1029
+
+    BLENDVPDrr0 = 1030
+
+    BLENDVPSrm0 = 1031
+
+    BLENDVPSrr0 = 1032
+
+    BLSFILL32rm = 1033
+
+    BLSFILL32rr = 1034
+
+    BLSFILL64rm = 1035
+
+    BLSFILL64rr = 1036
+
+    BLSI32rm = 1037
+
+    BLSI32rm_EVEX = 1038
+
+    BLSI32rm_NF = 1039
+
+    BLSI32rr = 1040
+
+    BLSI32rr_EVEX = 1041
+
+    BLSI32rr_NF = 1042
+
+    BLSI64rm = 1043
+
+    BLSI64rm_EVEX = 1044
+
+    BLSI64rm_NF = 1045
+
+    BLSI64rr = 1046
+
+    BLSI64rr_EVEX = 1047
+
+    BLSI64rr_NF = 1048
+
+    BLSIC32rm = 1049
+
+    BLSIC32rr = 1050
+
+    BLSIC64rm = 1051
+
+    BLSIC64rr = 1052
+
+    BLSMSK32rm = 1053
+
+    BLSMSK32rm_EVEX = 1054
+
+    BLSMSK32rm_NF = 1055
+
+    BLSMSK32rr = 1056
+
+    BLSMSK32rr_EVEX = 1057
+
+    BLSMSK32rr_NF = 1058
+
+    BLSMSK64rm = 1059
+
+    BLSMSK64rm_EVEX = 1060
+
+    BLSMSK64rm_NF = 1061
+
+    BLSMSK64rr = 1062
+
+    BLSMSK64rr_EVEX = 1063
+
+    BLSMSK64rr_NF = 1064
+
+    BLSR32rm = 1065
+
+    BLSR32rm_EVEX = 1066
+
+    BLSR32rm_NF = 1067
+
+    BLSR32rr = 1068
+
+    BLSR32rr_EVEX = 1069
+
+    BLSR32rr_NF = 1070
+
+    BLSR64rm = 1071
+
+    BLSR64rm_EVEX = 1072
+
+    BLSR64rm_NF = 1073
+
+    BLSR64rr = 1074
+
+    BLSR64rr_EVEX = 1075
+
+    BLSR64rr_NF = 1076
+
+    BOUNDS16rm = 1077
+
+    BOUNDS32rm = 1078
+
+    BSF16rm = 1079
+
+    BSF16rr = 1080
+
+    BSF32rm = 1081
+
+    BSF32rr = 1082
+
+    BSF64rm = 1083
+
+    BSF64rr = 1084
+
+    BSR16rm = 1085
+
+    BSR16rr = 1086
+
+    BSR32rm = 1087
+
+    BSR32rr = 1088
+
+    BSR64rm = 1089
+
+    BSR64rr = 1090
+
+    BSWAP16r_BAD = 1091
+
+    BSWAP32r = 1092
+
+    BSWAP64r = 1093
+
+    BT16mi8 = 1094
+
+    BT16mr = 1095
+
+    BT16ri8 = 1096
+
+    BT16rr = 1097
+
+    BT32mi8 = 1098
+
+    BT32mr = 1099
+
+    BT32ri8 = 1100
+
+    BT32rr = 1101
+
+    BT64mi8 = 1102
+
+    BT64mr = 1103
+
+    BT64ri8 = 1104
+
+    BT64rr = 1105
+
+    BTC16mi8 = 1106
+
+    BTC16mr = 1107
+
+    BTC16ri8 = 1108
+
+    BTC16rr = 1109
+
+    BTC32mi8 = 1110
+
+    BTC32mr = 1111
+
+    BTC32ri8 = 1112
+
+    BTC32rr = 1113
+
+    BTC64mi8 = 1114
+
+    BTC64mr = 1115
+
+    BTC64ri8 = 1116
+
+    BTC64rr = 1117
+
+    BTR16mi8 = 1118
+
+    BTR16mr = 1119
+
+    BTR16ri8 = 1120
+
+    BTR16rr = 1121
+
+    BTR32mi8 = 1122
+
+    BTR32mr = 1123
+
+    BTR32ri8 = 1124
+
+    BTR32rr = 1125
+
+    BTR64mi8 = 1126
+
+    BTR64mr = 1127
+
+    BTR64ri8 = 1128
+
+    BTR64rr = 1129
+
+    BTS16mi8 = 1130
+
+    BTS16mr = 1131
+
+    BTS16ri8 = 1132
+
+    BTS16rr = 1133
+
+    BTS32mi8 = 1134
+
+    BTS32mr = 1135
+
+    BTS32ri8 = 1136
+
+    BTS32rr = 1137
+
+    BTS64mi8 = 1138
+
+    BTS64mr = 1139
+
+    BTS64ri8 = 1140
+
+    BTS64rr = 1141
+
+    BZHI32rm = 1142
+
+    BZHI32rm_EVEX = 1143
+
+    BZHI32rm_NF = 1144
+
+    BZHI32rr = 1145
+
+    BZHI32rr_EVEX = 1146
+
+    BZHI32rr_NF = 1147
+
+    BZHI64rm = 1148
+
+    BZHI64rm_EVEX = 1149
+
+    BZHI64rm_NF = 1150
+
+    BZHI64rr = 1151
+
+    BZHI64rr_EVEX = 1152
+
+    BZHI64rr_NF = 1153
+
+    CALL16m = 1154
+
+    CALL16m_NT = 1155
+
+    CALL16r = 1156
+
+    CALL16r_NT = 1157
+
+    CALL32m = 1158
+
+    CALL32m_NT = 1159
+
+    CALL32r = 1160
+
+    CALL32r_NT = 1161
+
+    CALL64m = 1162
+
+    CALL64m_NT = 1163
+
+    CALL64pcrel32 = 1164
+
+    CALL64r = 1165
+
+    CALL64r_NT = 1166
+
+    CALLpcrel16 = 1167
+
+    CALLpcrel32 = 1168
+
+    CATCHRET = 1169
+
+    CBW = 1170
+
+    CCMP16mi = 1171
+
+    CCMP16mi8 = 1172
+
+    CCMP16mr = 1173
+
+    CCMP16ri = 1174
+
+    CCMP16ri8 = 1175
+
+    CCMP16rm = 1176
+
+    CCMP16rr = 1177
+
+    CCMP16rr_REV = 1178
+
+    CCMP32mi = 1179
+
+    CCMP32mi8 = 1180
+
+    CCMP32mr = 1181
+
+    CCMP32ri = 1182
+
+    CCMP32ri8 = 1183
+
+    CCMP32rm = 1184
+
+    CCMP32rr = 1185
+
+    CCMP32rr_REV = 1186
+
+    CCMP64mi32 = 1187
+
+    CCMP64mi8 = 1188
+
+    CCMP64mr = 1189
+
+    CCMP64ri32 = 1190
+
+    CCMP64ri8 = 1191
+
+    CCMP64rm = 1192
+
+    CCMP64rr = 1193
+
+    CCMP64rr_REV = 1194
+
+    CCMP8mi = 1195
+
+    CCMP8mr = 1196
+
+    CCMP8ri = 1197
+
+    CCMP8rm = 1198
+
+    CCMP8rr = 1199
+
+    CCMP8rr_REV = 1200
+
+    CDQ = 1201
+
+    CDQE = 1202
+
+    CFCMOV16mr = 1203
+
+    CFCMOV16rm = 1204
+
+    CFCMOV16rm_ND = 1205
+
+    CFCMOV16rr = 1206
+
+    CFCMOV16rr_ND = 1207
+
+    CFCMOV16rr_REV = 1208
+
+    CFCMOV32mr = 1209
+
+    CFCMOV32rm = 1210
+
+    CFCMOV32rm_ND = 1211
+
+    CFCMOV32rr = 1212
+
+    CFCMOV32rr_ND = 1213
+
+    CFCMOV32rr_REV = 1214
+
+    CFCMOV64mr = 1215
+
+    CFCMOV64rm = 1216
+
+    CFCMOV64rm_ND = 1217
+
+    CFCMOV64rr = 1218
+
+    CFCMOV64rr_ND = 1219
+
+    CFCMOV64rr_REV = 1220
+
+    CHS_F = 1221
+
+    CHS_Fp32 = 1222
+
+    CHS_Fp64 = 1223
+
+    CHS_Fp80 = 1224
+
+    CLAC = 1225
+
+    CLC = 1226
+
+    CLD = 1227
+
+    CLDEMOTE = 1228
+
+    CLEANUPRET = 1229
+
+    CLFLUSH = 1230
+
+    CLFLUSHOPT = 1231
+
+    CLGI = 1232
+
+    CLI = 1233
+
+    CLRSSBSY = 1234
+
+    CLTS = 1235
+
+    CLUI = 1236
+
+    CLWB = 1237
+
+    CLZERO32r = 1238
+
+    CLZERO64r = 1239
+
+    CMC = 1240
+
+    CMOV16rm = 1241
+
+    CMOV16rm_ND = 1242
+
+    CMOV16rr = 1243
+
+    CMOV16rr_ND = 1244
+
+    CMOV32rm = 1245
+
+    CMOV32rm_ND = 1246
+
+    CMOV32rr = 1247
+
+    CMOV32rr_ND = 1248
+
+    CMOV64rm = 1249
+
+    CMOV64rm_ND = 1250
+
+    CMOV64rr = 1251
+
+    CMOV64rr_ND = 1252
+
+    CMOVBE_F = 1253
+
+    CMOVBE_Fp32 = 1254
+
+    CMOVBE_Fp64 = 1255
+
+    CMOVBE_Fp80 = 1256
+
+    CMOVB_F = 1257
+
+    CMOVB_Fp32 = 1258
+
+    CMOVB_Fp64 = 1259
+
+    CMOVB_Fp80 = 1260
+
+    CMOVE_F = 1261
+
+    CMOVE_Fp32 = 1262
+
+    CMOVE_Fp64 = 1263
+
+    CMOVE_Fp80 = 1264
+
+    CMOVNBE_F = 1265
+
+    CMOVNBE_Fp32 = 1266
+
+    CMOVNBE_Fp64 = 1267
+
+    CMOVNBE_Fp80 = 1268
+
+    CMOVNB_F = 1269
+
+    CMOVNB_Fp32 = 1270
+
+    CMOVNB_Fp64 = 1271
+
+    CMOVNB_Fp80 = 1272
+
+    CMOVNE_F = 1273
+
+    CMOVNE_Fp32 = 1274
+
+    CMOVNE_Fp64 = 1275
+
+    CMOVNE_Fp80 = 1276
+
+    CMOVNP_F = 1277
+
+    CMOVNP_Fp32 = 1278
+
+    CMOVNP_Fp64 = 1279
+
+    CMOVNP_Fp80 = 1280
+
+    CMOVP_F = 1281
+
+    CMOVP_Fp32 = 1282
+
+    CMOVP_Fp64 = 1283
+
+    CMOVP_Fp80 = 1284
+
+    CMOV_FR16 = 1285
+
+    CMOV_FR16X = 1286
+
+    CMOV_FR32 = 1287
+
+    CMOV_FR32X = 1288
+
+    CMOV_FR64 = 1289
+
+    CMOV_FR64X = 1290
+
+    CMOV_GR16 = 1291
+
+    CMOV_GR32 = 1292
+
+    CMOV_GR8 = 1293
+
+    CMOV_RFP32 = 1294
+
+    CMOV_RFP64 = 1295
+
+    CMOV_RFP80 = 1296
+
+    CMOV_VK1 = 1297
+
+    CMOV_VK16 = 1298
+
+    CMOV_VK2 = 1299
+
+    CMOV_VK32 = 1300
+
+    CMOV_VK4 = 1301
+
+    CMOV_VK64 = 1302
+
+    CMOV_VK8 = 1303
+
+    CMOV_VR128 = 1304
+
+    CMOV_VR128X = 1305
+
+    CMOV_VR256 = 1306
+
+    CMOV_VR256X = 1307
+
+    CMOV_VR512 = 1308
+
+    CMOV_VR64 = 1309
+
+    CMP16i16 = 1310
+
+    CMP16mi = 1311
+
+    CMP16mi8 = 1312
+
+    CMP16mr = 1313
+
+    CMP16ri = 1314
+
+    CMP16ri8 = 1315
+
+    CMP16rm = 1316
+
+    CMP16rr = 1317
+
+    CMP16rr_REV = 1318
+
+    CMP32i32 = 1319
+
+    CMP32mi = 1320
+
+    CMP32mi8 = 1321
+
+    CMP32mr = 1322
+
+    CMP32ri = 1323
+
+    CMP32ri8 = 1324
+
+    CMP32rm = 1325
+
+    CMP32rr = 1326
+
+    CMP32rr_REV = 1327
+
+    CMP64i32 = 1328
+
+    CMP64mi32 = 1329
+
+    CMP64mi8 = 1330
+
+    CMP64mr = 1331
+
+    CMP64ri32 = 1332
+
+    CMP64ri8 = 1333
+
+    CMP64rm = 1334
+
+    CMP64rr = 1335
+
+    CMP64rr_REV = 1336
+
+    CMP8i8 = 1337
+
+    CMP8mi = 1338
+
+    CMP8mi8 = 1339
+
+    CMP8mr = 1340
+
+    CMP8ri = 1341
+
+    CMP8ri8 = 1342
+
+    CMP8rm = 1343
+
+    CMP8rr = 1344
+
+    CMP8rr_REV = 1345
+
+    CMPCCXADDmr32 = 1346
+
+    CMPCCXADDmr32_EVEX = 1347
+
+    CMPCCXADDmr64 = 1348
+
+    CMPCCXADDmr64_EVEX = 1349
+
+    CMPPDrmi = 1350
+
+    CMPPDrri = 1351
+
+    CMPPSrmi = 1352
+
+    CMPPSrri = 1353
+
+    CMPSB = 1354
+
+    CMPSDrmi = 1355
+
+    CMPSDrmi_Int = 1356
+
+    CMPSDrri = 1357
+
+    CMPSDrri_Int = 1358
+
+    CMPSL = 1359
+
+    CMPSQ = 1360
+
+    CMPSSrmi = 1361
+
+    CMPSSrmi_Int = 1362
+
+    CMPSSrri = 1363
+
+    CMPSSrri_Int = 1364
+
+    CMPSW = 1365
+
+    CMPXCHG16B = 1366
+
+    CMPXCHG16rm = 1367
+
+    CMPXCHG16rr = 1368
+
+    CMPXCHG32rm = 1369
+
+    CMPXCHG32rr = 1370
+
+    CMPXCHG64rm = 1371
+
+    CMPXCHG64rr = 1372
+
+    CMPXCHG8B = 1373
+
+    CMPXCHG8rm = 1374
+
+    CMPXCHG8rr = 1375
+
+    COMISDrm = 1376
+
+    COMISDrm_Int = 1377
+
+    COMISDrr = 1378
+
+    COMISDrr_Int = 1379
+
+    COMISSrm = 1380
+
+    COMISSrm_Int = 1381
+
+    COMISSrr = 1382
+
+    COMISSrr_Int = 1383
+
+    COMP_FST0r = 1384
+
+    COMP_FST0r_alt = 1385
+
+    COMP_FST0r_alt2 = 1386
+
+    COM_FIPr = 1387
+
+    COM_FIr = 1388
+
+    COM_FST0r = 1389
+
+    COM_FST0r_alt = 1390
+
+    COM_FpIr32 = 1391
+
+    COM_FpIr64 = 1392
+
+    COM_FpIr80 = 1393
+
+    COM_Fpr32 = 1394
+
+    COM_Fpr64 = 1395
+
+    COM_Fpr80 = 1396
+
+    CPUID = 1397
+
+    CQO = 1398
+
+    CRC32r32m16 = 1399
+
+    CRC32r32m16_EVEX = 1400
+
+    CRC32r32m32 = 1401
+
+    CRC32r32m32_EVEX = 1402
+
+    CRC32r32m8 = 1403
+
+    CRC32r32m8_EVEX = 1404
+
+    CRC32r32r16 = 1405
+
+    CRC32r32r16_EVEX = 1406
+
+    CRC32r32r32 = 1407
+
+    CRC32r32r32_EVEX = 1408
+
+    CRC32r32r8 = 1409
+
+    CRC32r32r8_EVEX = 1410
+
+    CRC32r64m64 = 1411
+
+    CRC32r64m64_EVEX = 1412
+
+    CRC32r64m8 = 1413
+
+    CRC32r64m8_EVEX = 1414
+
+    CRC32r64r64 = 1415
+
+    CRC32r64r64_EVEX = 1416
+
+    CRC32r64r8 = 1417
+
+    CRC32r64r8_EVEX = 1418
+
+    CS_PREFIX = 1419
+
+    CTEST16mi = 1420
+
+    CTEST16mr = 1421
+
+    CTEST16ri = 1422
+
+    CTEST16rr = 1423
+
+    CTEST32mi = 1424
+
+    CTEST32mr = 1425
+
+    CTEST32ri = 1426
+
+    CTEST32rr = 1427
+
+    CTEST64mi32 = 1428
+
+    CTEST64mr = 1429
+
+    CTEST64ri32 = 1430
+
+    CTEST64rr = 1431
+
+    CTEST8mi = 1432
+
+    CTEST8mr = 1433
+
+    CTEST8ri = 1434
+
+    CTEST8rr = 1435
+
+    CVTDQ2PDrm = 1436
+
+    CVTDQ2PDrr = 1437
+
+    CVTDQ2PSrm = 1438
+
+    CVTDQ2PSrr = 1439
+
+    CVTPD2DQrm = 1440
+
+    CVTPD2DQrr = 1441
+
+    CVTPD2PSrm = 1442
+
+    CVTPD2PSrr = 1443
+
+    CVTPS2DQrm = 1444
+
+    CVTPS2DQrr = 1445
+
+    CVTPS2PDrm = 1446
+
+    CVTPS2PDrr = 1447
+
+    CVTSD2SI64rm = 1448
+
+    CVTSD2SI64rm_Int = 1449
+
+    CVTSD2SI64rr = 1450
+
+    CVTSD2SI64rr_Int = 1451
+
+    CVTSD2SIrm = 1452
+
+    CVTSD2SIrm_Int = 1453
+
+    CVTSD2SIrr = 1454
+
+    CVTSD2SIrr_Int = 1455
+
+    CVTSD2SSrm = 1456
+
+    CVTSD2SSrm_Int = 1457
+
+    CVTSD2SSrr = 1458
+
+    CVTSD2SSrr_Int = 1459
+
+    CVTSI2SDrm = 1460
+
+    CVTSI2SDrm_Int = 1461
+
+    CVTSI2SDrr = 1462
+
+    CVTSI2SDrr_Int = 1463
+
+    CVTSI2SSrm = 1464
+
+    CVTSI2SSrm_Int = 1465
+
+    CVTSI2SSrr = 1466
+
+    CVTSI2SSrr_Int = 1467
+
+    CVTSI642SDrm = 1468
+
+    CVTSI642SDrm_Int = 1469
+
+    CVTSI642SDrr = 1470
+
+    CVTSI642SDrr_Int = 1471
+
+    CVTSI642SSrm = 1472
+
+    CVTSI642SSrm_Int = 1473
+
+    CVTSI642SSrr = 1474
+
+    CVTSI642SSrr_Int = 1475
+
+    CVTSS2SDrm = 1476
+
+    CVTSS2SDrm_Int = 1477
+
+    CVTSS2SDrr = 1478
+
+    CVTSS2SDrr_Int = 1479
+
+    CVTSS2SI64rm = 1480
+
+    CVTSS2SI64rm_Int = 1481
+
+    CVTSS2SI64rr = 1482
+
+    CVTSS2SI64rr_Int = 1483
+
+    CVTSS2SIrm = 1484
+
+    CVTSS2SIrm_Int = 1485
+
+    CVTSS2SIrr = 1486
+
+    CVTSS2SIrr_Int = 1487
+
+    CVTTPD2DQrm = 1488
+
+    CVTTPD2DQrr = 1489
+
+    CVTTPS2DQrm = 1490
+
+    CVTTPS2DQrr = 1491
+
+    CVTTSD2SI64rm = 1492
+
+    CVTTSD2SI64rm_Int = 1493
+
+    CVTTSD2SI64rr = 1494
+
+    CVTTSD2SI64rr_Int = 1495
+
+    CVTTSD2SIrm = 1496
+
+    CVTTSD2SIrm_Int = 1497
+
+    CVTTSD2SIrr = 1498
+
+    CVTTSD2SIrr_Int = 1499
+
+    CVTTSS2SI64rm = 1500
+
+    CVTTSS2SI64rm_Int = 1501
+
+    CVTTSS2SI64rr = 1502
+
+    CVTTSS2SI64rr_Int = 1503
+
+    CVTTSS2SIrm = 1504
+
+    CVTTSS2SIrm_Int = 1505
+
+    CVTTSS2SIrr = 1506
+
+    CVTTSS2SIrr_Int = 1507
+
+    CWD = 1508
+
+    CWDE = 1509
+
+    DAA = 1510
+
+    DAS = 1511
+
+    DATA16_PREFIX = 1512
+
+    DEC16m = 1513
+
+    DEC16m_EVEX = 1514
+
+    DEC16m_ND = 1515
+
+    DEC16m_NF = 1516
+
+    DEC16m_NF_ND = 1517
+
+    DEC16r = 1518
+
+    DEC16r_EVEX = 1519
+
+    DEC16r_ND = 1520
+
+    DEC16r_NF = 1521
+
+    DEC16r_NF_ND = 1522
+
+    DEC16r_alt = 1523
+
+    DEC32m = 1524
+
+    DEC32m_EVEX = 1525
+
+    DEC32m_ND = 1526
+
+    DEC32m_NF = 1527
+
+    DEC32m_NF_ND = 1528
+
+    DEC32r = 1529
+
+    DEC32r_EVEX = 1530
+
+    DEC32r_ND = 1531
+
+    DEC32r_NF = 1532
+
+    DEC32r_NF_ND = 1533
+
+    DEC32r_alt = 1534
+
+    DEC64m = 1535
+
+    DEC64m_EVEX = 1536
+
+    DEC64m_ND = 1537
+
+    DEC64m_NF = 1538
+
+    DEC64m_NF_ND = 1539
+
+    DEC64r = 1540
+
+    DEC64r_EVEX = 1541
+
+    DEC64r_ND = 1542
+
+    DEC64r_NF = 1543
+
+    DEC64r_NF_ND = 1544
+
+    DEC8m = 1545
+
+    DEC8m_EVEX = 1546
+
+    DEC8m_ND = 1547
+
+    DEC8m_NF = 1548
+
+    DEC8m_NF_ND = 1549
+
+    DEC8r = 1550
+
+    DEC8r_EVEX = 1551
+
+    DEC8r_ND = 1552
+
+    DEC8r_NF = 1553
+
+    DEC8r_NF_ND = 1554
+
+    DIV16m = 1555
+
+    DIV16m_EVEX = 1556
+
+    DIV16m_NF = 1557
+
+    DIV16r = 1558
+
+    DIV16r_EVEX = 1559
+
+    DIV16r_NF = 1560
+
+    DIV32m = 1561
+
+    DIV32m_EVEX = 1562
+
+    DIV32m_NF = 1563
+
+    DIV32r = 1564
+
+    DIV32r_EVEX = 1565
+
+    DIV32r_NF = 1566
+
+    DIV64m = 1567
+
+    DIV64m_EVEX = 1568
+
+    DIV64m_NF = 1569
+
+    DIV64r = 1570
+
+    DIV64r_EVEX = 1571
+
+    DIV64r_NF = 1572
+
+    DIV8m = 1573
+
+    DIV8m_EVEX = 1574
+
+    DIV8m_NF = 1575
+
+    DIV8r = 1576
+
+    DIV8r_EVEX = 1577
+
+    DIV8r_NF = 1578
+
+    DIVPDrm = 1579
+
+    DIVPDrr = 1580
+
+    DIVPSrm = 1581
+
+    DIVPSrr = 1582
+
+    DIVR_F32m = 1583
+
+    DIVR_F64m = 1584
+
+    DIVR_FI16m = 1585
+
+    DIVR_FI32m = 1586
+
+    DIVR_FPrST0 = 1587
+
+    DIVR_FST0r = 1588
+
+    DIVR_Fp32m = 1589
+
+    DIVR_Fp64m = 1590
+
+    DIVR_Fp64m32 = 1591
+
+    DIVR_Fp80m32 = 1592
+
+    DIVR_Fp80m64 = 1593
+
+    DIVR_FpI16m32 = 1594
+
+    DIVR_FpI16m64 = 1595
+
+    DIVR_FpI16m80 = 1596
+
+    DIVR_FpI32m32 = 1597
+
+    DIVR_FpI32m64 = 1598
+
+    DIVR_FpI32m80 = 1599
+
+    DIVR_FrST0 = 1600
+
+    DIVSDrm = 1601
+
+    DIVSDrm_Int = 1602
+
+    DIVSDrr = 1603
+
+    DIVSDrr_Int = 1604
+
+    DIVSSrm = 1605
+
+    DIVSSrm_Int = 1606
+
+    DIVSSrr = 1607
+
+    DIVSSrr_Int = 1608
+
+    DIV_F32m = 1609
+
+    DIV_F64m = 1610
+
+    DIV_FI16m = 1611
+
+    DIV_FI32m = 1612
+
+    DIV_FPrST0 = 1613
+
+    DIV_FST0r = 1614
+
+    DIV_Fp32 = 1615
+
+    DIV_Fp32m = 1616
+
+    DIV_Fp64 = 1617
+
+    DIV_Fp64m = 1618
+
+    DIV_Fp64m32 = 1619
+
+    DIV_Fp80 = 1620
+
+    DIV_Fp80m32 = 1621
+
+    DIV_Fp80m64 = 1622
+
+    DIV_FpI16m32 = 1623
+
+    DIV_FpI16m64 = 1624
+
+    DIV_FpI16m80 = 1625
+
+    DIV_FpI32m32 = 1626
+
+    DIV_FpI32m64 = 1627
+
+    DIV_FpI32m80 = 1628
+
+    DIV_FrST0 = 1629
+
+    DPPDrmi = 1630
+
+    DPPDrri = 1631
+
+    DPPSrmi = 1632
+
+    DPPSrri = 1633
+
+    DS_PREFIX = 1634
+
+    DYN_ALLOCA_32 = 1635
+
+    DYN_ALLOCA_64 = 1636
+
+    EH_RETURN = 1637
+
+    EH_RETURN64 = 1638
+
+    EH_SjLj_LongJmp32 = 1639
+
+    EH_SjLj_LongJmp64 = 1640
+
+    EH_SjLj_SetJmp32 = 1641
+
+    EH_SjLj_SetJmp64 = 1642
+
+    EH_SjLj_Setup = 1643
+
+    ENCLS = 1644
+
+    ENCLU = 1645
+
+    ENCLV = 1646
+
+    ENCODEKEY128 = 1647
+
+    ENCODEKEY256 = 1648
+
+    ENDBR32 = 1649
+
+    ENDBR64 = 1650
+
+    ENQCMD16 = 1651
+
+    ENQCMD32 = 1652
+
+    ENQCMD32_EVEX = 1653
+
+    ENQCMD64 = 1654
+
+    ENQCMD64_EVEX = 1655
+
+    ENQCMDS16 = 1656
+
+    ENQCMDS32 = 1657
+
+    ENQCMDS32_EVEX = 1658
+
+    ENQCMDS64 = 1659
+
+    ENQCMDS64_EVEX = 1660
+
+    ENTER = 1661
+
+    ERETS = 1662
+
+    ERETU = 1663
+
+    ES_PREFIX = 1664
+
+    EXTRACTPSmri = 1665
+
+    EXTRACTPSrri = 1666
+
+    EXTRQ = 1667
+
+    EXTRQI = 1668
+
+    F2XM1 = 1669
+
+    FARCALL16i = 1670
+
+    FARCALL16m = 1671
+
+    FARCALL32i = 1672
+
+    FARCALL32m = 1673
+
+    FARCALL64m = 1674
+
+    FARJMP16i = 1675
+
+    FARJMP16m = 1676
+
+    FARJMP32i = 1677
+
+    FARJMP32m = 1678
+
+    FARJMP64m = 1679
+
+    FBLDm = 1680
+
+    FBSTPm = 1681
+
+    FCOM32m = 1682
+
+    FCOM64m = 1683
+
+    FCOMP32m = 1684
+
+    FCOMP64m = 1685
+
+    FCOMPP = 1686
+
+    FCOS = 1687
+
+    FDECSTP = 1688
+
+    FEMMS = 1689
+
+    FFREE = 1690
+
+    FFREEP = 1691
+
+    FICOM16m = 1692
+
+    FICOM32m = 1693
+
+    FICOMP16m = 1694
+
+    FICOMP32m = 1695
+
+    FINCSTP = 1696
+
+    FLDCW16m = 1697
+
+    FLDENVm = 1698
+
+    FLDL2E = 1699
+
+    FLDL2T = 1700
+
+    FLDLG2 = 1701
+
+    FLDLN2 = 1702
+
+    FLDPI = 1703
+
+    FNCLEX = 1704
+
+    FNINIT = 1705
+
+    FNOP = 1706
+
+    FNSTCW16m = 1707
+
+    FNSTSW16r = 1708
+
+    FNSTSWm = 1709
+
+    FP32_TO_INT16_IN_MEM = 1710
+
+    FP32_TO_INT32_IN_MEM = 1711
+
+    FP32_TO_INT64_IN_MEM = 1712
+
+    FP64_TO_INT16_IN_MEM = 1713
+
+    FP64_TO_INT32_IN_MEM = 1714
+
+    FP64_TO_INT64_IN_MEM = 1715
+
+    FP80_ADDm32 = 1716
+
+    FP80_ADDr = 1717
+
+    FP80_TO_INT16_IN_MEM = 1718
+
+    FP80_TO_INT32_IN_MEM = 1719
+
+    FP80_TO_INT64_IN_MEM = 1720
+
+    FPATAN = 1721
+
+    FPREM = 1722
+
+    FPREM1 = 1723
+
+    FPTAN = 1724
+
+    FRNDINT = 1725
+
+    FRSTORm = 1726
+
+    FSAVEm = 1727
+
+    FSCALE_ = 1728
+
+    FSIN = 1729
+
+    FSINCOS = 1730
+
+    FSTENVm = 1731
+
+    FSTPNCE = 1732
+
+    FS_PREFIX = 1733
+
+    FXRSTOR = 1734
+
+    FXRSTOR64 = 1735
+
+    FXSAVE = 1736
+
+    FXSAVE64 = 1737
+
+    FXTRACT = 1738
+
+    FYL2X = 1739
+
+    FYL2XP1 = 1740
+
+    GETSEC = 1741
+
+    GF2P8AFFINEINVQBrmi = 1742
+
+    GF2P8AFFINEINVQBrri = 1743
+
+    GF2P8AFFINEQBrmi = 1744
+
+    GF2P8AFFINEQBrri = 1745
+
+    GF2P8MULBrm = 1746
+
+    GF2P8MULBrr = 1747
+
+    GS_PREFIX = 1748
+
+    HADDPDrm = 1749
+
+    HADDPDrr = 1750
+
+    HADDPSrm = 1751
+
+    HADDPSrr = 1752
+
+    HLT = 1753
+
+    HRESET = 1754
+
+    HSUBPDrm = 1755
+
+    HSUBPDrr = 1756
+
+    HSUBPSrm = 1757
+
+    HSUBPSrr = 1758
+
+    IBHF = 1759
+
+    IDIV16m = 1760
+
+    IDIV16m_EVEX = 1761
+
+    IDIV16m_NF = 1762
+
+    IDIV16r = 1763
+
+    IDIV16r_EVEX = 1764
+
+    IDIV16r_NF = 1765
+
+    IDIV32m = 1766
+
+    IDIV32m_EVEX = 1767
+
+    IDIV32m_NF = 1768
+
+    IDIV32r = 1769
+
+    IDIV32r_EVEX = 1770
+
+    IDIV32r_NF = 1771
+
+    IDIV64m = 1772
+
+    IDIV64m_EVEX = 1773
+
+    IDIV64m_NF = 1774
+
+    IDIV64r = 1775
+
+    IDIV64r_EVEX = 1776
+
+    IDIV64r_NF = 1777
+
+    IDIV8m = 1778
+
+    IDIV8m_EVEX = 1779
+
+    IDIV8m_NF = 1780
+
+    IDIV8r = 1781
+
+    IDIV8r_EVEX = 1782
+
+    IDIV8r_NF = 1783
+
+    ILD_F16m = 1784
+
+    ILD_F32m = 1785
+
+    ILD_F64m = 1786
+
+    ILD_Fp16m32 = 1787
+
+    ILD_Fp16m64 = 1788
+
+    ILD_Fp16m80 = 1789
+
+    ILD_Fp32m32 = 1790
+
+    ILD_Fp32m64 = 1791
+
+    ILD_Fp32m80 = 1792
+
+    ILD_Fp64m32 = 1793
+
+    ILD_Fp64m64 = 1794
+
+    ILD_Fp64m80 = 1795
+
+    IMUL16m = 1796
+
+    IMUL16m_EVEX = 1797
+
+    IMUL16m_NF = 1798
+
+    IMUL16r = 1799
+
+    IMUL16r_EVEX = 1800
+
+    IMUL16r_NF = 1801
+
+    IMUL16rm = 1802
+
+    IMUL16rm_EVEX = 1803
+
+    IMUL16rm_ND = 1804
+
+    IMUL16rm_NF = 1805
+
+    IMUL16rm_NF_ND = 1806
+
+    IMUL16rmi = 1807
+
+    IMUL16rmi8 = 1808
+
+    IMUL16rmi8_EVEX = 1809
+
+    IMUL16rmi8_NF = 1810
+
+    IMUL16rmi_EVEX = 1811
+
+    IMUL16rmi_NF = 1812
+
+    IMUL16rr = 1813
+
+    IMUL16rr_EVEX = 1814
+
+    IMUL16rr_ND = 1815
+
+    IMUL16rr_NF = 1816
+
+    IMUL16rr_NF_ND = 1817
+
+    IMUL16rri = 1818
+
+    IMUL16rri8 = 1819
+
+    IMUL16rri8_EVEX = 1820
+
+    IMUL16rri8_NF = 1821
+
+    IMUL16rri_EVEX = 1822
+
+    IMUL16rri_NF = 1823
+
+    IMUL32m = 1824
+
+    IMUL32m_EVEX = 1825
+
+    IMUL32m_NF = 1826
+
+    IMUL32r = 1827
+
+    IMUL32r_EVEX = 1828
+
+    IMUL32r_NF = 1829
+
+    IMUL32rm = 1830
+
+    IMUL32rm_EVEX = 1831
+
+    IMUL32rm_ND = 1832
+
+    IMUL32rm_NF = 1833
+
+    IMUL32rm_NF_ND = 1834
+
+    IMUL32rmi = 1835
+
+    IMUL32rmi8 = 1836
+
+    IMUL32rmi8_EVEX = 1837
+
+    IMUL32rmi8_NF = 1838
+
+    IMUL32rmi_EVEX = 1839
+
+    IMUL32rmi_NF = 1840
+
+    IMUL32rr = 1841
+
+    IMUL32rr_EVEX = 1842
+
+    IMUL32rr_ND = 1843
+
+    IMUL32rr_NF = 1844
+
+    IMUL32rr_NF_ND = 1845
+
+    IMUL32rri = 1846
+
+    IMUL32rri8 = 1847
+
+    IMUL32rri8_EVEX = 1848
+
+    IMUL32rri8_NF = 1849
+
+    IMUL32rri_EVEX = 1850
+
+    IMUL32rri_NF = 1851
+
+    IMUL64m = 1852
+
+    IMUL64m_EVEX = 1853
+
+    IMUL64m_NF = 1854
+
+    IMUL64r = 1855
+
+    IMUL64r_EVEX = 1856
+
+    IMUL64r_NF = 1857
+
+    IMUL64rm = 1858
+
+    IMUL64rm_EVEX = 1859
+
+    IMUL64rm_ND = 1860
+
+    IMUL64rm_NF = 1861
+
+    IMUL64rm_NF_ND = 1862
+
+    IMUL64rmi32 = 1863
+
+    IMUL64rmi32_EVEX = 1864
+
+    IMUL64rmi32_NF = 1865
+
+    IMUL64rmi8 = 1866
+
+    IMUL64rmi8_EVEX = 1867
+
+    IMUL64rmi8_NF = 1868
+
+    IMUL64rr = 1869
+
+    IMUL64rr_EVEX = 1870
+
+    IMUL64rr_ND = 1871
+
+    IMUL64rr_NF = 1872
+
+    IMUL64rr_NF_ND = 1873
+
+    IMUL64rri32 = 1874
+
+    IMUL64rri32_EVEX = 1875
+
+    IMUL64rri32_NF = 1876
+
+    IMUL64rri8 = 1877
+
+    IMUL64rri8_EVEX = 1878
+
+    IMUL64rri8_NF = 1879
+
+    IMUL8m = 1880
+
+    IMUL8m_EVEX = 1881
+
+    IMUL8m_NF = 1882
+
+    IMUL8r = 1883
+
+    IMUL8r_EVEX = 1884
+
+    IMUL8r_NF = 1885
+
+    IMULZU16rmi = 1886
+
+    IMULZU16rmi8 = 1887
+
+    IMULZU16rri = 1888
+
+    IMULZU16rri8 = 1889
+
+    IMULZU32rmi = 1890
+
+    IMULZU32rmi8 = 1891
+
+    IMULZU32rri = 1892
+
+    IMULZU32rri8 = 1893
+
+    IMULZU64rmi32 = 1894
+
+    IMULZU64rmi8 = 1895
+
+    IMULZU64rri32 = 1896
+
+    IMULZU64rri8 = 1897
+
+    IN16ri = 1898
+
+    IN16rr = 1899
+
+    IN32ri = 1900
+
+    IN32rr = 1901
+
+    IN8ri = 1902
+
+    IN8rr = 1903
+
+    INC16m = 1904
+
+    INC16m_EVEX = 1905
+
+    INC16m_ND = 1906
+
+    INC16m_NF = 1907
+
+    INC16m_NF_ND = 1908
+
+    INC16r = 1909
+
+    INC16r_EVEX = 1910
+
+    INC16r_ND = 1911
+
+    INC16r_NF = 1912
+
+    INC16r_NF_ND = 1913
+
+    INC16r_alt = 1914
+
+    INC32m = 1915
+
+    INC32m_EVEX = 1916
+
+    INC32m_ND = 1917
+
+    INC32m_NF = 1918
+
+    INC32m_NF_ND = 1919
+
+    INC32r = 1920
+
+    INC32r_EVEX = 1921
+
+    INC32r_ND = 1922
+
+    INC32r_NF = 1923
+
+    INC32r_NF_ND = 1924
+
+    INC32r_alt = 1925
+
+    INC64m = 1926
+
+    INC64m_EVEX = 1927
+
+    INC64m_ND = 1928
+
+    INC64m_NF = 1929
+
+    INC64m_NF_ND = 1930
+
+    INC64r = 1931
+
+    INC64r_EVEX = 1932
+
+    INC64r_ND = 1933
+
+    INC64r_NF = 1934
+
+    INC64r_NF_ND = 1935
+
+    INC8m = 1936
+
+    INC8m_EVEX = 1937
+
+    INC8m_ND = 1938
+
+    INC8m_NF = 1939
+
+    INC8m_NF_ND = 1940
+
+    INC8r = 1941
+
+    INC8r_EVEX = 1942
+
+    INC8r_ND = 1943
+
+    INC8r_NF = 1944
+
+    INC8r_NF_ND = 1945
+
+    INCSSPD = 1946
+
+    INCSSPQ = 1947
+
+    INSB = 1948
+
+    INSERTPSrmi = 1949
+
+    INSERTPSrri = 1950
+
+    INSERTQ = 1951
+
+    INSERTQI = 1952
+
+    INSL = 1953
+
+    INSW = 1954
+
+    INT = 1955
+
+    INT3 = 1956
+
+    INTO = 1957
+
+    INVD = 1958
+
+    INVEPT32 = 1959
+
+    INVEPT64 = 1960
+
+    INVEPT64_EVEX = 1961
+
+    INVLPG = 1962
+
+    INVLPGA32 = 1963
+
+    INVLPGA64 = 1964
+
+    INVLPGB32 = 1965
+
+    INVLPGB64 = 1966
+
+    INVPCID32 = 1967
+
+    INVPCID64 = 1968
+
+    INVPCID64_EVEX = 1969
+
+    INVVPID32 = 1970
+
+    INVVPID64 = 1971
+
+    INVVPID64_EVEX = 1972
+
+    IRET = 1973
+
+    IRET16 = 1974
+
+    IRET32 = 1975
+
+    IRET64 = 1976
+
+    ISTT_FP16m = 1977
+
+    ISTT_FP32m = 1978
+
+    ISTT_FP64m = 1979
+
+    ISTT_Fp16m32 = 1980
+
+    ISTT_Fp16m64 = 1981
+
+    ISTT_Fp16m80 = 1982
+
+    ISTT_Fp32m32 = 1983
+
+    ISTT_Fp32m64 = 1984
+
+    ISTT_Fp32m80 = 1985
+
+    ISTT_Fp64m32 = 1986
+
+    ISTT_Fp64m64 = 1987
+
+    ISTT_Fp64m80 = 1988
+
+    IST_F16m = 1989
+
+    IST_F32m = 1990
+
+    IST_FP16m = 1991
+
+    IST_FP32m = 1992
+
+    IST_FP64m = 1993
+
+    IST_Fp16m32 = 1994
+
+    IST_Fp16m64 = 1995
+
+    IST_Fp16m80 = 1996
+
+    IST_Fp32m32 = 1997
+
+    IST_Fp32m64 = 1998
+
+    IST_Fp32m80 = 1999
+
+    IST_Fp64m32 = 2000
+
+    IST_Fp64m64 = 2001
+
+    IST_Fp64m80 = 2002
+
+    Int_eh_sjlj_setup_dispatch = 2003
+
+    JCC_1 = 2004
+
+    JCC_2 = 2005
+
+    JCC_4 = 2006
+
+    JCC_SELF = 2007
+
+    JCXZ = 2008
+
+    JECXZ = 2009
+
+    JMP16m = 2010
+
+    JMP16m_NT = 2011
+
+    JMP16r = 2012
+
+    JMP16r_NT = 2013
+
+    JMP32m = 2014
+
+    JMP32m_NT = 2015
+
+    JMP32r = 2016
+
+    JMP32r_NT = 2017
+
+    JMP64m = 2018
+
+    JMP64m_NT = 2019
+
+    JMP64m_REX = 2020
+
+    JMP64r = 2021
+
+    JMP64r_NT = 2022
+
+    JMP64r_REX = 2023
+
+    JMPABS64i = 2024
+
+    JMP_1 = 2025
+
+    JMP_2 = 2026
+
+    JMP_4 = 2027
+
+    JRCXZ = 2028
+
+    KADDBkk = 2029
+
+    KADDDkk = 2030
+
+    KADDQkk = 2031
+
+    KADDWkk = 2032
+
+    KANDBkk = 2033
+
+    KANDDkk = 2034
+
+    KANDNBkk = 2035
+
+    KANDNDkk = 2036
+
+    KANDNQkk = 2037
+
+    KANDNWkk = 2038
+
+    KANDQkk = 2039
+
+    KANDWkk = 2040
+
+    KCFI_CHECK = 2041
+
+    KMOVBkk = 2042
+
+    KMOVBkk_EVEX = 2043
+
+    KMOVBkm = 2044
+
+    KMOVBkm_EVEX = 2045
+
+    KMOVBkr = 2046
+
+    KMOVBkr_EVEX = 2047
+
+    KMOVBmk = 2048
+
+    KMOVBmk_EVEX = 2049
+
+    KMOVBrk = 2050
+
+    KMOVBrk_EVEX = 2051
+
+    KMOVDkk = 2052
+
+    KMOVDkk_EVEX = 2053
+
+    KMOVDkm = 2054
+
+    KMOVDkm_EVEX = 2055
+
+    KMOVDkr = 2056
+
+    KMOVDkr_EVEX = 2057
+
+    KMOVDmk = 2058
+
+    KMOVDmk_EVEX = 2059
+
+    KMOVDrk = 2060
+
+    KMOVDrk_EVEX = 2061
+
+    KMOVQkk = 2062
+
+    KMOVQkk_EVEX = 2063
+
+    KMOVQkm = 2064
+
+    KMOVQkm_EVEX = 2065
+
+    KMOVQkr = 2066
+
+    KMOVQkr_EVEX = 2067
+
+    KMOVQmk = 2068
+
+    KMOVQmk_EVEX = 2069
+
+    KMOVQrk = 2070
+
+    KMOVQrk_EVEX = 2071
+
+    KMOVWkk = 2072
+
+    KMOVWkk_EVEX = 2073
+
+    KMOVWkm = 2074
+
+    KMOVWkm_EVEX = 2075
+
+    KMOVWkr = 2076
+
+    KMOVWkr_EVEX = 2077
+
+    KMOVWmk = 2078
+
+    KMOVWmk_EVEX = 2079
+
+    KMOVWrk = 2080
+
+    KMOVWrk_EVEX = 2081
+
+    KNOTBkk = 2082
+
+    KNOTDkk = 2083
+
+    KNOTQkk = 2084
+
+    KNOTWkk = 2085
+
+    KORBkk = 2086
+
+    KORDkk = 2087
+
+    KORQkk = 2088
+
+    KORTESTBkk = 2089
+
+    KORTESTDkk = 2090
+
+    KORTESTQkk = 2091
+
+    KORTESTWkk = 2092
+
+    KORWkk = 2093
+
+    KSHIFTLBki = 2094
+
+    KSHIFTLDki = 2095
+
+    KSHIFTLQki = 2096
+
+    KSHIFTLWki = 2097
+
+    KSHIFTRBki = 2098
+
+    KSHIFTRDki = 2099
+
+    KSHIFTRQki = 2100
+
+    KSHIFTRWki = 2101
+
+    KTESTBkk = 2102
+
+    KTESTDkk = 2103
+
+    KTESTQkk = 2104
+
+    KTESTWkk = 2105
+
+    KUNPCKBWkk = 2106
+
+    KUNPCKDQkk = 2107
+
+    KUNPCKWDkk = 2108
+
+    KXNORBkk = 2109
+
+    KXNORDkk = 2110
+
+    KXNORQkk = 2111
+
+    KXNORWkk = 2112
+
+    KXORBkk = 2113
+
+    KXORDkk = 2114
+
+    KXORQkk = 2115
+
+    KXORWkk = 2116
+
+    LAHF = 2117
+
+    LAR16rm = 2118
+
+    LAR16rr = 2119
+
+    LAR32rm = 2120
+
+    LAR32rr = 2121
+
+    LAR64rm = 2122
+
+    LAR64rr = 2123
+
+    LCMPXCHG16 = 2124
+
+    LCMPXCHG16B = 2125
+
+    LCMPXCHG32 = 2126
+
+    LCMPXCHG64 = 2127
+
+    LCMPXCHG8 = 2128
+
+    LCMPXCHG8B = 2129
+
+    LDDQUrm = 2130
+
+    LDMXCSR = 2131
+
+    LDS16rm = 2132
+
+    LDS32rm = 2133
+
+    LDTILECFG = 2134
+
+    LDTILECFG_EVEX = 2135
+
+    LD_F0 = 2136
+
+    LD_F1 = 2137
+
+    LD_F32m = 2138
+
+    LD_F64m = 2139
+
+    LD_F80m = 2140
+
+    LD_Fp032 = 2141
+
+    LD_Fp064 = 2142
+
+    LD_Fp080 = 2143
+
+    LD_Fp132 = 2144
+
+    LD_Fp164 = 2145
+
+    LD_Fp180 = 2146
+
+    LD_Fp32m = 2147
+
+    LD_Fp32m64 = 2148
+
+    LD_Fp32m80 = 2149
+
+    LD_Fp64m = 2150
+
+    LD_Fp64m80 = 2151
+
+    LD_Fp80m = 2152
+
+    LD_Frr = 2153
+
+    LEA16r = 2154
+
+    LEA32r = 2155
+
+    LEA64_16r = 2156
+
+    LEA64_32r = 2157
+
+    LEA64_8r = 2158
+
+    LEA64r = 2159
+
+    LEAVE = 2160
+
+    LEAVE64 = 2161
+
+    LES16rm = 2162
+
+    LES32rm = 2163
+
+    LFENCE = 2164
+
+    LFS16rm = 2165
+
+    LFS32rm = 2166
+
+    LFS64rm = 2167
+
+    LGDT16m = 2168
+
+    LGDT32m = 2169
+
+    LGDT64m = 2170
+
+    LGS16rm = 2171
+
+    LGS32rm = 2172
+
+    LGS64rm = 2173
+
+    LIDT16m = 2174
+
+    LIDT32m = 2175
+
+    LIDT64m = 2176
+
+    LKGS16m = 2177
+
+    LKGS16r = 2178
+
+    LLDT16m = 2179
+
+    LLDT16r = 2180
+
+    LLWPCB = 2181
+
+    LLWPCB64 = 2182
+
+    LMSW16m = 2183
+
+    LMSW16r = 2184
+
+    LOADIWKEY = 2185
+
+    LOCK_ADD16mi = 2186
+
+    LOCK_ADD16mi8 = 2187
+
+    LOCK_ADD16mr = 2188
+
+    LOCK_ADD32mi = 2189
+
+    LOCK_ADD32mi8 = 2190
+
+    LOCK_ADD32mr = 2191
+
+    LOCK_ADD64mi32 = 2192
+
+    LOCK_ADD64mi8 = 2193
+
+    LOCK_ADD64mr = 2194
+
+    LOCK_ADD8mi = 2195
+
+    LOCK_ADD8mr = 2196
+
+    LOCK_AND16mi = 2197
+
+    LOCK_AND16mi8 = 2198
+
+    LOCK_AND16mr = 2199
+
+    LOCK_AND32mi = 2200
+
+    LOCK_AND32mi8 = 2201
+
+    LOCK_AND32mr = 2202
+
+    LOCK_AND64mi32 = 2203
+
+    LOCK_AND64mi8 = 2204
+
+    LOCK_AND64mr = 2205
+
+    LOCK_AND8mi = 2206
+
+    LOCK_AND8mr = 2207
+
+    LOCK_BTC16m = 2208
+
+    LOCK_BTC32m = 2209
+
+    LOCK_BTC64m = 2210
+
+    LOCK_BTC_RM16rm = 2211
+
+    LOCK_BTC_RM32rm = 2212
+
+    LOCK_BTC_RM64rm = 2213
+
+    LOCK_BTR16m = 2214
+
+    LOCK_BTR32m = 2215
+
+    LOCK_BTR64m = 2216
+
+    LOCK_BTR_RM16rm = 2217
+
+    LOCK_BTR_RM32rm = 2218
+
+    LOCK_BTR_RM64rm = 2219
+
+    LOCK_BTS16m = 2220
+
+    LOCK_BTS32m = 2221
+
+    LOCK_BTS64m = 2222
+
+    LOCK_BTS_RM16rm = 2223
+
+    LOCK_BTS_RM32rm = 2224
+
+    LOCK_BTS_RM64rm = 2225
+
+    LOCK_DEC16m = 2226
+
+    LOCK_DEC32m = 2227
+
+    LOCK_DEC64m = 2228
+
+    LOCK_DEC8m = 2229
+
+    LOCK_INC16m = 2230
+
+    LOCK_INC32m = 2231
+
+    LOCK_INC64m = 2232
+
+    LOCK_INC8m = 2233
+
+    LOCK_OR16mi = 2234
+
+    LOCK_OR16mi8 = 2235
+
+    LOCK_OR16mr = 2236
+
+    LOCK_OR32mi = 2237
+
+    LOCK_OR32mi8 = 2238
+
+    LOCK_OR32mr = 2239
+
+    LOCK_OR64mi32 = 2240
+
+    LOCK_OR64mi8 = 2241
+
+    LOCK_OR64mr = 2242
+
+    LOCK_OR8mi = 2243
+
+    LOCK_OR8mr = 2244
+
+    LOCK_PREFIX = 2245
+
+    LOCK_SUB16mi = 2246
+
+    LOCK_SUB16mi8 = 2247
+
+    LOCK_SUB16mr = 2248
+
+    LOCK_SUB32mi = 2249
+
+    LOCK_SUB32mi8 = 2250
+
+    LOCK_SUB32mr = 2251
+
+    LOCK_SUB64mi32 = 2252
+
+    LOCK_SUB64mi8 = 2253
+
+    LOCK_SUB64mr = 2254
+
+    LOCK_SUB8mi = 2255
+
+    LOCK_SUB8mr = 2256
+
+    LOCK_XOR16mi = 2257
+
+    LOCK_XOR16mi8 = 2258
+
+    LOCK_XOR16mr = 2259
+
+    LOCK_XOR32mi = 2260
+
+    LOCK_XOR32mi8 = 2261
+
+    LOCK_XOR32mr = 2262
+
+    LOCK_XOR64mi32 = 2263
+
+    LOCK_XOR64mi8 = 2264
+
+    LOCK_XOR64mr = 2265
+
+    LOCK_XOR8mi = 2266
+
+    LOCK_XOR8mr = 2267
+
+    LODSB = 2268
+
+    LODSL = 2269
+
+    LODSQ = 2270
+
+    LODSW = 2271
+
+    LOOP = 2272
+
+    LOOPE = 2273
+
+    LOOPNE = 2274
+
+    LRET16 = 2275
+
+    LRET32 = 2276
+
+    LRET64 = 2277
+
+    LRETI16 = 2278
+
+    LRETI32 = 2279
+
+    LRETI64 = 2280
+
+    LSL16rm = 2281
+
+    LSL16rr = 2282
+
+    LSL32rm = 2283
+
+    LSL32rr = 2284
+
+    LSL64rm = 2285
+
+    LSL64rr = 2286
+
+    LSS16rm = 2287
+
+    LSS32rm = 2288
+
+    LSS64rm = 2289
+
+    LTRm = 2290
+
+    LTRr = 2291
+
+    LWPINS32rmi = 2292
+
+    LWPINS32rri = 2293
+
+    LWPINS64rmi = 2294
+
+    LWPINS64rri = 2295
+
+    LWPVAL32rmi = 2296
+
+    LWPVAL32rri = 2297
+
+    LWPVAL64rmi = 2298
+
+    LWPVAL64rri = 2299
+
+    LXADD16 = 2300
+
+    LXADD32 = 2301
+
+    LXADD64 = 2302
+
+    LXADD8 = 2303
+
+    LZCNT16rm = 2304
+
+    LZCNT16rm_EVEX = 2305
+
+    LZCNT16rm_NF = 2306
+
+    LZCNT16rr = 2307
+
+    LZCNT16rr_EVEX = 2308
+
+    LZCNT16rr_NF = 2309
+
+    LZCNT32rm = 2310
+
+    LZCNT32rm_EVEX = 2311
+
+    LZCNT32rm_NF = 2312
+
+    LZCNT32rr = 2313
+
+    LZCNT32rr_EVEX = 2314
+
+    LZCNT32rr_NF = 2315
+
+    LZCNT64rm = 2316
+
+    LZCNT64rm_EVEX = 2317
+
+    LZCNT64rm_NF = 2318
+
+    LZCNT64rr = 2319
+
+    LZCNT64rr_EVEX = 2320
+
+    LZCNT64rr_NF = 2321
+
+    MASKMOVDQU = 2322
+
+    MASKMOVDQU64 = 2323
+
+    MASKPAIR16LOAD = 2324
+
+    MASKPAIR16STORE = 2325
+
+    MAXCPDrm = 2326
+
+    MAXCPDrr = 2327
+
+    MAXCPSrm = 2328
+
+    MAXCPSrr = 2329
+
+    MAXCSDrm = 2330
+
+    MAXCSDrr = 2331
+
+    MAXCSSrm = 2332
+
+    MAXCSSrr = 2333
+
+    MAXPDrm = 2334
+
+    MAXPDrr = 2335
+
+    MAXPSrm = 2336
+
+    MAXPSrr = 2337
+
+    MAXSDrm = 2338
+
+    MAXSDrm_Int = 2339
+
+    MAXSDrr = 2340
+
+    MAXSDrr_Int = 2341
+
+    MAXSSrm = 2342
+
+    MAXSSrm_Int = 2343
+
+    MAXSSrr = 2344
+
+    MAXSSrr_Int = 2345
+
+    MFENCE = 2346
+
+    MINCPDrm = 2347
+
+    MINCPDrr = 2348
+
+    MINCPSrm = 2349
+
+    MINCPSrr = 2350
+
+    MINCSDrm = 2351
+
+    MINCSDrr = 2352
+
+    MINCSSrm = 2353
+
+    MINCSSrr = 2354
+
+    MINPDrm = 2355
+
+    MINPDrr = 2356
+
+    MINPSrm = 2357
+
+    MINPSrr = 2358
+
+    MINSDrm = 2359
+
+    MINSDrm_Int = 2360
+
+    MINSDrr = 2361
+
+    MINSDrr_Int = 2362
+
+    MINSSrm = 2363
+
+    MINSSrm_Int = 2364
+
+    MINSSrr = 2365
+
+    MINSSrr_Int = 2366
+
+    MMX_CVTPD2PIrm = 2367
+
+    MMX_CVTPD2PIrr = 2368
+
+    MMX_CVTPI2PDrm = 2369
+
+    MMX_CVTPI2PDrr = 2370
+
+    MMX_CVTPI2PSrm = 2371
+
+    MMX_CVTPI2PSrr = 2372
+
+    MMX_CVTPS2PIrm = 2373
+
+    MMX_CVTPS2PIrr = 2374
+
+    MMX_CVTTPD2PIrm = 2375
+
+    MMX_CVTTPD2PIrr = 2376
+
+    MMX_CVTTPS2PIrm = 2377
+
+    MMX_CVTTPS2PIrr = 2378
+
+    MMX_EMMS = 2379
+
+    MMX_MASKMOVQ = 2380
+
+    MMX_MASKMOVQ64 = 2381
+
+    MMX_MOVD64from64mr = 2382
+
+    MMX_MOVD64from64rr = 2383
+
+    MMX_MOVD64grr = 2384
+
+    MMX_MOVD64mr = 2385
+
+    MMX_MOVD64rm = 2386
+
+    MMX_MOVD64rr = 2387
+
+    MMX_MOVD64to64rm = 2388
+
+    MMX_MOVD64to64rr = 2389
+
+    MMX_MOVDQ2Qrr = 2390
+
+    MMX_MOVFR642Qrr = 2391
+
+    MMX_MOVNTQmr = 2392
+
+    MMX_MOVQ2DQrr = 2393
+
+    MMX_MOVQ2FR64rr = 2394
+
+    MMX_MOVQ64mr = 2395
+
+    MMX_MOVQ64rm = 2396
+
+    MMX_MOVQ64rr = 2397
+
+    MMX_MOVQ64rr_REV = 2398
+
+    MMX_PABSBrm = 2399
+
+    MMX_PABSBrr = 2400
+
+    MMX_PABSDrm = 2401
+
+    MMX_PABSDrr = 2402
+
+    MMX_PABSWrm = 2403
+
+    MMX_PABSWrr = 2404
+
+    MMX_PACKSSDWrm = 2405
+
+    MMX_PACKSSDWrr = 2406
+
+    MMX_PACKSSWBrm = 2407
+
+    MMX_PACKSSWBrr = 2408
+
+    MMX_PACKUSWBrm = 2409
+
+    MMX_PACKUSWBrr = 2410
+
+    MMX_PADDBrm = 2411
+
+    MMX_PADDBrr = 2412
+
+    MMX_PADDDrm = 2413
+
+    MMX_PADDDrr = 2414
+
+    MMX_PADDQrm = 2415
+
+    MMX_PADDQrr = 2416
+
+    MMX_PADDSBrm = 2417
+
+    MMX_PADDSBrr = 2418
+
+    MMX_PADDSWrm = 2419
+
+    MMX_PADDSWrr = 2420
+
+    MMX_PADDUSBrm = 2421
+
+    MMX_PADDUSBrr = 2422
+
+    MMX_PADDUSWrm = 2423
+
+    MMX_PADDUSWrr = 2424
+
+    MMX_PADDWrm = 2425
+
+    MMX_PADDWrr = 2426
+
+    MMX_PALIGNRrmi = 2427
+
+    MMX_PALIGNRrri = 2428
+
+    MMX_PANDNrm = 2429
+
+    MMX_PANDNrr = 2430
+
+    MMX_PANDrm = 2431
+
+    MMX_PANDrr = 2432
+
+    MMX_PAVGBrm = 2433
+
+    MMX_PAVGBrr = 2434
+
+    MMX_PAVGWrm = 2435
+
+    MMX_PAVGWrr = 2436
+
+    MMX_PCMPEQBrm = 2437
+
+    MMX_PCMPEQBrr = 2438
+
+    MMX_PCMPEQDrm = 2439
+
+    MMX_PCMPEQDrr = 2440
+
+    MMX_PCMPEQWrm = 2441
+
+    MMX_PCMPEQWrr = 2442
+
+    MMX_PCMPGTBrm = 2443
+
+    MMX_PCMPGTBrr = 2444
+
+    MMX_PCMPGTDrm = 2445
+
+    MMX_PCMPGTDrr = 2446
+
+    MMX_PCMPGTWrm = 2447
+
+    MMX_PCMPGTWrr = 2448
+
+    MMX_PEXTRWrri = 2449
+
+    MMX_PHADDDrm = 2450
+
+    MMX_PHADDDrr = 2451
+
+    MMX_PHADDSWrm = 2452
+
+    MMX_PHADDSWrr = 2453
+
+    MMX_PHADDWrm = 2454
+
+    MMX_PHADDWrr = 2455
+
+    MMX_PHSUBDrm = 2456
+
+    MMX_PHSUBDrr = 2457
+
+    MMX_PHSUBSWrm = 2458
+
+    MMX_PHSUBSWrr = 2459
+
+    MMX_PHSUBWrm = 2460
+
+    MMX_PHSUBWrr = 2461
+
+    MMX_PINSRWrmi = 2462
+
+    MMX_PINSRWrri = 2463
+
+    MMX_PMADDUBSWrm = 2464
+
+    MMX_PMADDUBSWrr = 2465
+
+    MMX_PMADDWDrm = 2466
+
+    MMX_PMADDWDrr = 2467
+
+    MMX_PMAXSWrm = 2468
+
+    MMX_PMAXSWrr = 2469
+
+    MMX_PMAXUBrm = 2470
+
+    MMX_PMAXUBrr = 2471
+
+    MMX_PMINSWrm = 2472
+
+    MMX_PMINSWrr = 2473
+
+    MMX_PMINUBrm = 2474
+
+    MMX_PMINUBrr = 2475
+
+    MMX_PMOVMSKBrr = 2476
+
+    MMX_PMULHRSWrm = 2477
+
+    MMX_PMULHRSWrr = 2478
+
+    MMX_PMULHUWrm = 2479
+
+    MMX_PMULHUWrr = 2480
+
+    MMX_PMULHWrm = 2481
+
+    MMX_PMULHWrr = 2482
+
+    MMX_PMULLWrm = 2483
+
+    MMX_PMULLWrr = 2484
+
+    MMX_PMULUDQrm = 2485
+
+    MMX_PMULUDQrr = 2486
+
+    MMX_PORrm = 2487
+
+    MMX_PORrr = 2488
+
+    MMX_PSADBWrm = 2489
+
+    MMX_PSADBWrr = 2490
+
+    MMX_PSHUFBrm = 2491
+
+    MMX_PSHUFBrr = 2492
+
+    MMX_PSHUFWmi = 2493
+
+    MMX_PSHUFWri = 2494
+
+    MMX_PSIGNBrm = 2495
+
+    MMX_PSIGNBrr = 2496
+
+    MMX_PSIGNDrm = 2497
+
+    MMX_PSIGNDrr = 2498
+
+    MMX_PSIGNWrm = 2499
+
+    MMX_PSIGNWrr = 2500
+
+    MMX_PSLLDri = 2501
+
+    MMX_PSLLDrm = 2502
+
+    MMX_PSLLDrr = 2503
+
+    MMX_PSLLQri = 2504
+
+    MMX_PSLLQrm = 2505
+
+    MMX_PSLLQrr = 2506
+
+    MMX_PSLLWri = 2507
+
+    MMX_PSLLWrm = 2508
+
+    MMX_PSLLWrr = 2509
+
+    MMX_PSRADri = 2510
+
+    MMX_PSRADrm = 2511
+
+    MMX_PSRADrr = 2512
+
+    MMX_PSRAWri = 2513
+
+    MMX_PSRAWrm = 2514
+
+    MMX_PSRAWrr = 2515
+
+    MMX_PSRLDri = 2516
+
+    MMX_PSRLDrm = 2517
+
+    MMX_PSRLDrr = 2518
+
+    MMX_PSRLQri = 2519
+
+    MMX_PSRLQrm = 2520
+
+    MMX_PSRLQrr = 2521
+
+    MMX_PSRLWri = 2522
+
+    MMX_PSRLWrm = 2523
+
+    MMX_PSRLWrr = 2524
+
+    MMX_PSUBBrm = 2525
+
+    MMX_PSUBBrr = 2526
+
+    MMX_PSUBDrm = 2527
+
+    MMX_PSUBDrr = 2528
+
+    MMX_PSUBQrm = 2529
+
+    MMX_PSUBQrr = 2530
+
+    MMX_PSUBSBrm = 2531
+
+    MMX_PSUBSBrr = 2532
+
+    MMX_PSUBSWrm = 2533
+
+    MMX_PSUBSWrr = 2534
+
+    MMX_PSUBUSBrm = 2535
+
+    MMX_PSUBUSBrr = 2536
+
+    MMX_PSUBUSWrm = 2537
+
+    MMX_PSUBUSWrr = 2538
+
+    MMX_PSUBWrm = 2539
+
+    MMX_PSUBWrr = 2540
+
+    MMX_PUNPCKHBWrm = 2541
+
+    MMX_PUNPCKHBWrr = 2542
+
+    MMX_PUNPCKHDQrm = 2543
+
+    MMX_PUNPCKHDQrr = 2544
+
+    MMX_PUNPCKHWDrm = 2545
+
+    MMX_PUNPCKHWDrr = 2546
+
+    MMX_PUNPCKLBWrm = 2547
+
+    MMX_PUNPCKLBWrr = 2548
+
+    MMX_PUNPCKLDQrm = 2549
+
+    MMX_PUNPCKLDQrr = 2550
+
+    MMX_PUNPCKLWDrm = 2551
+
+    MMX_PUNPCKLWDrr = 2552
+
+    MMX_PXORrm = 2553
+
+    MMX_PXORrr = 2554
+
+    MONITOR32rrr = 2555
+
+    MONITOR64rrr = 2556
+
+    MONITORX32rrr = 2557
+
+    MONITORX64rrr = 2558
+
+    MONTMUL = 2559
+
+    MOV16ao16 = 2560
+
+    MOV16ao32 = 2561
+
+    MOV16ao64 = 2562
+
+    MOV16mi = 2563
+
+    MOV16mr = 2564
+
+    MOV16ms = 2565
+
+    MOV16o16a = 2566
+
+    MOV16o32a = 2567
+
+    MOV16o64a = 2568
+
+    MOV16ri = 2569
+
+    MOV16ri_alt = 2570
+
+    MOV16rm = 2571
+
+    MOV16rr = 2572
+
+    MOV16rr_REV = 2573
+
+    MOV16rs = 2574
+
+    MOV16sm = 2575
+
+    MOV16sr = 2576
+
+    MOV32ao16 = 2577
+
+    MOV32ao32 = 2578
+
+    MOV32ao64 = 2579
+
+    MOV32cr = 2580
+
+    MOV32dr = 2581
+
+    MOV32mi = 2582
+
+    MOV32mr = 2583
+
+    MOV32o16a = 2584
+
+    MOV32o32a = 2585
+
+    MOV32o64a = 2586
+
+    MOV32rc = 2587
+
+    MOV32rd = 2588
+
+    MOV32ri = 2589
+
+    MOV32ri_alt = 2590
+
+    MOV32rm = 2591
+
+    MOV32rr = 2592
+
+    MOV32rr_REV = 2593
+
+    MOV32rs = 2594
+
+    MOV32sr = 2595
+
+    MOV64ao32 = 2596
+
+    MOV64ao64 = 2597
+
+    MOV64cr = 2598
+
+    MOV64dr = 2599
+
+    MOV64mi32 = 2600
+
+    MOV64mr = 2601
+
+    MOV64o32a = 2602
+
+    MOV64o64a = 2603
+
+    MOV64rc = 2604
+
+    MOV64rd = 2605
+
+    MOV64ri = 2606
+
+    MOV64ri32 = 2607
+
+    MOV64rm = 2608
+
+    MOV64rr = 2609
+
+    MOV64rr_REV = 2610
+
+    MOV64rs = 2611
+
+    MOV64sr = 2612
+
+    MOV64toPQIrm = 2613
+
+    MOV64toPQIrr = 2614
+
+    MOV64toSDrr = 2615
+
+    MOV8ao16 = 2616
+
+    MOV8ao32 = 2617
+
+    MOV8ao64 = 2618
+
+    MOV8mi = 2619
+
+    MOV8mr = 2620
+
+    MOV8mr_NOREX = 2621
+
+    MOV8o16a = 2622
+
+    MOV8o32a = 2623
+
+    MOV8o64a = 2624
+
+    MOV8ri = 2625
+
+    MOV8ri_alt = 2626
+
+    MOV8rm = 2627
+
+    MOV8rm_NOREX = 2628
+
+    MOV8rr = 2629
+
+    MOV8rr_NOREX = 2630
+
+    MOV8rr_REV = 2631
+
+    MOVAPDmr = 2632
+
+    MOVAPDrm = 2633
+
+    MOVAPDrr = 2634
+
+    MOVAPDrr_REV = 2635
+
+    MOVAPSmr = 2636
+
+    MOVAPSrm = 2637
+
+    MOVAPSrr = 2638
+
+    MOVAPSrr_REV = 2639
+
+    MOVBE16mr = 2640
+
+    MOVBE16mr_EVEX = 2641
+
+    MOVBE16rm = 2642
+
+    MOVBE16rm_EVEX = 2643
+
+    MOVBE16rr = 2644
+
+    MOVBE16rr_REV = 2645
+
+    MOVBE32mr = 2646
+
+    MOVBE32mr_EVEX = 2647
+
+    MOVBE32rm = 2648
+
+    MOVBE32rm_EVEX = 2649
+
+    MOVBE32rr = 2650
+
+    MOVBE32rr_REV = 2651
+
+    MOVBE64mr = 2652
+
+    MOVBE64mr_EVEX = 2653
+
+    MOVBE64rm = 2654
+
+    MOVBE64rm_EVEX = 2655
+
+    MOVBE64rr = 2656
+
+    MOVBE64rr_REV = 2657
+
+    MOVDDUPrm = 2658
+
+    MOVDDUPrr = 2659
+
+    MOVDI2PDIrm = 2660
+
+    MOVDI2PDIrr = 2661
+
+    MOVDI2SSrr = 2662
+
+    MOVDIR64B16 = 2663
+
+    MOVDIR64B32 = 2664
+
+    MOVDIR64B32_EVEX = 2665
+
+    MOVDIR64B64 = 2666
+
+    MOVDIR64B64_EVEX = 2667
+
+    MOVDIRI32 = 2668
+
+    MOVDIRI32_EVEX = 2669
+
+    MOVDIRI64 = 2670
+
+    MOVDIRI64_EVEX = 2671
+
+    MOVDQAmr = 2672
+
+    MOVDQArm = 2673
+
+    MOVDQArr = 2674
+
+    MOVDQArr_REV = 2675
+
+    MOVDQUmr = 2676
+
+    MOVDQUrm = 2677
+
+    MOVDQUrr = 2678
+
+    MOVDQUrr_REV = 2679
+
+    MOVHLPSrr = 2680
+
+    MOVHPDmr = 2681
+
+    MOVHPDrm = 2682
+
+    MOVHPSmr = 2683
+
+    MOVHPSrm = 2684
+
+    MOVLHPSrr = 2685
+
+    MOVLPDmr = 2686
+
+    MOVLPDrm = 2687
+
+    MOVLPSmr = 2688
+
+    MOVLPSrm = 2689
+
+    MOVMSKPDrr = 2690
+
+    MOVMSKPSrr = 2691
+
+    MOVNTDQArm = 2692
+
+    MOVNTDQmr = 2693
+
+    MOVNTI_64mr = 2694
+
+    MOVNTImr = 2695
+
+    MOVNTPDmr = 2696
+
+    MOVNTPSmr = 2697
+
+    MOVNTSD = 2698
+
+    MOVNTSS = 2699
+
+    MOVPC32r = 2700
+
+    MOVPDI2DImr = 2701
+
+    MOVPDI2DIrr = 2702
+
+    MOVPQI2QImr = 2703
+
+    MOVPQI2QIrr = 2704
+
+    MOVPQIto64mr = 2705
+
+    MOVPQIto64rr = 2706
+
+    MOVQI2PQIrm = 2707
+
+    MOVRS16rm = 2708
+
+    MOVRS16rm_EVEX = 2709
+
+    MOVRS32rm = 2710
+
+    MOVRS32rm_EVEX = 2711
+
+    MOVRS64rm = 2712
+
+    MOVRS64rm_EVEX = 2713
+
+    MOVRS8rm = 2714
+
+    MOVRS8rm_EVEX = 2715
+
+    MOVSB = 2716
+
+    MOVSDmr = 2717
+
+    MOVSDrm = 2718
+
+    MOVSDrm_alt = 2719
+
+    MOVSDrr = 2720
+
+    MOVSDrr_REV = 2721
+
+    MOVSDto64rr = 2722
+
+    MOVSHDUPrm = 2723
+
+    MOVSHDUPrr = 2724
+
+    MOVSL = 2725
+
+    MOVSLDUPrm = 2726
+
+    MOVSLDUPrr = 2727
+
+    MOVSQ = 2728
+
+    MOVSS2DIrr = 2729
+
+    MOVSSmr = 2730
+
+    MOVSSrm = 2731
+
+    MOVSSrm_alt = 2732
+
+    MOVSSrr = 2733
+
+    MOVSSrr_REV = 2734
+
+    MOVSW = 2735
+
+    MOVSX16rm16 = 2736
+
+    MOVSX16rm32 = 2737
+
+    MOVSX16rm8 = 2738
+
+    MOVSX16rr16 = 2739
+
+    MOVSX16rr32 = 2740
+
+    MOVSX16rr8 = 2741
+
+    MOVSX32rm16 = 2742
+
+    MOVSX32rm32 = 2743
+
+    MOVSX32rm8 = 2744
+
+    MOVSX32rm8_NOREX = 2745
+
+    MOVSX32rr16 = 2746
+
+    MOVSX32rr32 = 2747
+
+    MOVSX32rr8 = 2748
+
+    MOVSX32rr8_NOREX = 2749
+
+    MOVSX64rm16 = 2750
+
+    MOVSX64rm32 = 2751
+
+    MOVSX64rm8 = 2752
+
+    MOVSX64rr16 = 2753
+
+    MOVSX64rr32 = 2754
+
+    MOVSX64rr8 = 2755
+
+    MOVUPDmr = 2756
+
+    MOVUPDrm = 2757
+
+    MOVUPDrr = 2758
+
+    MOVUPDrr_REV = 2759
+
+    MOVUPSmr = 2760
+
+    MOVUPSrm = 2761
+
+    MOVUPSrr = 2762
+
+    MOVUPSrr_REV = 2763
+
+    MOVZPQILo2PQIrr = 2764
+
+    MOVZX16rm16 = 2765
+
+    MOVZX16rm8 = 2766
+
+    MOVZX16rr16 = 2767
+
+    MOVZX16rr8 = 2768
+
+    MOVZX32rm16 = 2769
+
+    MOVZX32rm8 = 2770
+
+    MOVZX32rm8_NOREX = 2771
+
+    MOVZX32rr16 = 2772
+
+    MOVZX32rr8 = 2773
+
+    MOVZX32rr8_NOREX = 2774
+
+    MOVZX64rm16 = 2775
+
+    MOVZX64rm8 = 2776
+
+    MOVZX64rr16 = 2777
+
+    MOVZX64rr8 = 2778
+
+    MPSADBWrmi = 2779
+
+    MPSADBWrri = 2780
+
+    MUL16m = 2781
+
+    MUL16m_EVEX = 2782
+
+    MUL16m_NF = 2783
+
+    MUL16r = 2784
+
+    MUL16r_EVEX = 2785
+
+    MUL16r_NF = 2786
+
+    MUL32m = 2787
+
+    MUL32m_EVEX = 2788
+
+    MUL32m_NF = 2789
+
+    MUL32r = 2790
+
+    MUL32r_EVEX = 2791
+
+    MUL32r_NF = 2792
+
+    MUL64m = 2793
+
+    MUL64m_EVEX = 2794
+
+    MUL64m_NF = 2795
+
+    MUL64r = 2796
+
+    MUL64r_EVEX = 2797
+
+    MUL64r_NF = 2798
+
+    MUL8m = 2799
+
+    MUL8m_EVEX = 2800
+
+    MUL8m_NF = 2801
+
+    MUL8r = 2802
+
+    MUL8r_EVEX = 2803
+
+    MUL8r_NF = 2804
+
+    MULPDrm = 2805
+
+    MULPDrr = 2806
+
+    MULPSrm = 2807
+
+    MULPSrr = 2808
+
+    MULSDrm = 2809
+
+    MULSDrm_Int = 2810
+
+    MULSDrr = 2811
+
+    MULSDrr_Int = 2812
+
+    MULSSrm = 2813
+
+    MULSSrm_Int = 2814
+
+    MULSSrr = 2815
+
+    MULSSrr_Int = 2816
+
+    MULX32Hrm = 2817
+
+    MULX32Hrr = 2818
+
+    MULX32rm = 2819
+
+    MULX32rm_EVEX = 2820
+
+    MULX32rr = 2821
+
+    MULX32rr_EVEX = 2822
+
+    MULX64Hrm = 2823
+
+    MULX64Hrr = 2824
+
+    MULX64rm = 2825
+
+    MULX64rm_EVEX = 2826
+
+    MULX64rr = 2827
+
+    MULX64rr_EVEX = 2828
+
+    MUL_F32m = 2829
+
+    MUL_F64m = 2830
+
+    MUL_FI16m = 2831
+
+    MUL_FI32m = 2832
+
+    MUL_FPrST0 = 2833
+
+    MUL_FST0r = 2834
+
+    MUL_Fp32 = 2835
+
+    MUL_Fp32m = 2836
+
+    MUL_Fp64 = 2837
+
+    MUL_Fp64m = 2838
+
+    MUL_Fp64m32 = 2839
+
+    MUL_Fp80 = 2840
+
+    MUL_Fp80m32 = 2841
+
+    MUL_Fp80m64 = 2842
+
+    MUL_FpI16m32 = 2843
+
+    MUL_FpI16m64 = 2844
+
+    MUL_FpI16m80 = 2845
+
+    MUL_FpI32m32 = 2846
+
+    MUL_FpI32m64 = 2847
+
+    MUL_FpI32m80 = 2848
+
+    MUL_FrST0 = 2849
+
+    MWAITXrrr = 2850
+
+    MWAITrr = 2851
+
+    NEG16m = 2852
+
+    NEG16m_EVEX = 2853
+
+    NEG16m_ND = 2854
+
+    NEG16m_NF = 2855
+
+    NEG16m_NF_ND = 2856
+
+    NEG16r = 2857
+
+    NEG16r_EVEX = 2858
+
+    NEG16r_ND = 2859
+
+    NEG16r_NF = 2860
+
+    NEG16r_NF_ND = 2861
+
+    NEG32m = 2862
+
+    NEG32m_EVEX = 2863
+
+    NEG32m_ND = 2864
+
+    NEG32m_NF = 2865
+
+    NEG32m_NF_ND = 2866
+
+    NEG32r = 2867
+
+    NEG32r_EVEX = 2868
+
+    NEG32r_ND = 2869
+
+    NEG32r_NF = 2870
+
+    NEG32r_NF_ND = 2871
+
+    NEG64m = 2872
+
+    NEG64m_EVEX = 2873
+
+    NEG64m_ND = 2874
+
+    NEG64m_NF = 2875
+
+    NEG64m_NF_ND = 2876
+
+    NEG64r = 2877
+
+    NEG64r_EVEX = 2878
+
+    NEG64r_ND = 2879
+
+    NEG64r_NF = 2880
+
+    NEG64r_NF_ND = 2881
+
+    NEG8m = 2882
+
+    NEG8m_EVEX = 2883
+
+    NEG8m_ND = 2884
+
+    NEG8m_NF = 2885
+
+    NEG8m_NF_ND = 2886
+
+    NEG8r = 2887
+
+    NEG8r_EVEX = 2888
+
+    NEG8r_ND = 2889
+
+    NEG8r_NF = 2890
+
+    NEG8r_NF_ND = 2891
+
+    NOOP = 2892
+
+    NOOPL = 2893
+
+    NOOPL_18r = 2894
+
+    NOOPL_19m = 2895
+
+    NOOPL_19r = 2896
+
+    NOOPL_1Dm = 2897
+
+    NOOPL_1Dr = 2898
+
+    NOOPL_1Em = 2899
+
+    NOOPL_1Er = 2900
+
+    NOOPLr = 2901
+
+    NOOPQ = 2902
+
+    NOOPQ_18r = 2903
+
+    NOOPQ_19m = 2904
+
+    NOOPQ_19r = 2905
+
+    NOOPQ_1Dm = 2906
+
+    NOOPQ_1Dr = 2907
+
+    NOOPQ_1Em = 2908
+
+    NOOPQ_1Er = 2909
+
+    NOOPQr = 2910
+
+    NOOPW = 2911
+
+    NOOPW_18r = 2912
+
+    NOOPW_19m = 2913
+
+    NOOPW_19r = 2914
+
+    NOOPW_1Dm = 2915
+
+    NOOPW_1Dr = 2916
+
+    NOOPW_1Em = 2917
+
+    NOOPW_1Er = 2918
+
+    NOOPWr = 2919
+
+    NOT16m = 2920
+
+    NOT16m_EVEX = 2921
+
+    NOT16m_ND = 2922
+
+    NOT16r = 2923
+
+    NOT16r_EVEX = 2924
+
+    NOT16r_ND = 2925
+
+    NOT32m = 2926
+
+    NOT32m_EVEX = 2927
+
+    NOT32m_ND = 2928
+
+    NOT32r = 2929
+
+    NOT32r_EVEX = 2930
+
+    NOT32r_ND = 2931
+
+    NOT64m = 2932
+
+    NOT64m_EVEX = 2933
+
+    NOT64m_ND = 2934
+
+    NOT64r = 2935
+
+    NOT64r_EVEX = 2936
+
+    NOT64r_ND = 2937
+
+    NOT8m = 2938
+
+    NOT8m_EVEX = 2939
+
+    NOT8m_ND = 2940
+
+    NOT8r = 2941
+
+    NOT8r_EVEX = 2942
+
+    NOT8r_ND = 2943
+
+    OR16i16 = 2944
+
+    OR16mi = 2945
+
+    OR16mi8 = 2946
+
+    OR16mi8_EVEX = 2947
+
+    OR16mi8_ND = 2948
+
+    OR16mi8_NF = 2949
+
+    OR16mi8_NF_ND = 2950
+
+    OR16mi_EVEX = 2951
+
+    OR16mi_ND = 2952
+
+    OR16mi_NF = 2953
+
+    OR16mi_NF_ND = 2954
+
+    OR16mr = 2955
+
+    OR16mr_EVEX = 2956
+
+    OR16mr_ND = 2957
+
+    OR16mr_NF = 2958
+
+    OR16mr_NF_ND = 2959
+
+    OR16ri = 2960
+
+    OR16ri8 = 2961
+
+    OR16ri8_EVEX = 2962
+
+    OR16ri8_ND = 2963
+
+    OR16ri8_NF = 2964
+
+    OR16ri8_NF_ND = 2965
+
+    OR16ri_EVEX = 2966
+
+    OR16ri_ND = 2967
+
+    OR16ri_NF = 2968
+
+    OR16ri_NF_ND = 2969
+
+    OR16rm = 2970
+
+    OR16rm_EVEX = 2971
+
+    OR16rm_ND = 2972
+
+    OR16rm_NF = 2973
+
+    OR16rm_NF_ND = 2974
+
+    OR16rr = 2975
+
+    OR16rr_EVEX = 2976
+
+    OR16rr_EVEX_REV = 2977
+
+    OR16rr_ND = 2978
+
+    OR16rr_ND_REV = 2979
+
+    OR16rr_NF = 2980
+
+    OR16rr_NF_ND = 2981
+
+    OR16rr_NF_ND_REV = 2982
+
+    OR16rr_NF_REV = 2983
+
+    OR16rr_REV = 2984
+
+    OR32i32 = 2985
+
+    OR32mi = 2986
+
+    OR32mi8 = 2987
+
+    OR32mi8Locked = 2988
+
+    OR32mi8_EVEX = 2989
+
+    OR32mi8_ND = 2990
+
+    OR32mi8_NF = 2991
+
+    OR32mi8_NF_ND = 2992
+
+    OR32mi_EVEX = 2993
+
+    OR32mi_ND = 2994
+
+    OR32mi_NF = 2995
+
+    OR32mi_NF_ND = 2996
+
+    OR32mr = 2997
+
+    OR32mr_EVEX = 2998
+
+    OR32mr_ND = 2999
+
+    OR32mr_NF = 3000
+
+    OR32mr_NF_ND = 3001
+
+    OR32ri = 3002
+
+    OR32ri8 = 3003
+
+    OR32ri8_EVEX = 3004
+
+    OR32ri8_ND = 3005
+
+    OR32ri8_NF = 3006
+
+    OR32ri8_NF_ND = 3007
+
+    OR32ri_EVEX = 3008
+
+    OR32ri_ND = 3009
+
+    OR32ri_NF = 3010
+
+    OR32ri_NF_ND = 3011
+
+    OR32rm = 3012
+
+    OR32rm_EVEX = 3013
+
+    OR32rm_ND = 3014
+
+    OR32rm_NF = 3015
+
+    OR32rm_NF_ND = 3016
+
+    OR32rr = 3017
+
+    OR32rr_EVEX = 3018
+
+    OR32rr_EVEX_REV = 3019
+
+    OR32rr_ND = 3020
+
+    OR32rr_ND_REV = 3021
+
+    OR32rr_NF = 3022
+
+    OR32rr_NF_ND = 3023
+
+    OR32rr_NF_ND_REV = 3024
+
+    OR32rr_NF_REV = 3025
+
+    OR32rr_REV = 3026
+
+    OR64i32 = 3027
+
+    OR64mi32 = 3028
+
+    OR64mi32_EVEX = 3029
+
+    OR64mi32_ND = 3030
+
+    OR64mi32_NF = 3031
+
+    OR64mi32_NF_ND = 3032
+
+    OR64mi8 = 3033
+
+    OR64mi8_EVEX = 3034
+
+    OR64mi8_ND = 3035
+
+    OR64mi8_NF = 3036
+
+    OR64mi8_NF_ND = 3037
+
+    OR64mr = 3038
+
+    OR64mr_EVEX = 3039
+
+    OR64mr_ND = 3040
+
+    OR64mr_NF = 3041
+
+    OR64mr_NF_ND = 3042
+
+    OR64ri32 = 3043
+
+    OR64ri32_EVEX = 3044
+
+    OR64ri32_ND = 3045
+
+    OR64ri32_NF = 3046
+
+    OR64ri32_NF_ND = 3047
+
+    OR64ri8 = 3048
+
+    OR64ri8_EVEX = 3049
+
+    OR64ri8_ND = 3050
+
+    OR64ri8_NF = 3051
+
+    OR64ri8_NF_ND = 3052
+
+    OR64rm = 3053
+
+    OR64rm_EVEX = 3054
+
+    OR64rm_ND = 3055
+
+    OR64rm_NF = 3056
+
+    OR64rm_NF_ND = 3057
+
+    OR64rr = 3058
+
+    OR64rr_EVEX = 3059
+
+    OR64rr_EVEX_REV = 3060
+
+    OR64rr_ND = 3061
+
+    OR64rr_ND_REV = 3062
+
+    OR64rr_NF = 3063
+
+    OR64rr_NF_ND = 3064
+
+    OR64rr_NF_ND_REV = 3065
+
+    OR64rr_NF_REV = 3066
+
+    OR64rr_REV = 3067
+
+    OR8i8 = 3068
+
+    OR8mi = 3069
+
+    OR8mi8 = 3070
+
+    OR8mi_EVEX = 3071
+
+    OR8mi_ND = 3072
+
+    OR8mi_NF = 3073
+
+    OR8mi_NF_ND = 3074
+
+    OR8mr = 3075
+
+    OR8mr_EVEX = 3076
+
+    OR8mr_ND = 3077
+
+    OR8mr_NF = 3078
+
+    OR8mr_NF_ND = 3079
+
+    OR8ri = 3080
+
+    OR8ri8 = 3081
+
+    OR8ri_EVEX = 3082
+
+    OR8ri_ND = 3083
+
+    OR8ri_NF = 3084
+
+    OR8ri_NF_ND = 3085
+
+    OR8rm = 3086
+
+    OR8rm_EVEX = 3087
+
+    OR8rm_ND = 3088
+
+    OR8rm_NF = 3089
+
+    OR8rm_NF_ND = 3090
+
+    OR8rr = 3091
+
+    OR8rr_EVEX = 3092
+
+    OR8rr_EVEX_REV = 3093
+
+    OR8rr_ND = 3094
+
+    OR8rr_ND_REV = 3095
+
+    OR8rr_NF = 3096
+
+    OR8rr_NF_ND = 3097
+
+    OR8rr_NF_ND_REV = 3098
+
+    OR8rr_NF_REV = 3099
+
+    OR8rr_REV = 3100
+
+    ORPDrm = 3101
+
+    ORPDrr = 3102
+
+    ORPSrm = 3103
+
+    ORPSrr = 3104
+
+    OUT16ir = 3105
+
+    OUT16rr = 3106
+
+    OUT32ir = 3107
+
+    OUT32rr = 3108
+
+    OUT8ir = 3109
+
+    OUT8rr = 3110
+
+    OUTSB = 3111
+
+    OUTSL = 3112
+
+    OUTSW = 3113
+
+    PABSBrm = 3114
+
+    PABSBrr = 3115
+
+    PABSDrm = 3116
+
+    PABSDrr = 3117
+
+    PABSWrm = 3118
+
+    PABSWrr = 3119
+
+    PACKSSDWrm = 3120
+
+    PACKSSDWrr = 3121
+
+    PACKSSWBrm = 3122
+
+    PACKSSWBrr = 3123
+
+    PACKUSDWrm = 3124
+
+    PACKUSDWrr = 3125
+
+    PACKUSWBrm = 3126
+
+    PACKUSWBrr = 3127
+
+    PADDBrm = 3128
+
+    PADDBrr = 3129
+
+    PADDDrm = 3130
+
+    PADDDrr = 3131
+
+    PADDQrm = 3132
+
+    PADDQrr = 3133
+
+    PADDSBrm = 3134
+
+    PADDSBrr = 3135
+
+    PADDSWrm = 3136
+
+    PADDSWrr = 3137
+
+    PADDUSBrm = 3138
+
+    PADDUSBrr = 3139
+
+    PADDUSWrm = 3140
+
+    PADDUSWrr = 3141
+
+    PADDWrm = 3142
+
+    PADDWrr = 3143
+
+    PALIGNRrmi = 3144
+
+    PALIGNRrri = 3145
+
+    PANDNrm = 3146
+
+    PANDNrr = 3147
+
+    PANDrm = 3148
+
+    PANDrr = 3149
+
+    PAUSE = 3150
+
+    PAVGBrm = 3151
+
+    PAVGBrr = 3152
+
+    PAVGUSBrm = 3153
+
+    PAVGUSBrr = 3154
+
+    PAVGWrm = 3155
+
+    PAVGWrr = 3156
+
+    PBLENDVBrm0 = 3157
+
+    PBLENDVBrr0 = 3158
+
+    PBLENDWrmi = 3159
+
+    PBLENDWrri = 3160
+
+    PBNDKB = 3161
+
+    PCLMULQDQrmi = 3162
+
+    PCLMULQDQrri = 3163
+
+    PCMPEQBrm = 3164
+
+    PCMPEQBrr = 3165
+
+    PCMPEQDrm = 3166
+
+    PCMPEQDrr = 3167
+
+    PCMPEQQrm = 3168
+
+    PCMPEQQrr = 3169
+
+    PCMPEQWrm = 3170
+
+    PCMPEQWrr = 3171
+
+    PCMPESTRIQrmi = 3172
+
+    PCMPESTRIQrri = 3173
+
+    PCMPESTRIrmi = 3174
+
+    PCMPESTRIrri = 3175
+
+    PCMPESTRMQrmi = 3176
+
+    PCMPESTRMQrri = 3177
+
+    PCMPESTRMrmi = 3178
+
+    PCMPESTRMrri = 3179
+
+    PCMPGTBrm = 3180
+
+    PCMPGTBrr = 3181
+
+    PCMPGTDrm = 3182
+
+    PCMPGTDrr = 3183
+
+    PCMPGTQrm = 3184
+
+    PCMPGTQrr = 3185
+
+    PCMPGTWrm = 3186
+
+    PCMPGTWrr = 3187
+
+    PCMPISTRIrmi = 3188
+
+    PCMPISTRIrri = 3189
+
+    PCMPISTRMrmi = 3190
+
+    PCMPISTRMrri = 3191
+
+    PCONFIG = 3192
+
+    PDEP32rm = 3193
+
+    PDEP32rm_EVEX = 3194
+
+    PDEP32rr = 3195
+
+    PDEP32rr_EVEX = 3196
+
+    PDEP64rm = 3197
+
+    PDEP64rm_EVEX = 3198
+
+    PDEP64rr = 3199
+
+    PDEP64rr_EVEX = 3200
+
+    PEXT32rm = 3201
+
+    PEXT32rm_EVEX = 3202
+
+    PEXT32rr = 3203
+
+    PEXT32rr_EVEX = 3204
+
+    PEXT64rm = 3205
+
+    PEXT64rm_EVEX = 3206
+
+    PEXT64rr = 3207
+
+    PEXT64rr_EVEX = 3208
+
+    PEXTRBmri = 3209
+
+    PEXTRBrri = 3210
+
+    PEXTRDmri = 3211
+
+    PEXTRDrri = 3212
+
+    PEXTRQmri = 3213
+
+    PEXTRQrri = 3214
+
+    PEXTRWmri = 3215
+
+    PEXTRWrri = 3216
+
+    PEXTRWrri_REV = 3217
+
+    PF2IDrm = 3218
+
+    PF2IDrr = 3219
+
+    PF2IWrm = 3220
+
+    PF2IWrr = 3221
+
+    PFACCrm = 3222
+
+    PFACCrr = 3223
+
+    PFADDrm = 3224
+
+    PFADDrr = 3225
+
+    PFCMPEQrm = 3226
+
+    PFCMPEQrr = 3227
+
+    PFCMPGErm = 3228
+
+    PFCMPGErr = 3229
+
+    PFCMPGTrm = 3230
+
+    PFCMPGTrr = 3231
+
+    PFMAXrm = 3232
+
+    PFMAXrr = 3233
+
+    PFMINrm = 3234
+
+    PFMINrr = 3235
+
+    PFMULrm = 3236
+
+    PFMULrr = 3237
+
+    PFNACCrm = 3238
+
+    PFNACCrr = 3239
+
+    PFPNACCrm = 3240
+
+    PFPNACCrr = 3241
+
+    PFRCPIT1rm = 3242
+
+    PFRCPIT1rr = 3243
+
+    PFRCPIT2rm = 3244
+
+    PFRCPIT2rr = 3245
+
+    PFRCPrm = 3246
+
+    PFRCPrr = 3247
+
+    PFRSQIT1rm = 3248
+
+    PFRSQIT1rr = 3249
+
+    PFRSQRTrm = 3250
+
+    PFRSQRTrr = 3251
+
+    PFSUBRrm = 3252
+
+    PFSUBRrr = 3253
+
+    PFSUBrm = 3254
+
+    PFSUBrr = 3255
+
+    PHADDDrm = 3256
+
+    PHADDDrr = 3257
+
+    PHADDSWrm = 3258
+
+    PHADDSWrr = 3259
+
+    PHADDWrm = 3260
+
+    PHADDWrr = 3261
+
+    PHMINPOSUWrm = 3262
+
+    PHMINPOSUWrr = 3263
+
+    PHSUBDrm = 3264
+
+    PHSUBDrr = 3265
+
+    PHSUBSWrm = 3266
+
+    PHSUBSWrr = 3267
+
+    PHSUBWrm = 3268
+
+    PHSUBWrr = 3269
+
+    PI2FDrm = 3270
+
+    PI2FDrr = 3271
+
+    PI2FWrm = 3272
+
+    PI2FWrr = 3273
+
+    PINSRBrmi = 3274
+
+    PINSRBrri = 3275
+
+    PINSRDrmi = 3276
+
+    PINSRDrri = 3277
+
+    PINSRQrmi = 3278
+
+    PINSRQrri = 3279
+
+    PINSRWrmi = 3280
+
+    PINSRWrri = 3281
+
+    PMADDUBSWrm = 3282
+
+    PMADDUBSWrr = 3283
+
+    PMADDWDrm = 3284
+
+    PMADDWDrr = 3285
+
+    PMAXSBrm = 3286
+
+    PMAXSBrr = 3287
+
+    PMAXSDrm = 3288
+
+    PMAXSDrr = 3289
+
+    PMAXSWrm = 3290
+
+    PMAXSWrr = 3291
+
+    PMAXUBrm = 3292
+
+    PMAXUBrr = 3293
+
+    PMAXUDrm = 3294
+
+    PMAXUDrr = 3295
+
+    PMAXUWrm = 3296
+
+    PMAXUWrr = 3297
+
+    PMINSBrm = 3298
+
+    PMINSBrr = 3299
+
+    PMINSDrm = 3300
+
+    PMINSDrr = 3301
+
+    PMINSWrm = 3302
+
+    PMINSWrr = 3303
+
+    PMINUBrm = 3304
+
+    PMINUBrr = 3305
+
+    PMINUDrm = 3306
+
+    PMINUDrr = 3307
+
+    PMINUWrm = 3308
+
+    PMINUWrr = 3309
+
+    PMOVMSKBrr = 3310
+
+    PMOVSXBDrm = 3311
+
+    PMOVSXBDrr = 3312
+
+    PMOVSXBQrm = 3313
+
+    PMOVSXBQrr = 3314
+
+    PMOVSXBWrm = 3315
+
+    PMOVSXBWrr = 3316
+
+    PMOVSXDQrm = 3317
+
+    PMOVSXDQrr = 3318
+
+    PMOVSXWDrm = 3319
+
+    PMOVSXWDrr = 3320
+
+    PMOVSXWQrm = 3321
+
+    PMOVSXWQrr = 3322
+
+    PMOVZXBDrm = 3323
+
+    PMOVZXBDrr = 3324
+
+    PMOVZXBQrm = 3325
+
+    PMOVZXBQrr = 3326
+
+    PMOVZXBWrm = 3327
+
+    PMOVZXBWrr = 3328
+
+    PMOVZXDQrm = 3329
+
+    PMOVZXDQrr = 3330
+
+    PMOVZXWDrm = 3331
+
+    PMOVZXWDrr = 3332
+
+    PMOVZXWQrm = 3333
+
+    PMOVZXWQrr = 3334
+
+    PMULDQrm = 3335
+
+    PMULDQrr = 3336
+
+    PMULHRSWrm = 3337
+
+    PMULHRSWrr = 3338
+
+    PMULHRWrm = 3339
+
+    PMULHRWrr = 3340
+
+    PMULHUWrm = 3341
+
+    PMULHUWrr = 3342
+
+    PMULHWrm = 3343
+
+    PMULHWrr = 3344
+
+    PMULLDrm = 3345
+
+    PMULLDrr = 3346
+
+    PMULLWrm = 3347
+
+    PMULLWrr = 3348
+
+    PMULUDQrm = 3349
+
+    PMULUDQrr = 3350
+
+    POP16r = 3351
+
+    POP16rmm = 3352
+
+    POP16rmr = 3353
+
+    POP2 = 3354
+
+    POP2P = 3355
+
+    POP32r = 3356
+
+    POP32rmm = 3357
+
+    POP32rmr = 3358
+
+    POP64r = 3359
+
+    POP64rmm = 3360
+
+    POP64rmr = 3361
+
+    POPA16 = 3362
+
+    POPA32 = 3363
+
+    POPCNT16rm = 3364
+
+    POPCNT16rm_EVEX = 3365
+
+    POPCNT16rm_NF = 3366
+
+    POPCNT16rr = 3367
+
+    POPCNT16rr_EVEX = 3368
+
+    POPCNT16rr_NF = 3369
+
+    POPCNT32rm = 3370
+
+    POPCNT32rm_EVEX = 3371
+
+    POPCNT32rm_NF = 3372
+
+    POPCNT32rr = 3373
+
+    POPCNT32rr_EVEX = 3374
+
+    POPCNT32rr_NF = 3375
+
+    POPCNT64rm = 3376
+
+    POPCNT64rm_EVEX = 3377
+
+    POPCNT64rm_NF = 3378
+
+    POPCNT64rr = 3379
+
+    POPCNT64rr_EVEX = 3380
+
+    POPCNT64rr_NF = 3381
+
+    POPDS16 = 3382
+
+    POPDS32 = 3383
+
+    POPES16 = 3384
+
+    POPES32 = 3385
+
+    POPF16 = 3386
+
+    POPF32 = 3387
+
+    POPF64 = 3388
+
+    POPFS16 = 3389
+
+    POPFS32 = 3390
+
+    POPFS64 = 3391
+
+    POPGS16 = 3392
+
+    POPGS32 = 3393
+
+    POPGS64 = 3394
+
+    POPP64r = 3395
+
+    POPSS16 = 3396
+
+    POPSS32 = 3397
+
+    PORrm = 3398
+
+    PORrr = 3399
+
+    PREFETCH = 3400
+
+    PREFETCHIT0 = 3401
+
+    PREFETCHIT1 = 3402
+
+    PREFETCHNTA = 3403
+
+    PREFETCHRST2 = 3404
+
+    PREFETCHT0 = 3405
+
+    PREFETCHT1 = 3406
+
+    PREFETCHT2 = 3407
+
+    PREFETCHW = 3408
+
+    PREFETCHWT1 = 3409
+
+    PROBED_ALLOCA_32 = 3410
+
+    PROBED_ALLOCA_64 = 3411
+
+    PSADBWrm = 3412
+
+    PSADBWrr = 3413
+
+    PSHUFBrm = 3414
+
+    PSHUFBrr = 3415
+
+    PSHUFDmi = 3416
+
+    PSHUFDri = 3417
+
+    PSHUFHWmi = 3418
+
+    PSHUFHWri = 3419
+
+    PSHUFLWmi = 3420
+
+    PSHUFLWri = 3421
+
+    PSIGNBrm = 3422
+
+    PSIGNBrr = 3423
+
+    PSIGNDrm = 3424
+
+    PSIGNDrr = 3425
+
+    PSIGNWrm = 3426
+
+    PSIGNWrr = 3427
+
+    PSLLDQri = 3428
+
+    PSLLDri = 3429
+
+    PSLLDrm = 3430
+
+    PSLLDrr = 3431
+
+    PSLLQri = 3432
+
+    PSLLQrm = 3433
+
+    PSLLQrr = 3434
+
+    PSLLWri = 3435
+
+    PSLLWrm = 3436
+
+    PSLLWrr = 3437
+
+    PSMASH = 3438
+
+    PSRADri = 3439
+
+    PSRADrm = 3440
+
+    PSRADrr = 3441
+
+    PSRAWri = 3442
+
+    PSRAWrm = 3443
+
+    PSRAWrr = 3444
+
+    PSRLDQri = 3445
+
+    PSRLDri = 3446
+
+    PSRLDrm = 3447
+
+    PSRLDrr = 3448
+
+    PSRLQri = 3449
+
+    PSRLQrm = 3450
+
+    PSRLQrr = 3451
+
+    PSRLWri = 3452
+
+    PSRLWrm = 3453
+
+    PSRLWrr = 3454
+
+    PSUBBrm = 3455
+
+    PSUBBrr = 3456
+
+    PSUBDrm = 3457
+
+    PSUBDrr = 3458
+
+    PSUBQrm = 3459
+
+    PSUBQrr = 3460
+
+    PSUBSBrm = 3461
+
+    PSUBSBrr = 3462
+
+    PSUBSWrm = 3463
+
+    PSUBSWrr = 3464
+
+    PSUBUSBrm = 3465
+
+    PSUBUSBrr = 3466
+
+    PSUBUSWrm = 3467
+
+    PSUBUSWrr = 3468
+
+    PSUBWrm = 3469
+
+    PSUBWrr = 3470
+
+    PSWAPDrm = 3471
+
+    PSWAPDrr = 3472
+
+    PTCMMIMFP16PS = 3473
+
+    PTCMMIMFP16PSV = 3474
+
+    PTCMMRLFP16PS = 3475
+
+    PTCMMRLFP16PSV = 3476
+
+    PTCVTROWD2PSrte = 3477
+
+    PTCVTROWD2PSrteV = 3478
+
+    PTCVTROWD2PSrti = 3479
+
+    PTCVTROWD2PSrtiV = 3480
+
+    PTCVTROWPS2BF16Hrte = 3481
+
+    PTCVTROWPS2BF16HrteV = 3482
+
+    PTCVTROWPS2BF16Hrti = 3483
+
+    PTCVTROWPS2BF16HrtiV = 3484
+
+    PTCVTROWPS2BF16Lrte = 3485
+
+    PTCVTROWPS2BF16LrteV = 3486
+
+    PTCVTROWPS2BF16Lrti = 3487
+
+    PTCVTROWPS2BF16LrtiV = 3488
+
+    PTCVTROWPS2PHHrte = 3489
+
+    PTCVTROWPS2PHHrteV = 3490
+
+    PTCVTROWPS2PHHrti = 3491
+
+    PTCVTROWPS2PHHrtiV = 3492
+
+    PTCVTROWPS2PHLrte = 3493
+
+    PTCVTROWPS2PHLrteV = 3494
+
+    PTCVTROWPS2PHLrti = 3495
+
+    PTCVTROWPS2PHLrtiV = 3496
+
+    PTDPBF16PS = 3497
+
+    PTDPBF8PS = 3498
+
+    PTDPBF8PSV = 3499
+
+    PTDPBHF8PS = 3500
+
+    PTDPBHF8PSV = 3501
+
+    PTDPBSSD = 3502
+
+    PTDPBSUD = 3503
+
+    PTDPBUSD = 3504
+
+    PTDPBUUD = 3505
+
+    PTDPFP16PS = 3506
+
+    PTDPHBF8PS = 3507
+
+    PTDPHBF8PSV = 3508
+
+    PTDPHF8PS = 3509
+
+    PTDPHF8PSV = 3510
+
+    PTESTrm = 3511
+
+    PTESTrr = 3512
+
+    PTILELOADD = 3513
+
+    PTILELOADDRS = 3514
+
+    PTILELOADDRST1 = 3515
+
+    PTILELOADDT1 = 3516
+
+    PTILEMOVROWrte = 3517
+
+    PTILEMOVROWrteV = 3518
+
+    PTILEMOVROWrti = 3519
+
+    PTILEMOVROWrtiV = 3520
+
+    PTILESTORED = 3521
+
+    PTILEZERO = 3522
+
+    PTWRITE64m = 3523
+
+    PTWRITE64r = 3524
+
+    PTWRITEm = 3525
+
+    PTWRITEr = 3526
+
+    PUNPCKHBWrm = 3527
+
+    PUNPCKHBWrr = 3528
+
+    PUNPCKHDQrm = 3529
+
+    PUNPCKHDQrr = 3530
+
+    PUNPCKHQDQrm = 3531
+
+    PUNPCKHQDQrr = 3532
+
+    PUNPCKHWDrm = 3533
+
+    PUNPCKHWDrr = 3534
+
+    PUNPCKLBWrm = 3535
+
+    PUNPCKLBWrr = 3536
+
+    PUNPCKLDQrm = 3537
+
+    PUNPCKLDQrr = 3538
+
+    PUNPCKLQDQrm = 3539
+
+    PUNPCKLQDQrr = 3540
+
+    PUNPCKLWDrm = 3541
+
+    PUNPCKLWDrr = 3542
+
+    PUSH16i = 3543
+
+    PUSH16i8 = 3544
+
+    PUSH16r = 3545
+
+    PUSH16rmm = 3546
+
+    PUSH16rmr = 3547
+
+    PUSH2 = 3548
+
+    PUSH2P = 3549
+
+    PUSH32i = 3550
+
+    PUSH32i8 = 3551
+
+    PUSH32r = 3552
+
+    PUSH32rmm = 3553
+
+    PUSH32rmr = 3554
+
+    PUSH64i32 = 3555
+
+    PUSH64i8 = 3556
+
+    PUSH64r = 3557
+
+    PUSH64rmm = 3558
+
+    PUSH64rmr = 3559
+
+    PUSHA16 = 3560
+
+    PUSHA32 = 3561
+
+    PUSHCS16 = 3562
+
+    PUSHCS32 = 3563
+
+    PUSHDS16 = 3564
+
+    PUSHDS32 = 3565
+
+    PUSHES16 = 3566
+
+    PUSHES32 = 3567
+
+    PUSHF16 = 3568
+
+    PUSHF32 = 3569
+
+    PUSHF64 = 3570
+
+    PUSHFS16 = 3571
+
+    PUSHFS32 = 3572
+
+    PUSHFS64 = 3573
+
+    PUSHGS16 = 3574
+
+    PUSHGS32 = 3575
+
+    PUSHGS64 = 3576
+
+    PUSHP64r = 3577
+
+    PUSHSS16 = 3578
+
+    PUSHSS32 = 3579
+
+    PVALIDATE32 = 3580
+
+    PVALIDATE64 = 3581
+
+    PXORrm = 3582
+
+    PXORrr = 3583
+
+    RCL16m1 = 3584
+
+    RCL16m1_EVEX = 3585
+
+    RCL16m1_ND = 3586
+
+    RCL16mCL = 3587
+
+    RCL16mCL_EVEX = 3588
+
+    RCL16mCL_ND = 3589
+
+    RCL16mi = 3590
+
+    RCL16mi_EVEX = 3591
+
+    RCL16mi_ND = 3592
+
+    RCL16r1 = 3593
+
+    RCL16r1_EVEX = 3594
+
+    RCL16r1_ND = 3595
+
+    RCL16rCL = 3596
+
+    RCL16rCL_EVEX = 3597
+
+    RCL16rCL_ND = 3598
+
+    RCL16ri = 3599
+
+    RCL16ri_EVEX = 3600
+
+    RCL16ri_ND = 3601
+
+    RCL32m1 = 3602
+
+    RCL32m1_EVEX = 3603
+
+    RCL32m1_ND = 3604
+
+    RCL32mCL = 3605
+
+    RCL32mCL_EVEX = 3606
+
+    RCL32mCL_ND = 3607
+
+    RCL32mi = 3608
+
+    RCL32mi_EVEX = 3609
+
+    RCL32mi_ND = 3610
+
+    RCL32r1 = 3611
+
+    RCL32r1_EVEX = 3612
+
+    RCL32r1_ND = 3613
+
+    RCL32rCL = 3614
+
+    RCL32rCL_EVEX = 3615
+
+    RCL32rCL_ND = 3616
+
+    RCL32ri = 3617
+
+    RCL32ri_EVEX = 3618
+
+    RCL32ri_ND = 3619
+
+    RCL64m1 = 3620
+
+    RCL64m1_EVEX = 3621
+
+    RCL64m1_ND = 3622
+
+    RCL64mCL = 3623
+
+    RCL64mCL_EVEX = 3624
+
+    RCL64mCL_ND = 3625
+
+    RCL64mi = 3626
+
+    RCL64mi_EVEX = 3627
+
+    RCL64mi_ND = 3628
+
+    RCL64r1 = 3629
+
+    RCL64r1_EVEX = 3630
+
+    RCL64r1_ND = 3631
+
+    RCL64rCL = 3632
+
+    RCL64rCL_EVEX = 3633
+
+    RCL64rCL_ND = 3634
+
+    RCL64ri = 3635
+
+    RCL64ri_EVEX = 3636
+
+    RCL64ri_ND = 3637
+
+    RCL8m1 = 3638
+
+    RCL8m1_EVEX = 3639
+
+    RCL8m1_ND = 3640
+
+    RCL8mCL = 3641
+
+    RCL8mCL_EVEX = 3642
+
+    RCL8mCL_ND = 3643
+
+    RCL8mi = 3644
+
+    RCL8mi_EVEX = 3645
+
+    RCL8mi_ND = 3646
+
+    RCL8r1 = 3647
+
+    RCL8r1_EVEX = 3648
+
+    RCL8r1_ND = 3649
+
+    RCL8rCL = 3650
+
+    RCL8rCL_EVEX = 3651
+
+    RCL8rCL_ND = 3652
+
+    RCL8ri = 3653
+
+    RCL8ri_EVEX = 3654
+
+    RCL8ri_ND = 3655
+
+    RCPPSm = 3656
+
+    RCPPSr = 3657
+
+    RCPSSm = 3658
+
+    RCPSSm_Int = 3659
+
+    RCPSSr = 3660
+
+    RCPSSr_Int = 3661
+
+    RCR16m1 = 3662
+
+    RCR16m1_EVEX = 3663
+
+    RCR16m1_ND = 3664
+
+    RCR16mCL = 3665
+
+    RCR16mCL_EVEX = 3666
+
+    RCR16mCL_ND = 3667
+
+    RCR16mi = 3668
+
+    RCR16mi_EVEX = 3669
+
+    RCR16mi_ND = 3670
+
+    RCR16r1 = 3671
+
+    RCR16r1_EVEX = 3672
+
+    RCR16r1_ND = 3673
+
+    RCR16rCL = 3674
+
+    RCR16rCL_EVEX = 3675
+
+    RCR16rCL_ND = 3676
+
+    RCR16ri = 3677
+
+    RCR16ri_EVEX = 3678
+
+    RCR16ri_ND = 3679
+
+    RCR32m1 = 3680
+
+    RCR32m1_EVEX = 3681
+
+    RCR32m1_ND = 3682
+
+    RCR32mCL = 3683
+
+    RCR32mCL_EVEX = 3684
+
+    RCR32mCL_ND = 3685
+
+    RCR32mi = 3686
+
+    RCR32mi_EVEX = 3687
+
+    RCR32mi_ND = 3688
+
+    RCR32r1 = 3689
+
+    RCR32r1_EVEX = 3690
+
+    RCR32r1_ND = 3691
+
+    RCR32rCL = 3692
+
+    RCR32rCL_EVEX = 3693
+
+    RCR32rCL_ND = 3694
+
+    RCR32ri = 3695
+
+    RCR32ri_EVEX = 3696
+
+    RCR32ri_ND = 3697
+
+    RCR64m1 = 3698
+
+    RCR64m1_EVEX = 3699
+
+    RCR64m1_ND = 3700
+
+    RCR64mCL = 3701
+
+    RCR64mCL_EVEX = 3702
+
+    RCR64mCL_ND = 3703
+
+    RCR64mi = 3704
+
+    RCR64mi_EVEX = 3705
+
+    RCR64mi_ND = 3706
+
+    RCR64r1 = 3707
+
+    RCR64r1_EVEX = 3708
+
+    RCR64r1_ND = 3709
+
+    RCR64rCL = 3710
+
+    RCR64rCL_EVEX = 3711
+
+    RCR64rCL_ND = 3712
+
+    RCR64ri = 3713
+
+    RCR64ri_EVEX = 3714
+
+    RCR64ri_ND = 3715
+
+    RCR8m1 = 3716
+
+    RCR8m1_EVEX = 3717
+
+    RCR8m1_ND = 3718
+
+    RCR8mCL = 3719
+
+    RCR8mCL_EVEX = 3720
+
+    RCR8mCL_ND = 3721
+
+    RCR8mi = 3722
+
+    RCR8mi_EVEX = 3723
+
+    RCR8mi_ND = 3724
+
+    RCR8r1 = 3725
+
+    RCR8r1_EVEX = 3726
+
+    RCR8r1_ND = 3727
+
+    RCR8rCL = 3728
+
+    RCR8rCL_EVEX = 3729
+
+    RCR8rCL_ND = 3730
+
+    RCR8ri = 3731
+
+    RCR8ri_EVEX = 3732
+
+    RCR8ri_ND = 3733
+
+    RDFSBASE = 3734
+
+    RDFSBASE64 = 3735
+
+    RDGSBASE = 3736
+
+    RDGSBASE64 = 3737
+
+    RDMSR = 3738
+
+    RDMSRLIST = 3739
+
+    RDMSRri = 3740
+
+    RDMSRri_EVEX = 3741
+
+    RDPID32 = 3742
+
+    RDPID64 = 3743
+
+    RDPKRUr = 3744
+
+    RDPMC = 3745
+
+    RDPRU = 3746
+
+    RDRAND16r = 3747
+
+    RDRAND32r = 3748
+
+    RDRAND64r = 3749
+
+    RDSEED16r = 3750
+
+    RDSEED32r = 3751
+
+    RDSEED64r = 3752
+
+    RDSSPD = 3753
+
+    RDSSPQ = 3754
+
+    RDTSC = 3755
+
+    RDTSCP = 3756
+
+    REPNE_PREFIX = 3757
+
+    REP_MOVSB_32 = 3758
+
+    REP_MOVSB_64 = 3759
+
+    REP_MOVSD_32 = 3760
+
+    REP_MOVSD_64 = 3761
+
+    REP_MOVSQ_32 = 3762
+
+    REP_MOVSQ_64 = 3763
+
+    REP_MOVSW_32 = 3764
+
+    REP_MOVSW_64 = 3765
+
+    REP_PREFIX = 3766
+
+    REP_STOSB_32 = 3767
+
+    REP_STOSB_64 = 3768
+
+    REP_STOSD_32 = 3769
+
+    REP_STOSD_64 = 3770
+
+    REP_STOSQ_32 = 3771
+
+    REP_STOSQ_64 = 3772
+
+    REP_STOSW_32 = 3773
+
+    REP_STOSW_64 = 3774
+
+    RET = 3775
+
+    RET16 = 3776
+
+    RET32 = 3777
+
+    RET64 = 3778
+
+    RETI16 = 3779
+
+    RETI32 = 3780
+
+    RETI64 = 3781
+
+    REX64_PREFIX = 3782
+
+    RMPADJUST = 3783
+
+    RMPQUERY = 3784
+
+    RMPUPDATE = 3785
+
+    ROL16m1 = 3786
+
+    ROL16m1_EVEX = 3787
+
+    ROL16m1_ND = 3788
+
+    ROL16m1_NF = 3789
+
+    ROL16m1_NF_ND = 3790
+
+    ROL16mCL = 3791
+
+    ROL16mCL_EVEX = 3792
+
+    ROL16mCL_ND = 3793
+
+    ROL16mCL_NF = 3794
+
+    ROL16mCL_NF_ND = 3795
+
+    ROL16mi = 3796
+
+    ROL16mi_EVEX = 3797
+
+    ROL16mi_ND = 3798
+
+    ROL16mi_NF = 3799
+
+    ROL16mi_NF_ND = 3800
+
+    ROL16r1 = 3801
+
+    ROL16r1_EVEX = 3802
+
+    ROL16r1_ND = 3803
+
+    ROL16r1_NF = 3804
+
+    ROL16r1_NF_ND = 3805
+
+    ROL16rCL = 3806
+
+    ROL16rCL_EVEX = 3807
+
+    ROL16rCL_ND = 3808
+
+    ROL16rCL_NF = 3809
+
+    ROL16rCL_NF_ND = 3810
+
+    ROL16ri = 3811
+
+    ROL16ri_EVEX = 3812
+
+    ROL16ri_ND = 3813
+
+    ROL16ri_NF = 3814
+
+    ROL16ri_NF_ND = 3815
+
+    ROL32m1 = 3816
+
+    ROL32m1_EVEX = 3817
+
+    ROL32m1_ND = 3818
+
+    ROL32m1_NF = 3819
+
+    ROL32m1_NF_ND = 3820
+
+    ROL32mCL = 3821
+
+    ROL32mCL_EVEX = 3822
+
+    ROL32mCL_ND = 3823
+
+    ROL32mCL_NF = 3824
+
+    ROL32mCL_NF_ND = 3825
+
+    ROL32mi = 3826
+
+    ROL32mi_EVEX = 3827
+
+    ROL32mi_ND = 3828
+
+    ROL32mi_NF = 3829
+
+    ROL32mi_NF_ND = 3830
+
+    ROL32r1 = 3831
+
+    ROL32r1_EVEX = 3832
+
+    ROL32r1_ND = 3833
+
+    ROL32r1_NF = 3834
+
+    ROL32r1_NF_ND = 3835
+
+    ROL32rCL = 3836
+
+    ROL32rCL_EVEX = 3837
+
+    ROL32rCL_ND = 3838
+
+    ROL32rCL_NF = 3839
+
+    ROL32rCL_NF_ND = 3840
+
+    ROL32ri = 3841
+
+    ROL32ri_EVEX = 3842
+
+    ROL32ri_ND = 3843
+
+    ROL32ri_NF = 3844
+
+    ROL32ri_NF_ND = 3845
+
+    ROL64m1 = 3846
+
+    ROL64m1_EVEX = 3847
+
+    ROL64m1_ND = 3848
+
+    ROL64m1_NF = 3849
+
+    ROL64m1_NF_ND = 3850
+
+    ROL64mCL = 3851
+
+    ROL64mCL_EVEX = 3852
+
+    ROL64mCL_ND = 3853
+
+    ROL64mCL_NF = 3854
+
+    ROL64mCL_NF_ND = 3855
+
+    ROL64mi = 3856
+
+    ROL64mi_EVEX = 3857
+
+    ROL64mi_ND = 3858
+
+    ROL64mi_NF = 3859
+
+    ROL64mi_NF_ND = 3860
+
+    ROL64r1 = 3861
+
+    ROL64r1_EVEX = 3862
+
+    ROL64r1_ND = 3863
+
+    ROL64r1_NF = 3864
+
+    ROL64r1_NF_ND = 3865
+
+    ROL64rCL = 3866
+
+    ROL64rCL_EVEX = 3867
+
+    ROL64rCL_ND = 3868
+
+    ROL64rCL_NF = 3869
+
+    ROL64rCL_NF_ND = 3870
+
+    ROL64ri = 3871
+
+    ROL64ri_EVEX = 3872
+
+    ROL64ri_ND = 3873
+
+    ROL64ri_NF = 3874
+
+    ROL64ri_NF_ND = 3875
+
+    ROL8m1 = 3876
+
+    ROL8m1_EVEX = 3877
+
+    ROL8m1_ND = 3878
+
+    ROL8m1_NF = 3879
+
+    ROL8m1_NF_ND = 3880
+
+    ROL8mCL = 3881
+
+    ROL8mCL_EVEX = 3882
+
+    ROL8mCL_ND = 3883
+
+    ROL8mCL_NF = 3884
+
+    ROL8mCL_NF_ND = 3885
+
+    ROL8mi = 3886
+
+    ROL8mi_EVEX = 3887
+
+    ROL8mi_ND = 3888
+
+    ROL8mi_NF = 3889
+
+    ROL8mi_NF_ND = 3890
+
+    ROL8r1 = 3891
+
+    ROL8r1_EVEX = 3892
+
+    ROL8r1_ND = 3893
+
+    ROL8r1_NF = 3894
+
+    ROL8r1_NF_ND = 3895
+
+    ROL8rCL = 3896
+
+    ROL8rCL_EVEX = 3897
+
+    ROL8rCL_ND = 3898
+
+    ROL8rCL_NF = 3899
+
+    ROL8rCL_NF_ND = 3900
+
+    ROL8ri = 3901
+
+    ROL8ri_EVEX = 3902
+
+    ROL8ri_ND = 3903
+
+    ROL8ri_NF = 3904
+
+    ROL8ri_NF_ND = 3905
+
+    ROR16m1 = 3906
+
+    ROR16m1_EVEX = 3907
+
+    ROR16m1_ND = 3908
+
+    ROR16m1_NF = 3909
+
+    ROR16m1_NF_ND = 3910
+
+    ROR16mCL = 3911
+
+    ROR16mCL_EVEX = 3912
+
+    ROR16mCL_ND = 3913
+
+    ROR16mCL_NF = 3914
+
+    ROR16mCL_NF_ND = 3915
+
+    ROR16mi = 3916
+
+    ROR16mi_EVEX = 3917
+
+    ROR16mi_ND = 3918
+
+    ROR16mi_NF = 3919
+
+    ROR16mi_NF_ND = 3920
+
+    ROR16r1 = 3921
+
+    ROR16r1_EVEX = 3922
+
+    ROR16r1_ND = 3923
+
+    ROR16r1_NF = 3924
+
+    ROR16r1_NF_ND = 3925
+
+    ROR16rCL = 3926
+
+    ROR16rCL_EVEX = 3927
+
+    ROR16rCL_ND = 3928
+
+    ROR16rCL_NF = 3929
+
+    ROR16rCL_NF_ND = 3930
+
+    ROR16ri = 3931
+
+    ROR16ri_EVEX = 3932
+
+    ROR16ri_ND = 3933
+
+    ROR16ri_NF = 3934
+
+    ROR16ri_NF_ND = 3935
+
+    ROR32m1 = 3936
+
+    ROR32m1_EVEX = 3937
+
+    ROR32m1_ND = 3938
+
+    ROR32m1_NF = 3939
+
+    ROR32m1_NF_ND = 3940
+
+    ROR32mCL = 3941
+
+    ROR32mCL_EVEX = 3942
+
+    ROR32mCL_ND = 3943
+
+    ROR32mCL_NF = 3944
+
+    ROR32mCL_NF_ND = 3945
+
+    ROR32mi = 3946
+
+    ROR32mi_EVEX = 3947
+
+    ROR32mi_ND = 3948
+
+    ROR32mi_NF = 3949
+
+    ROR32mi_NF_ND = 3950
+
+    ROR32r1 = 3951
+
+    ROR32r1_EVEX = 3952
+
+    ROR32r1_ND = 3953
+
+    ROR32r1_NF = 3954
+
+    ROR32r1_NF_ND = 3955
+
+    ROR32rCL = 3956
+
+    ROR32rCL_EVEX = 3957
+
+    ROR32rCL_ND = 3958
+
+    ROR32rCL_NF = 3959
+
+    ROR32rCL_NF_ND = 3960
+
+    ROR32ri = 3961
+
+    ROR32ri_EVEX = 3962
+
+    ROR32ri_ND = 3963
+
+    ROR32ri_NF = 3964
+
+    ROR32ri_NF_ND = 3965
+
+    ROR64m1 = 3966
+
+    ROR64m1_EVEX = 3967
+
+    ROR64m1_ND = 3968
+
+    ROR64m1_NF = 3969
+
+    ROR64m1_NF_ND = 3970
+
+    ROR64mCL = 3971
+
+    ROR64mCL_EVEX = 3972
+
+    ROR64mCL_ND = 3973
+
+    ROR64mCL_NF = 3974
+
+    ROR64mCL_NF_ND = 3975
+
+    ROR64mi = 3976
+
+    ROR64mi_EVEX = 3977
+
+    ROR64mi_ND = 3978
+
+    ROR64mi_NF = 3979
+
+    ROR64mi_NF_ND = 3980
+
+    ROR64r1 = 3981
+
+    ROR64r1_EVEX = 3982
+
+    ROR64r1_ND = 3983
+
+    ROR64r1_NF = 3984
+
+    ROR64r1_NF_ND = 3985
+
+    ROR64rCL = 3986
+
+    ROR64rCL_EVEX = 3987
+
+    ROR64rCL_ND = 3988
+
+    ROR64rCL_NF = 3989
+
+    ROR64rCL_NF_ND = 3990
+
+    ROR64ri = 3991
+
+    ROR64ri_EVEX = 3992
+
+    ROR64ri_ND = 3993
+
+    ROR64ri_NF = 3994
+
+    ROR64ri_NF_ND = 3995
+
+    ROR8m1 = 3996
+
+    ROR8m1_EVEX = 3997
+
+    ROR8m1_ND = 3998
+
+    ROR8m1_NF = 3999
+
+    ROR8m1_NF_ND = 4000
+
+    ROR8mCL = 4001
+
+    ROR8mCL_EVEX = 4002
+
+    ROR8mCL_ND = 4003
+
+    ROR8mCL_NF = 4004
+
+    ROR8mCL_NF_ND = 4005
+
+    ROR8mi = 4006
+
+    ROR8mi_EVEX = 4007
+
+    ROR8mi_ND = 4008
+
+    ROR8mi_NF = 4009
+
+    ROR8mi_NF_ND = 4010
+
+    ROR8r1 = 4011
+
+    ROR8r1_EVEX = 4012
+
+    ROR8r1_ND = 4013
+
+    ROR8r1_NF = 4014
+
+    ROR8r1_NF_ND = 4015
+
+    ROR8rCL = 4016
+
+    ROR8rCL_EVEX = 4017
+
+    ROR8rCL_ND = 4018
+
+    ROR8rCL_NF = 4019
+
+    ROR8rCL_NF_ND = 4020
+
+    ROR8ri = 4021
+
+    ROR8ri_EVEX = 4022
+
+    ROR8ri_ND = 4023
+
+    ROR8ri_NF = 4024
+
+    ROR8ri_NF_ND = 4025
+
+    RORX32mi = 4026
+
+    RORX32mi_EVEX = 4027
+
+    RORX32ri = 4028
+
+    RORX32ri_EVEX = 4029
+
+    RORX64mi = 4030
+
+    RORX64mi_EVEX = 4031
+
+    RORX64ri = 4032
+
+    RORX64ri_EVEX = 4033
+
+    ROUNDPDmi = 4034
+
+    ROUNDPDri = 4035
+
+    ROUNDPSmi = 4036
+
+    ROUNDPSri = 4037
+
+    ROUNDSDmi = 4038
+
+    ROUNDSDmi_Int = 4039
+
+    ROUNDSDri = 4040
+
+    ROUNDSDri_Int = 4041
+
+    ROUNDSSmi = 4042
+
+    ROUNDSSmi_Int = 4043
+
+    ROUNDSSri = 4044
+
+    ROUNDSSri_Int = 4045
+
+    RSM = 4046
+
+    RSQRTPSm = 4047
+
+    RSQRTPSr = 4048
+
+    RSQRTSSm = 4049
+
+    RSQRTSSm_Int = 4050
+
+    RSQRTSSr = 4051
+
+    RSQRTSSr_Int = 4052
+
+    RSTORSSP = 4053
+
+    SAHF = 4054
+
+    SALC = 4055
+
+    SAR16m1 = 4056
+
+    SAR16m1_EVEX = 4057
+
+    SAR16m1_ND = 4058
+
+    SAR16m1_NF = 4059
+
+    SAR16m1_NF_ND = 4060
+
+    SAR16mCL = 4061
+
+    SAR16mCL_EVEX = 4062
+
+    SAR16mCL_ND = 4063
+
+    SAR16mCL_NF = 4064
+
+    SAR16mCL_NF_ND = 4065
+
+    SAR16mi = 4066
+
+    SAR16mi_EVEX = 4067
+
+    SAR16mi_ND = 4068
+
+    SAR16mi_NF = 4069
+
+    SAR16mi_NF_ND = 4070
+
+    SAR16r1 = 4071
+
+    SAR16r1_EVEX = 4072
+
+    SAR16r1_ND = 4073
+
+    SAR16r1_NF = 4074
+
+    SAR16r1_NF_ND = 4075
+
+    SAR16rCL = 4076
+
+    SAR16rCL_EVEX = 4077
+
+    SAR16rCL_ND = 4078
+
+    SAR16rCL_NF = 4079
+
+    SAR16rCL_NF_ND = 4080
+
+    SAR16ri = 4081
+
+    SAR16ri_EVEX = 4082
+
+    SAR16ri_ND = 4083
+
+    SAR16ri_NF = 4084
+
+    SAR16ri_NF_ND = 4085
+
+    SAR32m1 = 4086
+
+    SAR32m1_EVEX = 4087
+
+    SAR32m1_ND = 4088
+
+    SAR32m1_NF = 4089
+
+    SAR32m1_NF_ND = 4090
+
+    SAR32mCL = 4091
+
+    SAR32mCL_EVEX = 4092
+
+    SAR32mCL_ND = 4093
+
+    SAR32mCL_NF = 4094
+
+    SAR32mCL_NF_ND = 4095
+
+    SAR32mi = 4096
+
+    SAR32mi_EVEX = 4097
+
+    SAR32mi_ND = 4098
+
+    SAR32mi_NF = 4099
+
+    SAR32mi_NF_ND = 4100
+
+    SAR32r1 = 4101
+
+    SAR32r1_EVEX = 4102
+
+    SAR32r1_ND = 4103
+
+    SAR32r1_NF = 4104
+
+    SAR32r1_NF_ND = 4105
+
+    SAR32rCL = 4106
+
+    SAR32rCL_EVEX = 4107
+
+    SAR32rCL_ND = 4108
+
+    SAR32rCL_NF = 4109
+
+    SAR32rCL_NF_ND = 4110
+
+    SAR32ri = 4111
+
+    SAR32ri_EVEX = 4112
+
+    SAR32ri_ND = 4113
+
+    SAR32ri_NF = 4114
+
+    SAR32ri_NF_ND = 4115
+
+    SAR64m1 = 4116
+
+    SAR64m1_EVEX = 4117
+
+    SAR64m1_ND = 4118
+
+    SAR64m1_NF = 4119
+
+    SAR64m1_NF_ND = 4120
+
+    SAR64mCL = 4121
+
+    SAR64mCL_EVEX = 4122
+
+    SAR64mCL_ND = 4123
+
+    SAR64mCL_NF = 4124
+
+    SAR64mCL_NF_ND = 4125
+
+    SAR64mi = 4126
+
+    SAR64mi_EVEX = 4127
+
+    SAR64mi_ND = 4128
+
+    SAR64mi_NF = 4129
+
+    SAR64mi_NF_ND = 4130
+
+    SAR64r1 = 4131
+
+    SAR64r1_EVEX = 4132
+
+    SAR64r1_ND = 4133
+
+    SAR64r1_NF = 4134
+
+    SAR64r1_NF_ND = 4135
+
+    SAR64rCL = 4136
+
+    SAR64rCL_EVEX = 4137
+
+    SAR64rCL_ND = 4138
+
+    SAR64rCL_NF = 4139
+
+    SAR64rCL_NF_ND = 4140
+
+    SAR64ri = 4141
+
+    SAR64ri_EVEX = 4142
+
+    SAR64ri_ND = 4143
+
+    SAR64ri_NF = 4144
+
+    SAR64ri_NF_ND = 4145
+
+    SAR8m1 = 4146
+
+    SAR8m1_EVEX = 4147
+
+    SAR8m1_ND = 4148
+
+    SAR8m1_NF = 4149
+
+    SAR8m1_NF_ND = 4150
+
+    SAR8mCL = 4151
+
+    SAR8mCL_EVEX = 4152
+
+    SAR8mCL_ND = 4153
+
+    SAR8mCL_NF = 4154
+
+    SAR8mCL_NF_ND = 4155
+
+    SAR8mi = 4156
+
+    SAR8mi_EVEX = 4157
+
+    SAR8mi_ND = 4158
+
+    SAR8mi_NF = 4159
+
+    SAR8mi_NF_ND = 4160
+
+    SAR8r1 = 4161
+
+    SAR8r1_EVEX = 4162
+
+    SAR8r1_ND = 4163
+
+    SAR8r1_NF = 4164
+
+    SAR8r1_NF_ND = 4165
+
+    SAR8rCL = 4166
+
+    SAR8rCL_EVEX = 4167
+
+    SAR8rCL_ND = 4168
+
+    SAR8rCL_NF = 4169
+
+    SAR8rCL_NF_ND = 4170
+
+    SAR8ri = 4171
+
+    SAR8ri_EVEX = 4172
+
+    SAR8ri_ND = 4173
+
+    SAR8ri_NF = 4174
+
+    SAR8ri_NF_ND = 4175
+
+    SARX32rm = 4176
+
+    SARX32rm_EVEX = 4177
+
+    SARX32rr = 4178
+
+    SARX32rr_EVEX = 4179
+
+    SARX64rm = 4180
+
+    SARX64rm_EVEX = 4181
+
+    SARX64rr = 4182
+
+    SARX64rr_EVEX = 4183
+
+    SAVEPREVSSP = 4184
+
+    SBB16i16 = 4185
+
+    SBB16mi = 4186
+
+    SBB16mi8 = 4187
+
+    SBB16mi8_EVEX = 4188
+
+    SBB16mi8_ND = 4189
+
+    SBB16mi_EVEX = 4190
+
+    SBB16mi_ND = 4191
+
+    SBB16mr = 4192
+
+    SBB16mr_EVEX = 4193
+
+    SBB16mr_ND = 4194
+
+    SBB16ri = 4195
+
+    SBB16ri8 = 4196
+
+    SBB16ri8_EVEX = 4197
+
+    SBB16ri8_ND = 4198
+
+    SBB16ri_EVEX = 4199
+
+    SBB16ri_ND = 4200
+
+    SBB16rm = 4201
+
+    SBB16rm_EVEX = 4202
+
+    SBB16rm_ND = 4203
+
+    SBB16rr = 4204
+
+    SBB16rr_EVEX = 4205
+
+    SBB16rr_EVEX_REV = 4206
+
+    SBB16rr_ND = 4207
+
+    SBB16rr_ND_REV = 4208
+
+    SBB16rr_REV = 4209
+
+    SBB32i32 = 4210
+
+    SBB32mi = 4211
+
+    SBB32mi8 = 4212
+
+    SBB32mi8_EVEX = 4213
+
+    SBB32mi8_ND = 4214
+
+    SBB32mi_EVEX = 4215
+
+    SBB32mi_ND = 4216
+
+    SBB32mr = 4217
+
+    SBB32mr_EVEX = 4218
+
+    SBB32mr_ND = 4219
+
+    SBB32ri = 4220
+
+    SBB32ri8 = 4221
+
+    SBB32ri8_EVEX = 4222
+
+    SBB32ri8_ND = 4223
+
+    SBB32ri_EVEX = 4224
+
+    SBB32ri_ND = 4225
+
+    SBB32rm = 4226
+
+    SBB32rm_EVEX = 4227
+
+    SBB32rm_ND = 4228
+
+    SBB32rr = 4229
+
+    SBB32rr_EVEX = 4230
+
+    SBB32rr_EVEX_REV = 4231
+
+    SBB32rr_ND = 4232
+
+    SBB32rr_ND_REV = 4233
+
+    SBB32rr_REV = 4234
+
+    SBB64i32 = 4235
+
+    SBB64mi32 = 4236
+
+    SBB64mi32_EVEX = 4237
+
+    SBB64mi32_ND = 4238
+
+    SBB64mi8 = 4239
+
+    SBB64mi8_EVEX = 4240
+
+    SBB64mi8_ND = 4241
+
+    SBB64mr = 4242
+
+    SBB64mr_EVEX = 4243
+
+    SBB64mr_ND = 4244
+
+    SBB64ri32 = 4245
+
+    SBB64ri32_EVEX = 4246
+
+    SBB64ri32_ND = 4247
+
+    SBB64ri8 = 4248
+
+    SBB64ri8_EVEX = 4249
+
+    SBB64ri8_ND = 4250
+
+    SBB64rm = 4251
+
+    SBB64rm_EVEX = 4252
+
+    SBB64rm_ND = 4253
+
+    SBB64rr = 4254
+
+    SBB64rr_EVEX = 4255
+
+    SBB64rr_EVEX_REV = 4256
+
+    SBB64rr_ND = 4257
+
+    SBB64rr_ND_REV = 4258
+
+    SBB64rr_REV = 4259
+
+    SBB8i8 = 4260
+
+    SBB8mi = 4261
+
+    SBB8mi8 = 4262
+
+    SBB8mi_EVEX = 4263
+
+    SBB8mi_ND = 4264
+
+    SBB8mr = 4265
+
+    SBB8mr_EVEX = 4266
+
+    SBB8mr_ND = 4267
+
+    SBB8ri = 4268
+
+    SBB8ri8 = 4269
+
+    SBB8ri_EVEX = 4270
+
+    SBB8ri_ND = 4271
+
+    SBB8rm = 4272
+
+    SBB8rm_EVEX = 4273
+
+    SBB8rm_ND = 4274
+
+    SBB8rr = 4275
+
+    SBB8rr_EVEX = 4276
+
+    SBB8rr_EVEX_REV = 4277
+
+    SBB8rr_ND = 4278
+
+    SBB8rr_ND_REV = 4279
+
+    SBB8rr_REV = 4280
+
+    SCASB = 4281
+
+    SCASL = 4282
+
+    SCASQ = 4283
+
+    SCASW = 4284
+
+    SEAMCALL = 4285
+
+    SEAMOPS = 4286
+
+    SEAMRET = 4287
+
+    SEG_ALLOCA_32 = 4288
+
+    SEG_ALLOCA_64 = 4289
+
+    SENDUIPI = 4290
+
+    SERIALIZE = 4291
+
+    SETCCm = 4292
+
+    SETCCm_EVEX = 4293
+
+    SETCCr = 4294
+
+    SETCCr_EVEX = 4295
+
+    SETSSBSY = 4296
+
+    SETZUCCm = 4297
+
+    SETZUCCr = 4298
+
+    SFENCE = 4299
+
+    SGDT16m = 4300
+
+    SGDT32m = 4301
+
+    SGDT64m = 4302
+
+    SHA1MSG1rm = 4303
+
+    SHA1MSG1rr = 4304
+
+    SHA1MSG2rm = 4305
+
+    SHA1MSG2rr = 4306
+
+    SHA1NEXTErm = 4307
+
+    SHA1NEXTErr = 4308
+
+    SHA1RNDS4rmi = 4309
+
+    SHA1RNDS4rri = 4310
+
+    SHA256MSG1rm = 4311
+
+    SHA256MSG1rr = 4312
+
+    SHA256MSG2rm = 4313
+
+    SHA256MSG2rr = 4314
+
+    SHA256RNDS2rm = 4315
+
+    SHA256RNDS2rr = 4316
+
+    SHL16m1 = 4317
+
+    SHL16m1_EVEX = 4318
+
+    SHL16m1_ND = 4319
+
+    SHL16m1_NF = 4320
+
+    SHL16m1_NF_ND = 4321
+
+    SHL16m1_alt = 4322
+
+    SHL16mCL = 4323
+
+    SHL16mCL_EVEX = 4324
+
+    SHL16mCL_ND = 4325
+
+    SHL16mCL_NF = 4326
+
+    SHL16mCL_NF_ND = 4327
+
+    SHL16mCL_alt = 4328
+
+    SHL16mi = 4329
+
+    SHL16mi_EVEX = 4330
+
+    SHL16mi_ND = 4331
+
+    SHL16mi_NF = 4332
+
+    SHL16mi_NF_ND = 4333
+
+    SHL16mi_alt = 4334
+
+    SHL16r1 = 4335
+
+    SHL16r1_EVEX = 4336
+
+    SHL16r1_ND = 4337
+
+    SHL16r1_NF = 4338
+
+    SHL16r1_NF_ND = 4339
+
+    SHL16r1_alt = 4340
+
+    SHL16rCL = 4341
+
+    SHL16rCL_EVEX = 4342
+
+    SHL16rCL_ND = 4343
+
+    SHL16rCL_NF = 4344
+
+    SHL16rCL_NF_ND = 4345
+
+    SHL16rCL_alt = 4346
+
+    SHL16ri = 4347
+
+    SHL16ri_EVEX = 4348
+
+    SHL16ri_ND = 4349
+
+    SHL16ri_NF = 4350
+
+    SHL16ri_NF_ND = 4351
+
+    SHL16ri_alt = 4352
+
+    SHL32m1 = 4353
+
+    SHL32m1_EVEX = 4354
+
+    SHL32m1_ND = 4355
+
+    SHL32m1_NF = 4356
+
+    SHL32m1_NF_ND = 4357
+
+    SHL32m1_alt = 4358
+
+    SHL32mCL = 4359
+
+    SHL32mCL_EVEX = 4360
+
+    SHL32mCL_ND = 4361
+
+    SHL32mCL_NF = 4362
+
+    SHL32mCL_NF_ND = 4363
+
+    SHL32mCL_alt = 4364
+
+    SHL32mi = 4365
+
+    SHL32mi_EVEX = 4366
+
+    SHL32mi_ND = 4367
+
+    SHL32mi_NF = 4368
+
+    SHL32mi_NF_ND = 4369
+
+    SHL32mi_alt = 4370
+
+    SHL32r1 = 4371
+
+    SHL32r1_EVEX = 4372
+
+    SHL32r1_ND = 4373
+
+    SHL32r1_NF = 4374
+
+    SHL32r1_NF_ND = 4375
+
+    SHL32r1_alt = 4376
+
+    SHL32rCL = 4377
+
+    SHL32rCL_EVEX = 4378
+
+    SHL32rCL_ND = 4379
+
+    SHL32rCL_NF = 4380
+
+    SHL32rCL_NF_ND = 4381
+
+    SHL32rCL_alt = 4382
+
+    SHL32ri = 4383
+
+    SHL32ri_EVEX = 4384
+
+    SHL32ri_ND = 4385
+
+    SHL32ri_NF = 4386
+
+    SHL32ri_NF_ND = 4387
+
+    SHL32ri_alt = 4388
+
+    SHL64m1 = 4389
+
+    SHL64m1_EVEX = 4390
+
+    SHL64m1_ND = 4391
+
+    SHL64m1_NF = 4392
+
+    SHL64m1_NF_ND = 4393
+
+    SHL64m1_alt = 4394
+
+    SHL64mCL = 4395
+
+    SHL64mCL_EVEX = 4396
+
+    SHL64mCL_ND = 4397
+
+    SHL64mCL_NF = 4398
+
+    SHL64mCL_NF_ND = 4399
+
+    SHL64mCL_alt = 4400
+
+    SHL64mi = 4401
+
+    SHL64mi_EVEX = 4402
+
+    SHL64mi_ND = 4403
+
+    SHL64mi_NF = 4404
+
+    SHL64mi_NF_ND = 4405
+
+    SHL64mi_alt = 4406
+
+    SHL64r1 = 4407
+
+    SHL64r1_EVEX = 4408
+
+    SHL64r1_ND = 4409
+
+    SHL64r1_NF = 4410
+
+    SHL64r1_NF_ND = 4411
+
+    SHL64r1_alt = 4412
+
+    SHL64rCL = 4413
+
+    SHL64rCL_EVEX = 4414
+
+    SHL64rCL_ND = 4415
+
+    SHL64rCL_NF = 4416
+
+    SHL64rCL_NF_ND = 4417
+
+    SHL64rCL_alt = 4418
+
+    SHL64ri = 4419
+
+    SHL64ri_EVEX = 4420
+
+    SHL64ri_ND = 4421
+
+    SHL64ri_NF = 4422
+
+    SHL64ri_NF_ND = 4423
+
+    SHL64ri_alt = 4424
+
+    SHL8m1 = 4425
+
+    SHL8m1_EVEX = 4426
+
+    SHL8m1_ND = 4427
+
+    SHL8m1_NF = 4428
+
+    SHL8m1_NF_ND = 4429
+
+    SHL8m1_alt = 4430
+
+    SHL8mCL = 4431
+
+    SHL8mCL_EVEX = 4432
+
+    SHL8mCL_ND = 4433
+
+    SHL8mCL_NF = 4434
+
+    SHL8mCL_NF_ND = 4435
+
+    SHL8mCL_alt = 4436
+
+    SHL8mi = 4437
+
+    SHL8mi_EVEX = 4438
+
+    SHL8mi_ND = 4439
+
+    SHL8mi_NF = 4440
+
+    SHL8mi_NF_ND = 4441
+
+    SHL8mi_alt = 4442
+
+    SHL8r1 = 4443
+
+    SHL8r1_EVEX = 4444
+
+    SHL8r1_ND = 4445
+
+    SHL8r1_NF = 4446
+
+    SHL8r1_NF_ND = 4447
+
+    SHL8r1_alt = 4448
+
+    SHL8rCL = 4449
+
+    SHL8rCL_EVEX = 4450
+
+    SHL8rCL_ND = 4451
+
+    SHL8rCL_NF = 4452
+
+    SHL8rCL_NF_ND = 4453
+
+    SHL8rCL_alt = 4454
+
+    SHL8ri = 4455
+
+    SHL8ri_EVEX = 4456
+
+    SHL8ri_ND = 4457
+
+    SHL8ri_NF = 4458
+
+    SHL8ri_NF_ND = 4459
+
+    SHL8ri_alt = 4460
+
+    SHLD16mrCL = 4461
+
+    SHLD16mrCL_EVEX = 4462
+
+    SHLD16mrCL_ND = 4463
+
+    SHLD16mrCL_NF = 4464
+
+    SHLD16mrCL_NF_ND = 4465
+
+    SHLD16mri8 = 4466
+
+    SHLD16mri8_EVEX = 4467
+
+    SHLD16mri8_ND = 4468
+
+    SHLD16mri8_NF = 4469
+
+    SHLD16mri8_NF_ND = 4470
+
+    SHLD16rrCL = 4471
+
+    SHLD16rrCL_EVEX = 4472
+
+    SHLD16rrCL_ND = 4473
+
+    SHLD16rrCL_NF = 4474
+
+    SHLD16rrCL_NF_ND = 4475
+
+    SHLD16rri8 = 4476
+
+    SHLD16rri8_EVEX = 4477
+
+    SHLD16rri8_ND = 4478
+
+    SHLD16rri8_NF = 4479
+
+    SHLD16rri8_NF_ND = 4480
+
+    SHLD32mrCL = 4481
+
+    SHLD32mrCL_EVEX = 4482
+
+    SHLD32mrCL_ND = 4483
+
+    SHLD32mrCL_NF = 4484
+
+    SHLD32mrCL_NF_ND = 4485
+
+    SHLD32mri8 = 4486
+
+    SHLD32mri8_EVEX = 4487
+
+    SHLD32mri8_ND = 4488
+
+    SHLD32mri8_NF = 4489
+
+    SHLD32mri8_NF_ND = 4490
+
+    SHLD32rrCL = 4491
+
+    SHLD32rrCL_EVEX = 4492
+
+    SHLD32rrCL_ND = 4493
+
+    SHLD32rrCL_NF = 4494
+
+    SHLD32rrCL_NF_ND = 4495
+
+    SHLD32rri8 = 4496
+
+    SHLD32rri8_EVEX = 4497
+
+    SHLD32rri8_ND = 4498
+
+    SHLD32rri8_NF = 4499
+
+    SHLD32rri8_NF_ND = 4500
+
+    SHLD64mrCL = 4501
+
+    SHLD64mrCL_EVEX = 4502
+
+    SHLD64mrCL_ND = 4503
+
+    SHLD64mrCL_NF = 4504
+
+    SHLD64mrCL_NF_ND = 4505
+
+    SHLD64mri8 = 4506
+
+    SHLD64mri8_EVEX = 4507
+
+    SHLD64mri8_ND = 4508
+
+    SHLD64mri8_NF = 4509
+
+    SHLD64mri8_NF_ND = 4510
+
+    SHLD64rrCL = 4511
+
+    SHLD64rrCL_EVEX = 4512
+
+    SHLD64rrCL_ND = 4513
+
+    SHLD64rrCL_NF = 4514
+
+    SHLD64rrCL_NF_ND = 4515
+
+    SHLD64rri8 = 4516
+
+    SHLD64rri8_EVEX = 4517
+
+    SHLD64rri8_ND = 4518
+
+    SHLD64rri8_NF = 4519
+
+    SHLD64rri8_NF_ND = 4520
+
+    SHLX32rm = 4521
+
+    SHLX32rm_EVEX = 4522
+
+    SHLX32rr = 4523
+
+    SHLX32rr_EVEX = 4524
+
+    SHLX64rm = 4525
+
+    SHLX64rm_EVEX = 4526
+
+    SHLX64rr = 4527
+
+    SHLX64rr_EVEX = 4528
+
+    SHR16m1 = 4529
+
+    SHR16m1_EVEX = 4530
+
+    SHR16m1_ND = 4531
+
+    SHR16m1_NF = 4532
+
+    SHR16m1_NF_ND = 4533
+
+    SHR16mCL = 4534
+
+    SHR16mCL_EVEX = 4535
+
+    SHR16mCL_ND = 4536
+
+    SHR16mCL_NF = 4537
+
+    SHR16mCL_NF_ND = 4538
+
+    SHR16mi = 4539
+
+    SHR16mi_EVEX = 4540
+
+    SHR16mi_ND = 4541
+
+    SHR16mi_NF = 4542
+
+    SHR16mi_NF_ND = 4543
+
+    SHR16r1 = 4544
+
+    SHR16r1_EVEX = 4545
+
+    SHR16r1_ND = 4546
+
+    SHR16r1_NF = 4547
+
+    SHR16r1_NF_ND = 4548
+
+    SHR16rCL = 4549
+
+    SHR16rCL_EVEX = 4550
+
+    SHR16rCL_ND = 4551
+
+    SHR16rCL_NF = 4552
+
+    SHR16rCL_NF_ND = 4553
+
+    SHR16ri = 4554
+
+    SHR16ri_EVEX = 4555
+
+    SHR16ri_ND = 4556
+
+    SHR16ri_NF = 4557
+
+    SHR16ri_NF_ND = 4558
+
+    SHR32m1 = 4559
+
+    SHR32m1_EVEX = 4560
+
+    SHR32m1_ND = 4561
+
+    SHR32m1_NF = 4562
+
+    SHR32m1_NF_ND = 4563
+
+    SHR32mCL = 4564
+
+    SHR32mCL_EVEX = 4565
+
+    SHR32mCL_ND = 4566
+
+    SHR32mCL_NF = 4567
+
+    SHR32mCL_NF_ND = 4568
+
+    SHR32mi = 4569
+
+    SHR32mi_EVEX = 4570
+
+    SHR32mi_ND = 4571
+
+    SHR32mi_NF = 4572
+
+    SHR32mi_NF_ND = 4573
+
+    SHR32r1 = 4574
+
+    SHR32r1_EVEX = 4575
+
+    SHR32r1_ND = 4576
+
+    SHR32r1_NF = 4577
+
+    SHR32r1_NF_ND = 4578
+
+    SHR32rCL = 4579
+
+    SHR32rCL_EVEX = 4580
+
+    SHR32rCL_ND = 4581
+
+    SHR32rCL_NF = 4582
+
+    SHR32rCL_NF_ND = 4583
+
+    SHR32ri = 4584
+
+    SHR32ri_EVEX = 4585
+
+    SHR32ri_ND = 4586
+
+    SHR32ri_NF = 4587
+
+    SHR32ri_NF_ND = 4588
+
+    SHR64m1 = 4589
+
+    SHR64m1_EVEX = 4590
+
+    SHR64m1_ND = 4591
+
+    SHR64m1_NF = 4592
+
+    SHR64m1_NF_ND = 4593
+
+    SHR64mCL = 4594
+
+    SHR64mCL_EVEX = 4595
+
+    SHR64mCL_ND = 4596
+
+    SHR64mCL_NF = 4597
+
+    SHR64mCL_NF_ND = 4598
+
+    SHR64mi = 4599
+
+    SHR64mi_EVEX = 4600
+
+    SHR64mi_ND = 4601
+
+    SHR64mi_NF = 4602
+
+    SHR64mi_NF_ND = 4603
+
+    SHR64r1 = 4604
+
+    SHR64r1_EVEX = 4605
+
+    SHR64r1_ND = 4606
+
+    SHR64r1_NF = 4607
+
+    SHR64r1_NF_ND = 4608
+
+    SHR64rCL = 4609
+
+    SHR64rCL_EVEX = 4610
+
+    SHR64rCL_ND = 4611
+
+    SHR64rCL_NF = 4612
+
+    SHR64rCL_NF_ND = 4613
+
+    SHR64ri = 4614
+
+    SHR64ri_EVEX = 4615
+
+    SHR64ri_ND = 4616
+
+    SHR64ri_NF = 4617
+
+    SHR64ri_NF_ND = 4618
+
+    SHR8m1 = 4619
+
+    SHR8m1_EVEX = 4620
+
+    SHR8m1_ND = 4621
+
+    SHR8m1_NF = 4622
+
+    SHR8m1_NF_ND = 4623
+
+    SHR8mCL = 4624
+
+    SHR8mCL_EVEX = 4625
+
+    SHR8mCL_ND = 4626
+
+    SHR8mCL_NF = 4627
+
+    SHR8mCL_NF_ND = 4628
+
+    SHR8mi = 4629
+
+    SHR8mi_EVEX = 4630
+
+    SHR8mi_ND = 4631
+
+    SHR8mi_NF = 4632
+
+    SHR8mi_NF_ND = 4633
+
+    SHR8r1 = 4634
+
+    SHR8r1_EVEX = 4635
+
+    SHR8r1_ND = 4636
+
+    SHR8r1_NF = 4637
+
+    SHR8r1_NF_ND = 4638
+
+    SHR8rCL = 4639
+
+    SHR8rCL_EVEX = 4640
+
+    SHR8rCL_ND = 4641
+
+    SHR8rCL_NF = 4642
+
+    SHR8rCL_NF_ND = 4643
+
+    SHR8ri = 4644
+
+    SHR8ri_EVEX = 4645
+
+    SHR8ri_ND = 4646
+
+    SHR8ri_NF = 4647
+
+    SHR8ri_NF_ND = 4648
+
+    SHRD16mrCL = 4649
+
+    SHRD16mrCL_EVEX = 4650
+
+    SHRD16mrCL_ND = 4651
+
+    SHRD16mrCL_NF = 4652
+
+    SHRD16mrCL_NF_ND = 4653
+
+    SHRD16mri8 = 4654
+
+    SHRD16mri8_EVEX = 4655
+
+    SHRD16mri8_ND = 4656
+
+    SHRD16mri8_NF = 4657
+
+    SHRD16mri8_NF_ND = 4658
+
+    SHRD16rrCL = 4659
+
+    SHRD16rrCL_EVEX = 4660
+
+    SHRD16rrCL_ND = 4661
+
+    SHRD16rrCL_NF = 4662
+
+    SHRD16rrCL_NF_ND = 4663
+
+    SHRD16rri8 = 4664
+
+    SHRD16rri8_EVEX = 4665
+
+    SHRD16rri8_ND = 4666
+
+    SHRD16rri8_NF = 4667
+
+    SHRD16rri8_NF_ND = 4668
+
+    SHRD32mrCL = 4669
+
+    SHRD32mrCL_EVEX = 4670
+
+    SHRD32mrCL_ND = 4671
+
+    SHRD32mrCL_NF = 4672
+
+    SHRD32mrCL_NF_ND = 4673
+
+    SHRD32mri8 = 4674
+
+    SHRD32mri8_EVEX = 4675
+
+    SHRD32mri8_ND = 4676
+
+    SHRD32mri8_NF = 4677
+
+    SHRD32mri8_NF_ND = 4678
+
+    SHRD32rrCL = 4679
+
+    SHRD32rrCL_EVEX = 4680
+
+    SHRD32rrCL_ND = 4681
+
+    SHRD32rrCL_NF = 4682
+
+    SHRD32rrCL_NF_ND = 4683
+
+    SHRD32rri8 = 4684
+
+    SHRD32rri8_EVEX = 4685
+
+    SHRD32rri8_ND = 4686
+
+    SHRD32rri8_NF = 4687
+
+    SHRD32rri8_NF_ND = 4688
+
+    SHRD64mrCL = 4689
+
+    SHRD64mrCL_EVEX = 4690
+
+    SHRD64mrCL_ND = 4691
+
+    SHRD64mrCL_NF = 4692
+
+    SHRD64mrCL_NF_ND = 4693
+
+    SHRD64mri8 = 4694
+
+    SHRD64mri8_EVEX = 4695
+
+    SHRD64mri8_ND = 4696
+
+    SHRD64mri8_NF = 4697
+
+    SHRD64mri8_NF_ND = 4698
+
+    SHRD64rrCL = 4699
+
+    SHRD64rrCL_EVEX = 4700
+
+    SHRD64rrCL_ND = 4701
+
+    SHRD64rrCL_NF = 4702
+
+    SHRD64rrCL_NF_ND = 4703
+
+    SHRD64rri8 = 4704
+
+    SHRD64rri8_EVEX = 4705
+
+    SHRD64rri8_ND = 4706
+
+    SHRD64rri8_NF = 4707
+
+    SHRD64rri8_NF_ND = 4708
+
+    SHRX32rm = 4709
+
+    SHRX32rm_EVEX = 4710
+
+    SHRX32rr = 4711
+
+    SHRX32rr_EVEX = 4712
+
+    SHRX64rm = 4713
+
+    SHRX64rm_EVEX = 4714
+
+    SHRX64rr = 4715
+
+    SHRX64rr_EVEX = 4716
+
+    SHUFPDrmi = 4717
+
+    SHUFPDrri = 4718
+
+    SHUFPSrmi = 4719
+
+    SHUFPSrri = 4720
+
+    SIDT16m = 4721
+
+    SIDT32m = 4722
+
+    SIDT64m = 4723
+
+    SKINIT = 4724
+
+    SLDT16m = 4725
+
+    SLDT16r = 4726
+
+    SLDT32r = 4727
+
+    SLDT64r = 4728
+
+    SLWPCB = 4729
+
+    SLWPCB64 = 4730
+
+    SMSW16m = 4731
+
+    SMSW16r = 4732
+
+    SMSW32r = 4733
+
+    SMSW64r = 4734
+
+    SQRTPDm = 4735
+
+    SQRTPDr = 4736
+
+    SQRTPSm = 4737
+
+    SQRTPSr = 4738
+
+    SQRTSDm = 4739
+
+    SQRTSDm_Int = 4740
+
+    SQRTSDr = 4741
+
+    SQRTSDr_Int = 4742
+
+    SQRTSSm = 4743
+
+    SQRTSSm_Int = 4744
+
+    SQRTSSr = 4745
+
+    SQRTSSr_Int = 4746
+
+    SQRT_F = 4747
+
+    SQRT_Fp32 = 4748
+
+    SQRT_Fp64 = 4749
+
+    SQRT_Fp80 = 4750
+
+    SS_PREFIX = 4751
+
+    STAC = 4752
+
+    STACKALLOC_W_PROBING = 4753
+
+    STC = 4754
+
+    STD = 4755
+
+    STGI = 4756
+
+    STI = 4757
+
+    STMXCSR = 4758
+
+    STOSB = 4759
+
+    STOSL = 4760
+
+    STOSQ = 4761
+
+    STOSW = 4762
+
+    STR16r = 4763
+
+    STR32r = 4764
+
+    STR64r = 4765
+
+    STRm = 4766
+
+    STTILECFG = 4767
+
+    STTILECFG_EVEX = 4768
+
+    STUI = 4769
+
+    ST_F32m = 4770
+
+    ST_F64m = 4771
+
+    ST_FP32m = 4772
+
+    ST_FP64m = 4773
+
+    ST_FP80m = 4774
+
+    ST_FPrr = 4775
+
+    ST_FPrr_alt = 4776
+
+    ST_FPrr_alt2 = 4777
+
+    ST_Fp32m = 4778
+
+    ST_Fp64m = 4779
+
+    ST_Fp64m32 = 4780
+
+    ST_Fp80m32 = 4781
+
+    ST_Fp80m64 = 4782
+
+    ST_FpP32m = 4783
+
+    ST_FpP64m = 4784
+
+    ST_FpP64m32 = 4785
+
+    ST_FpP80m = 4786
+
+    ST_FpP80m32 = 4787
+
+    ST_FpP80m64 = 4788
+
+    ST_Frr = 4789
+
+    SUB16i16 = 4790
+
+    SUB16mi = 4791
+
+    SUB16mi8 = 4792
+
+    SUB16mi8_EVEX = 4793
+
+    SUB16mi8_ND = 4794
+
+    SUB16mi8_NF = 4795
+
+    SUB16mi8_NF_ND = 4796
+
+    SUB16mi_EVEX = 4797
+
+    SUB16mi_ND = 4798
+
+    SUB16mi_NF = 4799
+
+    SUB16mi_NF_ND = 4800
+
+    SUB16mr = 4801
+
+    SUB16mr_EVEX = 4802
+
+    SUB16mr_ND = 4803
+
+    SUB16mr_NF = 4804
+
+    SUB16mr_NF_ND = 4805
+
+    SUB16ri = 4806
+
+    SUB16ri8 = 4807
+
+    SUB16ri8_EVEX = 4808
+
+    SUB16ri8_ND = 4809
+
+    SUB16ri8_NF = 4810
+
+    SUB16ri8_NF_ND = 4811
+
+    SUB16ri_EVEX = 4812
+
+    SUB16ri_ND = 4813
+
+    SUB16ri_NF = 4814
+
+    SUB16ri_NF_ND = 4815
+
+    SUB16rm = 4816
+
+    SUB16rm_EVEX = 4817
+
+    SUB16rm_ND = 4818
+
+    SUB16rm_NF = 4819
+
+    SUB16rm_NF_ND = 4820
+
+    SUB16rr = 4821
+
+    SUB16rr_EVEX = 4822
+
+    SUB16rr_EVEX_REV = 4823
+
+    SUB16rr_ND = 4824
+
+    SUB16rr_ND_REV = 4825
+
+    SUB16rr_NF = 4826
+
+    SUB16rr_NF_ND = 4827
+
+    SUB16rr_NF_ND_REV = 4828
+
+    SUB16rr_NF_REV = 4829
+
+    SUB16rr_REV = 4830
+
+    SUB32i32 = 4831
+
+    SUB32mi = 4832
+
+    SUB32mi8 = 4833
+
+    SUB32mi8_EVEX = 4834
+
+    SUB32mi8_ND = 4835
+
+    SUB32mi8_NF = 4836
+
+    SUB32mi8_NF_ND = 4837
+
+    SUB32mi_EVEX = 4838
+
+    SUB32mi_ND = 4839
+
+    SUB32mi_NF = 4840
+
+    SUB32mi_NF_ND = 4841
+
+    SUB32mr = 4842
+
+    SUB32mr_EVEX = 4843
+
+    SUB32mr_ND = 4844
+
+    SUB32mr_NF = 4845
+
+    SUB32mr_NF_ND = 4846
+
+    SUB32ri = 4847
+
+    SUB32ri8 = 4848
+
+    SUB32ri8_EVEX = 4849
+
+    SUB32ri8_ND = 4850
+
+    SUB32ri8_NF = 4851
+
+    SUB32ri8_NF_ND = 4852
+
+    SUB32ri_EVEX = 4853
+
+    SUB32ri_ND = 4854
+
+    SUB32ri_NF = 4855
+
+    SUB32ri_NF_ND = 4856
+
+    SUB32rm = 4857
+
+    SUB32rm_EVEX = 4858
+
+    SUB32rm_ND = 4859
+
+    SUB32rm_NF = 4860
+
+    SUB32rm_NF_ND = 4861
+
+    SUB32rr = 4862
+
+    SUB32rr_EVEX = 4863
+
+    SUB32rr_EVEX_REV = 4864
+
+    SUB32rr_ND = 4865
+
+    SUB32rr_ND_REV = 4866
+
+    SUB32rr_NF = 4867
+
+    SUB32rr_NF_ND = 4868
+
+    SUB32rr_NF_ND_REV = 4869
+
+    SUB32rr_NF_REV = 4870
+
+    SUB32rr_REV = 4871
+
+    SUB64i32 = 4872
+
+    SUB64mi32 = 4873
+
+    SUB64mi32_EVEX = 4874
+
+    SUB64mi32_ND = 4875
+
+    SUB64mi32_NF = 4876
+
+    SUB64mi32_NF_ND = 4877
+
+    SUB64mi8 = 4878
+
+    SUB64mi8_EVEX = 4879
+
+    SUB64mi8_ND = 4880
+
+    SUB64mi8_NF = 4881
+
+    SUB64mi8_NF_ND = 4882
+
+    SUB64mr = 4883
+
+    SUB64mr_EVEX = 4884
+
+    SUB64mr_ND = 4885
+
+    SUB64mr_NF = 4886
+
+    SUB64mr_NF_ND = 4887
+
+    SUB64ri32 = 4888
+
+    SUB64ri32_EVEX = 4889
+
+    SUB64ri32_ND = 4890
+
+    SUB64ri32_NF = 4891
+
+    SUB64ri32_NF_ND = 4892
+
+    SUB64ri8 = 4893
+
+    SUB64ri8_EVEX = 4894
+
+    SUB64ri8_ND = 4895
+
+    SUB64ri8_NF = 4896
+
+    SUB64ri8_NF_ND = 4897
+
+    SUB64rm = 4898
+
+    SUB64rm_EVEX = 4899
+
+    SUB64rm_ND = 4900
+
+    SUB64rm_NF = 4901
+
+    SUB64rm_NF_ND = 4902
+
+    SUB64rr = 4903
+
+    SUB64rr_EVEX = 4904
+
+    SUB64rr_EVEX_REV = 4905
+
+    SUB64rr_ND = 4906
+
+    SUB64rr_ND_REV = 4907
+
+    SUB64rr_NF = 4908
+
+    SUB64rr_NF_ND = 4909
+
+    SUB64rr_NF_ND_REV = 4910
+
+    SUB64rr_NF_REV = 4911
+
+    SUB64rr_REV = 4912
+
+    SUB8i8 = 4913
+
+    SUB8mi = 4914
+
+    SUB8mi8 = 4915
+
+    SUB8mi_EVEX = 4916
+
+    SUB8mi_ND = 4917
+
+    SUB8mi_NF = 4918
+
+    SUB8mi_NF_ND = 4919
+
+    SUB8mr = 4920
+
+    SUB8mr_EVEX = 4921
+
+    SUB8mr_ND = 4922
+
+    SUB8mr_NF = 4923
+
+    SUB8mr_NF_ND = 4924
+
+    SUB8ri = 4925
+
+    SUB8ri8 = 4926
+
+    SUB8ri_EVEX = 4927
+
+    SUB8ri_ND = 4928
+
+    SUB8ri_NF = 4929
+
+    SUB8ri_NF_ND = 4930
+
+    SUB8rm = 4931
+
+    SUB8rm_EVEX = 4932
+
+    SUB8rm_ND = 4933
+
+    SUB8rm_NF = 4934
+
+    SUB8rm_NF_ND = 4935
+
+    SUB8rr = 4936
+
+    SUB8rr_EVEX = 4937
+
+    SUB8rr_EVEX_REV = 4938
+
+    SUB8rr_ND = 4939
+
+    SUB8rr_ND_REV = 4940
+
+    SUB8rr_NF = 4941
+
+    SUB8rr_NF_ND = 4942
+
+    SUB8rr_NF_ND_REV = 4943
+
+    SUB8rr_NF_REV = 4944
+
+    SUB8rr_REV = 4945
+
+    SUBPDrm = 4946
+
+    SUBPDrr = 4947
+
+    SUBPSrm = 4948
+
+    SUBPSrr = 4949
+
+    SUBR_F32m = 4950
+
+    SUBR_F64m = 4951
+
+    SUBR_FI16m = 4952
+
+    SUBR_FI32m = 4953
+
+    SUBR_FPrST0 = 4954
+
+    SUBR_FST0r = 4955
+
+    SUBR_Fp32m = 4956
+
+    SUBR_Fp64m = 4957
+
+    SUBR_Fp64m32 = 4958
+
+    SUBR_Fp80m32 = 4959
+
+    SUBR_Fp80m64 = 4960
+
+    SUBR_FpI16m32 = 4961
+
+    SUBR_FpI16m64 = 4962
+
+    SUBR_FpI16m80 = 4963
+
+    SUBR_FpI32m32 = 4964
+
+    SUBR_FpI32m64 = 4965
+
+    SUBR_FpI32m80 = 4966
+
+    SUBR_FrST0 = 4967
+
+    SUBSDrm = 4968
+
+    SUBSDrm_Int = 4969
+
+    SUBSDrr = 4970
+
+    SUBSDrr_Int = 4971
+
+    SUBSSrm = 4972
+
+    SUBSSrm_Int = 4973
+
+    SUBSSrr = 4974
+
+    SUBSSrr_Int = 4975
+
+    SUB_F32m = 4976
+
+    SUB_F64m = 4977
+
+    SUB_FI16m = 4978
+
+    SUB_FI32m = 4979
+
+    SUB_FPrST0 = 4980
+
+    SUB_FST0r = 4981
+
+    SUB_Fp32 = 4982
+
+    SUB_Fp32m = 4983
+
+    SUB_Fp64 = 4984
+
+    SUB_Fp64m = 4985
+
+    SUB_Fp64m32 = 4986
+
+    SUB_Fp80 = 4987
+
+    SUB_Fp80m32 = 4988
+
+    SUB_Fp80m64 = 4989
+
+    SUB_FpI16m32 = 4990
+
+    SUB_FpI16m64 = 4991
+
+    SUB_FpI16m80 = 4992
+
+    SUB_FpI32m32 = 4993
+
+    SUB_FpI32m64 = 4994
+
+    SUB_FpI32m80 = 4995
+
+    SUB_FrST0 = 4996
+
+    SWAPGS = 4997
+
+    SYSCALL = 4998
+
+    SYSENTER = 4999
+
+    SYSEXIT = 5000
+
+    SYSEXIT64 = 5001
+
+    SYSRET = 5002
+
+    SYSRET64 = 5003
+
+    T1MSKC32rm = 5004
+
+    T1MSKC32rr = 5005
+
+    T1MSKC64rm = 5006
+
+    T1MSKC64rr = 5007
+
+    TAILJMPd = 5008
+
+    TAILJMPd64 = 5009
+
+    TAILJMPd64_CC = 5010
+
+    TAILJMPd_CC = 5011
+
+    TAILJMPm = 5012
+
+    TAILJMPm64 = 5013
+
+    TAILJMPm64_REX = 5014
+
+    TAILJMPr = 5015
+
+    TAILJMPr64 = 5016
+
+    TAILJMPr64_REX = 5017
+
+    TCMMIMFP16PS = 5018
+
+    TCMMRLFP16PS = 5019
+
+    TCRETURN_HIPE32ri = 5020
+
+    TCRETURN_WIN64ri = 5021
+
+    TCRETURN_WINmi64 = 5022
+
+    TCRETURNdi = 5023
+
+    TCRETURNdi64 = 5024
+
+    TCRETURNdi64cc = 5025
+
+    TCRETURNdicc = 5026
+
+    TCRETURNmi = 5027
+
+    TCRETURNmi64 = 5028
+
+    TCRETURNri = 5029
+
+    TCRETURNri64 = 5030
+
+    TCRETURNri64_ImpCall = 5031
+
+    TCVTROWD2PSrte = 5032
+
+    TCVTROWD2PSrti = 5033
+
+    TCVTROWPS2BF16Hrte = 5034
+
+    TCVTROWPS2BF16Hrti = 5035
+
+    TCVTROWPS2BF16Lrte = 5036
+
+    TCVTROWPS2BF16Lrti = 5037
+
+    TCVTROWPS2PHHrte = 5038
+
+    TCVTROWPS2PHHrti = 5039
+
+    TCVTROWPS2PHLrte = 5040
+
+    TCVTROWPS2PHLrti = 5041
+
+    TDCALL = 5042
+
+    TDPBF16PS = 5043
+
+    TDPBF8PS = 5044
+
+    TDPBHF8PS = 5045
+
+    TDPBSSD = 5046
+
+    TDPBSUD = 5047
+
+    TDPBUSD = 5048
+
+    TDPBUUD = 5049
+
+    TDPFP16PS = 5050
+
+    TDPHBF8PS = 5051
+
+    TDPHF8PS = 5052
+
+    TEST16i16 = 5053
+
+    TEST16mi = 5054
+
+    TEST16mi_alt = 5055
+
+    TEST16mr = 5056
+
+    TEST16ri = 5057
+
+    TEST16ri_alt = 5058
+
+    TEST16rr = 5059
+
+    TEST32i32 = 5060
+
+    TEST32mi = 5061
+
+    TEST32mi_alt = 5062
+
+    TEST32mr = 5063
+
+    TEST32ri = 5064
+
+    TEST32ri_alt = 5065
+
+    TEST32rr = 5066
+
+    TEST64i32 = 5067
+
+    TEST64mi32 = 5068
+
+    TEST64mi32_alt = 5069
+
+    TEST64mr = 5070
+
+    TEST64ri32 = 5071
+
+    TEST64ri32_alt = 5072
+
+    TEST64rr = 5073
+
+    TEST8i8 = 5074
+
+    TEST8mi = 5075
+
+    TEST8mi_alt = 5076
+
+    TEST8mr = 5077
+
+    TEST8ri = 5078
+
+    TEST8ri_alt = 5079
+
+    TEST8rr = 5080
+
+    TESTUI = 5081
+
+    TILELOADD = 5082
+
+    TILELOADDRS = 5083
+
+    TILELOADDRST1 = 5084
+
+    TILELOADDRST1_EVEX = 5085
+
+    TILELOADDRS_EVEX = 5086
+
+    TILELOADDT1 = 5087
+
+    TILELOADDT1_EVEX = 5088
+
+    TILELOADD_EVEX = 5089
+
+    TILEMOVROWrte = 5090
+
+    TILEMOVROWrti = 5091
+
+    TILERELEASE = 5092
+
+    TILESTORED = 5093
+
+    TILESTORED_EVEX = 5094
+
+    TILEZERO = 5095
+
+    TLBSYNC = 5096
+
+    TLSCall_32 = 5097
+
+    TLSCall_64 = 5098
+
+    TLS_addr32 = 5099
+
+    TLS_addr64 = 5100
+
+    TLS_addrX32 = 5101
+
+    TLS_base_addr32 = 5102
+
+    TLS_base_addr64 = 5103
+
+    TLS_base_addrX32 = 5104
+
+    TLS_desc32 = 5105
+
+    TLS_desc64 = 5106
+
+    TPAUSE = 5107
+
+    TRAP = 5108
+
+    TST_F = 5109
+
+    TST_Fp32 = 5110
+
+    TST_Fp64 = 5111
+
+    TST_Fp80 = 5112
+
+    TZCNT16rm = 5113
+
+    TZCNT16rm_EVEX = 5114
+
+    TZCNT16rm_NF = 5115
+
+    TZCNT16rr = 5116
+
+    TZCNT16rr_EVEX = 5117
+
+    TZCNT16rr_NF = 5118
+
+    TZCNT32rm = 5119
+
+    TZCNT32rm_EVEX = 5120
+
+    TZCNT32rm_NF = 5121
+
+    TZCNT32rr = 5122
+
+    TZCNT32rr_EVEX = 5123
+
+    TZCNT32rr_NF = 5124
+
+    TZCNT64rm = 5125
+
+    TZCNT64rm_EVEX = 5126
+
+    TZCNT64rm_NF = 5127
+
+    TZCNT64rr = 5128
+
+    TZCNT64rr_EVEX = 5129
+
+    TZCNT64rr_NF = 5130
+
+    TZMSK32rm = 5131
+
+    TZMSK32rr = 5132
+
+    TZMSK64rm = 5133
+
+    TZMSK64rr = 5134
+
+    UBSAN_UD1 = 5135
+
+    UCOMISDrm = 5136
+
+    UCOMISDrm_Int = 5137
+
+    UCOMISDrr = 5138
+
+    UCOMISDrr_Int = 5139
+
+    UCOMISSrm = 5140
+
+    UCOMISSrm_Int = 5141
+
+    UCOMISSrr = 5142
+
+    UCOMISSrr_Int = 5143
+
+    UCOM_FIPr = 5144
+
+    UCOM_FIr = 5145
+
+    UCOM_FPPr = 5146
+
+    UCOM_FPr = 5147
+
+    UCOM_FpIr32 = 5148
+
+    UCOM_FpIr64 = 5149
+
+    UCOM_FpIr80 = 5150
+
+    UCOM_Fpr32 = 5151
+
+    UCOM_Fpr64 = 5152
+
+    UCOM_Fpr80 = 5153
+
+    UCOM_Fr = 5154
+
+    UD1Lm = 5155
+
+    UD1Lr = 5156
+
+    UD1Qm = 5157
+
+    UD1Qr = 5158
+
+    UD1Wm = 5159
+
+    UD1Wr = 5160
+
+    UIRET = 5161
+
+    UMONITOR16 = 5162
+
+    UMONITOR32 = 5163
+
+    UMONITOR64 = 5164
+
+    UMWAIT = 5165
+
+    UNPCKHPDrm = 5166
+
+    UNPCKHPDrr = 5167
+
+    UNPCKHPSrm = 5168
+
+    UNPCKHPSrr = 5169
+
+    UNPCKLPDrm = 5170
+
+    UNPCKLPDrr = 5171
+
+    UNPCKLPSrm = 5172
+
+    UNPCKLPSrr = 5173
+
+    URDMSRri = 5174
+
+    URDMSRri_EVEX = 5175
+
+    URDMSRrr = 5176
+
+    URDMSRrr_EVEX = 5177
+
+    UWRMSRir = 5178
+
+    UWRMSRir_EVEX = 5179
+
+    UWRMSRrr = 5180
+
+    UWRMSRrr_EVEX = 5181
+
+    V4FMADDPSrm = 5182
+
+    V4FMADDPSrmk = 5183
+
+    V4FMADDPSrmkz = 5184
+
+    V4FMADDSSrm = 5185
+
+    V4FMADDSSrmk = 5186
+
+    V4FMADDSSrmkz = 5187
+
+    V4FNMADDPSrm = 5188
+
+    V4FNMADDPSrmk = 5189
+
+    V4FNMADDPSrmkz = 5190
+
+    V4FNMADDSSrm = 5191
+
+    V4FNMADDSSrmk = 5192
+
+    V4FNMADDSSrmkz = 5193
+
+    VAARG_64 = 5194
+
+    VAARG_X32 = 5195
+
+    VADDBF16Z128rm = 5196
+
+    VADDBF16Z128rmb = 5197
+
+    VADDBF16Z128rmbk = 5198
+
+    VADDBF16Z128rmbkz = 5199
+
+    VADDBF16Z128rmk = 5200
+
+    VADDBF16Z128rmkz = 5201
+
+    VADDBF16Z128rr = 5202
+
+    VADDBF16Z128rrk = 5203
+
+    VADDBF16Z128rrkz = 5204
+
+    VADDBF16Z256rm = 5205
+
+    VADDBF16Z256rmb = 5206
+
+    VADDBF16Z256rmbk = 5207
+
+    VADDBF16Z256rmbkz = 5208
+
+    VADDBF16Z256rmk = 5209
+
+    VADDBF16Z256rmkz = 5210
+
+    VADDBF16Z256rr = 5211
+
+    VADDBF16Z256rrk = 5212
+
+    VADDBF16Z256rrkz = 5213
+
+    VADDBF16Zrm = 5214
+
+    VADDBF16Zrmb = 5215
+
+    VADDBF16Zrmbk = 5216
+
+    VADDBF16Zrmbkz = 5217
+
+    VADDBF16Zrmk = 5218
+
+    VADDBF16Zrmkz = 5219
+
+    VADDBF16Zrr = 5220
+
+    VADDBF16Zrrk = 5221
+
+    VADDBF16Zrrkz = 5222
+
+    VADDPDYrm = 5223
+
+    VADDPDYrr = 5224
+
+    VADDPDZ128rm = 5225
+
+    VADDPDZ128rmb = 5226
+
+    VADDPDZ128rmbk = 5227
+
+    VADDPDZ128rmbkz = 5228
+
+    VADDPDZ128rmk = 5229
+
+    VADDPDZ128rmkz = 5230
+
+    VADDPDZ128rr = 5231
+
+    VADDPDZ128rrk = 5232
+
+    VADDPDZ128rrkz = 5233
+
+    VADDPDZ256rm = 5234
+
+    VADDPDZ256rmb = 5235
+
+    VADDPDZ256rmbk = 5236
+
+    VADDPDZ256rmbkz = 5237
+
+    VADDPDZ256rmk = 5238
+
+    VADDPDZ256rmkz = 5239
+
+    VADDPDZ256rr = 5240
+
+    VADDPDZ256rrk = 5241
+
+    VADDPDZ256rrkz = 5242
+
+    VADDPDZrm = 5243
+
+    VADDPDZrmb = 5244
+
+    VADDPDZrmbk = 5245
+
+    VADDPDZrmbkz = 5246
+
+    VADDPDZrmk = 5247
+
+    VADDPDZrmkz = 5248
+
+    VADDPDZrr = 5249
+
+    VADDPDZrrb = 5250
+
+    VADDPDZrrbk = 5251
+
+    VADDPDZrrbkz = 5252
+
+    VADDPDZrrk = 5253
+
+    VADDPDZrrkz = 5254
+
+    VADDPDrm = 5255
+
+    VADDPDrr = 5256
+
+    VADDPHZ128rm = 5257
+
+    VADDPHZ128rmb = 5258
+
+    VADDPHZ128rmbk = 5259
+
+    VADDPHZ128rmbkz = 5260
+
+    VADDPHZ128rmk = 5261
+
+    VADDPHZ128rmkz = 5262
+
+    VADDPHZ128rr = 5263
+
+    VADDPHZ128rrk = 5264
+
+    VADDPHZ128rrkz = 5265
+
+    VADDPHZ256rm = 5266
+
+    VADDPHZ256rmb = 5267
+
+    VADDPHZ256rmbk = 5268
+
+    VADDPHZ256rmbkz = 5269
+
+    VADDPHZ256rmk = 5270
+
+    VADDPHZ256rmkz = 5271
+
+    VADDPHZ256rr = 5272
+
+    VADDPHZ256rrk = 5273
+
+    VADDPHZ256rrkz = 5274
+
+    VADDPHZrm = 5275
+
+    VADDPHZrmb = 5276
+
+    VADDPHZrmbk = 5277
+
+    VADDPHZrmbkz = 5278
+
+    VADDPHZrmk = 5279
+
+    VADDPHZrmkz = 5280
+
+    VADDPHZrr = 5281
+
+    VADDPHZrrb = 5282
+
+    VADDPHZrrbk = 5283
+
+    VADDPHZrrbkz = 5284
+
+    VADDPHZrrk = 5285
+
+    VADDPHZrrkz = 5286
+
+    VADDPSYrm = 5287
+
+    VADDPSYrr = 5288
+
+    VADDPSZ128rm = 5289
+
+    VADDPSZ128rmb = 5290
+
+    VADDPSZ128rmbk = 5291
+
+    VADDPSZ128rmbkz = 5292
+
+    VADDPSZ128rmk = 5293
+
+    VADDPSZ128rmkz = 5294
+
+    VADDPSZ128rr = 5295
+
+    VADDPSZ128rrk = 5296
+
+    VADDPSZ128rrkz = 5297
+
+    VADDPSZ256rm = 5298
+
+    VADDPSZ256rmb = 5299
+
+    VADDPSZ256rmbk = 5300
+
+    VADDPSZ256rmbkz = 5301
+
+    VADDPSZ256rmk = 5302
+
+    VADDPSZ256rmkz = 5303
+
+    VADDPSZ256rr = 5304
+
+    VADDPSZ256rrk = 5305
+
+    VADDPSZ256rrkz = 5306
+
+    VADDPSZrm = 5307
+
+    VADDPSZrmb = 5308
+
+    VADDPSZrmbk = 5309
+
+    VADDPSZrmbkz = 5310
+
+    VADDPSZrmk = 5311
+
+    VADDPSZrmkz = 5312
+
+    VADDPSZrr = 5313
+
+    VADDPSZrrb = 5314
+
+    VADDPSZrrbk = 5315
+
+    VADDPSZrrbkz = 5316
+
+    VADDPSZrrk = 5317
+
+    VADDPSZrrkz = 5318
+
+    VADDPSrm = 5319
+
+    VADDPSrr = 5320
+
+    VADDSDZrm = 5321
+
+    VADDSDZrm_Int = 5322
+
+    VADDSDZrmk_Int = 5323
+
+    VADDSDZrmkz_Int = 5324
+
+    VADDSDZrr = 5325
+
+    VADDSDZrr_Int = 5326
+
+    VADDSDZrrb_Int = 5327
+
+    VADDSDZrrbk_Int = 5328
+
+    VADDSDZrrbkz_Int = 5329
+
+    VADDSDZrrk_Int = 5330
+
+    VADDSDZrrkz_Int = 5331
+
+    VADDSDrm = 5332
+
+    VADDSDrm_Int = 5333
+
+    VADDSDrr = 5334
+
+    VADDSDrr_Int = 5335
+
+    VADDSHZrm = 5336
+
+    VADDSHZrm_Int = 5337
+
+    VADDSHZrmk_Int = 5338
+
+    VADDSHZrmkz_Int = 5339
+
+    VADDSHZrr = 5340
+
+    VADDSHZrr_Int = 5341
+
+    VADDSHZrrb_Int = 5342
+
+    VADDSHZrrbk_Int = 5343
+
+    VADDSHZrrbkz_Int = 5344
+
+    VADDSHZrrk_Int = 5345
+
+    VADDSHZrrkz_Int = 5346
+
+    VADDSSZrm = 5347
+
+    VADDSSZrm_Int = 5348
+
+    VADDSSZrmk_Int = 5349
+
+    VADDSSZrmkz_Int = 5350
+
+    VADDSSZrr = 5351
+
+    VADDSSZrr_Int = 5352
+
+    VADDSSZrrb_Int = 5353
+
+    VADDSSZrrbk_Int = 5354
+
+    VADDSSZrrbkz_Int = 5355
+
+    VADDSSZrrk_Int = 5356
+
+    VADDSSZrrkz_Int = 5357
+
+    VADDSSrm = 5358
+
+    VADDSSrm_Int = 5359
+
+    VADDSSrr = 5360
+
+    VADDSSrr_Int = 5361
+
+    VADDSUBPDYrm = 5362
+
+    VADDSUBPDYrr = 5363
+
+    VADDSUBPDrm = 5364
+
+    VADDSUBPDrr = 5365
+
+    VADDSUBPSYrm = 5366
+
+    VADDSUBPSYrr = 5367
+
+    VADDSUBPSrm = 5368
+
+    VADDSUBPSrr = 5369
+
+    VAESDECLASTYrm = 5370
+
+    VAESDECLASTYrr = 5371
+
+    VAESDECLASTZ128rm = 5372
+
+    VAESDECLASTZ128rr = 5373
+
+    VAESDECLASTZ256rm = 5374
+
+    VAESDECLASTZ256rr = 5375
+
+    VAESDECLASTZrm = 5376
+
+    VAESDECLASTZrr = 5377
+
+    VAESDECLASTrm = 5378
+
+    VAESDECLASTrr = 5379
+
+    VAESDECYrm = 5380
+
+    VAESDECYrr = 5381
+
+    VAESDECZ128rm = 5382
+
+    VAESDECZ128rr = 5383
+
+    VAESDECZ256rm = 5384
+
+    VAESDECZ256rr = 5385
+
+    VAESDECZrm = 5386
+
+    VAESDECZrr = 5387
+
+    VAESDECrm = 5388
+
+    VAESDECrr = 5389
+
+    VAESENCLASTYrm = 5390
+
+    VAESENCLASTYrr = 5391
+
+    VAESENCLASTZ128rm = 5392
+
+    VAESENCLASTZ128rr = 5393
+
+    VAESENCLASTZ256rm = 5394
+
+    VAESENCLASTZ256rr = 5395
+
+    VAESENCLASTZrm = 5396
+
+    VAESENCLASTZrr = 5397
+
+    VAESENCLASTrm = 5398
+
+    VAESENCLASTrr = 5399
+
+    VAESENCYrm = 5400
+
+    VAESENCYrr = 5401
+
+    VAESENCZ128rm = 5402
+
+    VAESENCZ128rr = 5403
+
+    VAESENCZ256rm = 5404
+
+    VAESENCZ256rr = 5405
+
+    VAESENCZrm = 5406
+
+    VAESENCZrr = 5407
+
+    VAESENCrm = 5408
+
+    VAESENCrr = 5409
+
+    VAESIMCrm = 5410
+
+    VAESIMCrr = 5411
+
+    VAESKEYGENASSISTrmi = 5412
+
+    VAESKEYGENASSISTrri = 5413
+
+    VALIGNDZ128rmbi = 5414
+
+    VALIGNDZ128rmbik = 5415
+
+    VALIGNDZ128rmbikz = 5416
+
+    VALIGNDZ128rmi = 5417
+
+    VALIGNDZ128rmik = 5418
+
+    VALIGNDZ128rmikz = 5419
+
+    VALIGNDZ128rri = 5420
+
+    VALIGNDZ128rrik = 5421
+
+    VALIGNDZ128rrikz = 5422
+
+    VALIGNDZ256rmbi = 5423
+
+    VALIGNDZ256rmbik = 5424
+
+    VALIGNDZ256rmbikz = 5425
+
+    VALIGNDZ256rmi = 5426
+
+    VALIGNDZ256rmik = 5427
+
+    VALIGNDZ256rmikz = 5428
+
+    VALIGNDZ256rri = 5429
+
+    VALIGNDZ256rrik = 5430
+
+    VALIGNDZ256rrikz = 5431
+
+    VALIGNDZrmbi = 5432
+
+    VALIGNDZrmbik = 5433
+
+    VALIGNDZrmbikz = 5434
+
+    VALIGNDZrmi = 5435
+
+    VALIGNDZrmik = 5436
+
+    VALIGNDZrmikz = 5437
+
+    VALIGNDZrri = 5438
+
+    VALIGNDZrrik = 5439
+
+    VALIGNDZrrikz = 5440
+
+    VALIGNQZ128rmbi = 5441
+
+    VALIGNQZ128rmbik = 5442
+
+    VALIGNQZ128rmbikz = 5443
+
+    VALIGNQZ128rmi = 5444
+
+    VALIGNQZ128rmik = 5445
+
+    VALIGNQZ128rmikz = 5446
+
+    VALIGNQZ128rri = 5447
+
+    VALIGNQZ128rrik = 5448
+
+    VALIGNQZ128rrikz = 5449
+
+    VALIGNQZ256rmbi = 5450
+
+    VALIGNQZ256rmbik = 5451
+
+    VALIGNQZ256rmbikz = 5452
+
+    VALIGNQZ256rmi = 5453
+
+    VALIGNQZ256rmik = 5454
+
+    VALIGNQZ256rmikz = 5455
+
+    VALIGNQZ256rri = 5456
+
+    VALIGNQZ256rrik = 5457
+
+    VALIGNQZ256rrikz = 5458
+
+    VALIGNQZrmbi = 5459
+
+    VALIGNQZrmbik = 5460
+
+    VALIGNQZrmbikz = 5461
+
+    VALIGNQZrmi = 5462
+
+    VALIGNQZrmik = 5463
+
+    VALIGNQZrmikz = 5464
+
+    VALIGNQZrri = 5465
+
+    VALIGNQZrrik = 5466
+
+    VALIGNQZrrikz = 5467
+
+    VANDNPDYrm = 5468
+
+    VANDNPDYrr = 5469
+
+    VANDNPDZ128rm = 5470
+
+    VANDNPDZ128rmb = 5471
+
+    VANDNPDZ128rmbk = 5472
+
+    VANDNPDZ128rmbkz = 5473
+
+    VANDNPDZ128rmk = 5474
+
+    VANDNPDZ128rmkz = 5475
+
+    VANDNPDZ128rr = 5476
+
+    VANDNPDZ128rrk = 5477
+
+    VANDNPDZ128rrkz = 5478
+
+    VANDNPDZ256rm = 5479
+
+    VANDNPDZ256rmb = 5480
+
+    VANDNPDZ256rmbk = 5481
+
+    VANDNPDZ256rmbkz = 5482
+
+    VANDNPDZ256rmk = 5483
+
+    VANDNPDZ256rmkz = 5484
+
+    VANDNPDZ256rr = 5485
+
+    VANDNPDZ256rrk = 5486
+
+    VANDNPDZ256rrkz = 5487
+
+    VANDNPDZrm = 5488
+
+    VANDNPDZrmb = 5489
+
+    VANDNPDZrmbk = 5490
+
+    VANDNPDZrmbkz = 5491
+
+    VANDNPDZrmk = 5492
+
+    VANDNPDZrmkz = 5493
+
+    VANDNPDZrr = 5494
+
+    VANDNPDZrrk = 5495
+
+    VANDNPDZrrkz = 5496
+
+    VANDNPDrm = 5497
+
+    VANDNPDrr = 5498
+
+    VANDNPSYrm = 5499
+
+    VANDNPSYrr = 5500
+
+    VANDNPSZ128rm = 5501
+
+    VANDNPSZ128rmb = 5502
+
+    VANDNPSZ128rmbk = 5503
+
+    VANDNPSZ128rmbkz = 5504
+
+    VANDNPSZ128rmk = 5505
+
+    VANDNPSZ128rmkz = 5506
+
+    VANDNPSZ128rr = 5507
+
+    VANDNPSZ128rrk = 5508
+
+    VANDNPSZ128rrkz = 5509
+
+    VANDNPSZ256rm = 5510
+
+    VANDNPSZ256rmb = 5511
+
+    VANDNPSZ256rmbk = 5512
+
+    VANDNPSZ256rmbkz = 5513
+
+    VANDNPSZ256rmk = 5514
+
+    VANDNPSZ256rmkz = 5515
+
+    VANDNPSZ256rr = 5516
+
+    VANDNPSZ256rrk = 5517
+
+    VANDNPSZ256rrkz = 5518
+
+    VANDNPSZrm = 5519
+
+    VANDNPSZrmb = 5520
+
+    VANDNPSZrmbk = 5521
+
+    VANDNPSZrmbkz = 5522
+
+    VANDNPSZrmk = 5523
+
+    VANDNPSZrmkz = 5524
+
+    VANDNPSZrr = 5525
+
+    VANDNPSZrrk = 5526
+
+    VANDNPSZrrkz = 5527
+
+    VANDNPSrm = 5528
+
+    VANDNPSrr = 5529
+
+    VANDPDYrm = 5530
+
+    VANDPDYrr = 5531
+
+    VANDPDZ128rm = 5532
+
+    VANDPDZ128rmb = 5533
+
+    VANDPDZ128rmbk = 5534
+
+    VANDPDZ128rmbkz = 5535
+
+    VANDPDZ128rmk = 5536
+
+    VANDPDZ128rmkz = 5537
+
+    VANDPDZ128rr = 5538
+
+    VANDPDZ128rrk = 5539
+
+    VANDPDZ128rrkz = 5540
+
+    VANDPDZ256rm = 5541
+
+    VANDPDZ256rmb = 5542
+
+    VANDPDZ256rmbk = 5543
+
+    VANDPDZ256rmbkz = 5544
+
+    VANDPDZ256rmk = 5545
+
+    VANDPDZ256rmkz = 5546
+
+    VANDPDZ256rr = 5547
+
+    VANDPDZ256rrk = 5548
+
+    VANDPDZ256rrkz = 5549
+
+    VANDPDZrm = 5550
+
+    VANDPDZrmb = 5551
+
+    VANDPDZrmbk = 5552
+
+    VANDPDZrmbkz = 5553
+
+    VANDPDZrmk = 5554
+
+    VANDPDZrmkz = 5555
+
+    VANDPDZrr = 5556
+
+    VANDPDZrrk = 5557
+
+    VANDPDZrrkz = 5558
+
+    VANDPDrm = 5559
+
+    VANDPDrr = 5560
+
+    VANDPSYrm = 5561
+
+    VANDPSYrr = 5562
+
+    VANDPSZ128rm = 5563
+
+    VANDPSZ128rmb = 5564
+
+    VANDPSZ128rmbk = 5565
+
+    VANDPSZ128rmbkz = 5566
+
+    VANDPSZ128rmk = 5567
+
+    VANDPSZ128rmkz = 5568
+
+    VANDPSZ128rr = 5569
+
+    VANDPSZ128rrk = 5570
+
+    VANDPSZ128rrkz = 5571
+
+    VANDPSZ256rm = 5572
+
+    VANDPSZ256rmb = 5573
+
+    VANDPSZ256rmbk = 5574
+
+    VANDPSZ256rmbkz = 5575
+
+    VANDPSZ256rmk = 5576
+
+    VANDPSZ256rmkz = 5577
+
+    VANDPSZ256rr = 5578
+
+    VANDPSZ256rrk = 5579
+
+    VANDPSZ256rrkz = 5580
+
+    VANDPSZrm = 5581
+
+    VANDPSZrmb = 5582
+
+    VANDPSZrmbk = 5583
+
+    VANDPSZrmbkz = 5584
+
+    VANDPSZrmk = 5585
+
+    VANDPSZrmkz = 5586
+
+    VANDPSZrr = 5587
+
+    VANDPSZrrk = 5588
+
+    VANDPSZrrkz = 5589
+
+    VANDPSrm = 5590
+
+    VANDPSrr = 5591
+
+    VASTART_SAVE_XMM_REGS = 5592
+
+    VBCSTNEBF162PSYrm = 5593
+
+    VBCSTNEBF162PSrm = 5594
+
+    VBCSTNESH2PSYrm = 5595
+
+    VBCSTNESH2PSrm = 5596
+
+    VBLENDMPDZ128rm = 5597
+
+    VBLENDMPDZ128rmb = 5598
+
+    VBLENDMPDZ128rmbk = 5599
+
+    VBLENDMPDZ128rmbkz = 5600
+
+    VBLENDMPDZ128rmk = 5601
+
+    VBLENDMPDZ128rmkz = 5602
+
+    VBLENDMPDZ128rr = 5603
+
+    VBLENDMPDZ128rrk = 5604
+
+    VBLENDMPDZ128rrkz = 5605
+
+    VBLENDMPDZ256rm = 5606
+
+    VBLENDMPDZ256rmb = 5607
+
+    VBLENDMPDZ256rmbk = 5608
+
+    VBLENDMPDZ256rmbkz = 5609
+
+    VBLENDMPDZ256rmk = 5610
+
+    VBLENDMPDZ256rmkz = 5611
+
+    VBLENDMPDZ256rr = 5612
+
+    VBLENDMPDZ256rrk = 5613
+
+    VBLENDMPDZ256rrkz = 5614
+
+    VBLENDMPDZrm = 5615
+
+    VBLENDMPDZrmb = 5616
+
+    VBLENDMPDZrmbk = 5617
+
+    VBLENDMPDZrmbkz = 5618
+
+    VBLENDMPDZrmk = 5619
+
+    VBLENDMPDZrmkz = 5620
+
+    VBLENDMPDZrr = 5621
+
+    VBLENDMPDZrrk = 5622
+
+    VBLENDMPDZrrkz = 5623
+
+    VBLENDMPSZ128rm = 5624
+
+    VBLENDMPSZ128rmb = 5625
+
+    VBLENDMPSZ128rmbk = 5626
+
+    VBLENDMPSZ128rmbkz = 5627
+
+    VBLENDMPSZ128rmk = 5628
+
+    VBLENDMPSZ128rmkz = 5629
+
+    VBLENDMPSZ128rr = 5630
+
+    VBLENDMPSZ128rrk = 5631
+
+    VBLENDMPSZ128rrkz = 5632
+
+    VBLENDMPSZ256rm = 5633
+
+    VBLENDMPSZ256rmb = 5634
+
+    VBLENDMPSZ256rmbk = 5635
+
+    VBLENDMPSZ256rmbkz = 5636
+
+    VBLENDMPSZ256rmk = 5637
+
+    VBLENDMPSZ256rmkz = 5638
+
+    VBLENDMPSZ256rr = 5639
+
+    VBLENDMPSZ256rrk = 5640
+
+    VBLENDMPSZ256rrkz = 5641
+
+    VBLENDMPSZrm = 5642
+
+    VBLENDMPSZrmb = 5643
+
+    VBLENDMPSZrmbk = 5644
+
+    VBLENDMPSZrmbkz = 5645
+
+    VBLENDMPSZrmk = 5646
+
+    VBLENDMPSZrmkz = 5647
+
+    VBLENDMPSZrr = 5648
+
+    VBLENDMPSZrrk = 5649
+
+    VBLENDMPSZrrkz = 5650
+
+    VBLENDPDYrmi = 5651
+
+    VBLENDPDYrri = 5652
+
+    VBLENDPDrmi = 5653
+
+    VBLENDPDrri = 5654
+
+    VBLENDPSYrmi = 5655
+
+    VBLENDPSYrri = 5656
+
+    VBLENDPSrmi = 5657
+
+    VBLENDPSrri = 5658
+
+    VBLENDVPDYrmr = 5659
+
+    VBLENDVPDYrrr = 5660
+
+    VBLENDVPDrmr = 5661
+
+    VBLENDVPDrrr = 5662
+
+    VBLENDVPSYrmr = 5663
+
+    VBLENDVPSYrrr = 5664
+
+    VBLENDVPSrmr = 5665
+
+    VBLENDVPSrrr = 5666
+
+    VBMACORZ256rm = 5667
+
+    VBMACORZ256rmb = 5668
+
+    VBMACORZ256rmbk = 5669
+
+    VBMACORZ256rmbkz = 5670
+
+    VBMACORZ256rmk = 5671
+
+    VBMACORZ256rmkz = 5672
+
+    VBMACORZ256rr = 5673
+
+    VBMACORZ256rrk = 5674
+
+    VBMACORZ256rrkz = 5675
+
+    VBMACORZrm = 5676
+
+    VBMACORZrmb = 5677
+
+    VBMACORZrmbk = 5678
+
+    VBMACORZrmbkz = 5679
+
+    VBMACORZrmk = 5680
+
+    VBMACORZrmkz = 5681
+
+    VBMACORZrr = 5682
+
+    VBMACORZrrk = 5683
+
+    VBMACORZrrkz = 5684
+
+    VBMACXORZ256rm = 5685
+
+    VBMACXORZ256rmb = 5686
+
+    VBMACXORZ256rmbk = 5687
+
+    VBMACXORZ256rmbkz = 5688
+
+    VBMACXORZ256rmk = 5689
+
+    VBMACXORZ256rmkz = 5690
+
+    VBMACXORZ256rr = 5691
+
+    VBMACXORZ256rrk = 5692
+
+    VBMACXORZ256rrkz = 5693
+
+    VBMACXORZrm = 5694
+
+    VBMACXORZrmb = 5695
+
+    VBMACXORZrmbk = 5696
+
+    VBMACXORZrmbkz = 5697
+
+    VBMACXORZrmk = 5698
+
+    VBMACXORZrmkz = 5699
+
+    VBMACXORZrr = 5700
+
+    VBMACXORZrrk = 5701
+
+    VBMACXORZrrkz = 5702
+
+    VBROADCASTF128rm = 5703
+
+    VBROADCASTF32X2Z256rm = 5704
+
+    VBROADCASTF32X2Z256rmk = 5705
+
+    VBROADCASTF32X2Z256rmkz = 5706
+
+    VBROADCASTF32X2Z256rr = 5707
+
+    VBROADCASTF32X2Z256rrk = 5708
+
+    VBROADCASTF32X2Z256rrkz = 5709
+
+    VBROADCASTF32X2Zrm = 5710
+
+    VBROADCASTF32X2Zrmk = 5711
+
+    VBROADCASTF32X2Zrmkz = 5712
+
+    VBROADCASTF32X2Zrr = 5713
+
+    VBROADCASTF32X2Zrrk = 5714
+
+    VBROADCASTF32X2Zrrkz = 5715
+
+    VBROADCASTF32X4Z256rm = 5716
+
+    VBROADCASTF32X4Z256rmk = 5717
+
+    VBROADCASTF32X4Z256rmkz = 5718
+
+    VBROADCASTF32X4Zrm = 5719
+
+    VBROADCASTF32X4Zrmk = 5720
+
+    VBROADCASTF32X4Zrmkz = 5721
+
+    VBROADCASTF32X8Zrm = 5722
+
+    VBROADCASTF32X8Zrmk = 5723
+
+    VBROADCASTF32X8Zrmkz = 5724
+
+    VBROADCASTF64X2Z256rm = 5725
+
+    VBROADCASTF64X2Z256rmk = 5726
+
+    VBROADCASTF64X2Z256rmkz = 5727
+
+    VBROADCASTF64X2Zrm = 5728
+
+    VBROADCASTF64X2Zrmk = 5729
+
+    VBROADCASTF64X2Zrmkz = 5730
+
+    VBROADCASTF64X4Zrm = 5731
+
+    VBROADCASTF64X4Zrmk = 5732
+
+    VBROADCASTF64X4Zrmkz = 5733
+
+    VBROADCASTI128rm = 5734
+
+    VBROADCASTI32X2Z128rm = 5735
+
+    VBROADCASTI32X2Z128rmk = 5736
+
+    VBROADCASTI32X2Z128rmkz = 5737
+
+    VBROADCASTI32X2Z128rr = 5738
+
+    VBROADCASTI32X2Z128rrk = 5739
+
+    VBROADCASTI32X2Z128rrkz = 5740
+
+    VBROADCASTI32X2Z256rm = 5741
+
+    VBROADCASTI32X2Z256rmk = 5742
+
+    VBROADCASTI32X2Z256rmkz = 5743
+
+    VBROADCASTI32X2Z256rr = 5744
+
+    VBROADCASTI32X2Z256rrk = 5745
+
+    VBROADCASTI32X2Z256rrkz = 5746
+
+    VBROADCASTI32X2Zrm = 5747
+
+    VBROADCASTI32X2Zrmk = 5748
+
+    VBROADCASTI32X2Zrmkz = 5749
+
+    VBROADCASTI32X2Zrr = 5750
+
+    VBROADCASTI32X2Zrrk = 5751
+
+    VBROADCASTI32X2Zrrkz = 5752
+
+    VBROADCASTI32X4Z256rm = 5753
+
+    VBROADCASTI32X4Z256rmk = 5754
+
+    VBROADCASTI32X4Z256rmkz = 5755
+
+    VBROADCASTI32X4Zrm = 5756
+
+    VBROADCASTI32X4Zrmk = 5757
+
+    VBROADCASTI32X4Zrmkz = 5758
+
+    VBROADCASTI32X8Zrm = 5759
+
+    VBROADCASTI32X8Zrmk = 5760
+
+    VBROADCASTI32X8Zrmkz = 5761
+
+    VBROADCASTI64X2Z256rm = 5762
+
+    VBROADCASTI64X2Z256rmk = 5763
+
+    VBROADCASTI64X2Z256rmkz = 5764
+
+    VBROADCASTI64X2Zrm = 5765
+
+    VBROADCASTI64X2Zrmk = 5766
+
+    VBROADCASTI64X2Zrmkz = 5767
+
+    VBROADCASTI64X4Zrm = 5768
+
+    VBROADCASTI64X4Zrmk = 5769
+
+    VBROADCASTI64X4Zrmkz = 5770
+
+    VBROADCASTSDYrm = 5771
+
+    VBROADCASTSDYrr = 5772
+
+    VBROADCASTSDZ256rm = 5773
+
+    VBROADCASTSDZ256rmk = 5774
+
+    VBROADCASTSDZ256rmkz = 5775
+
+    VBROADCASTSDZ256rr = 5776
+
+    VBROADCASTSDZ256rrk = 5777
+
+    VBROADCASTSDZ256rrkz = 5778
+
+    VBROADCASTSDZrm = 5779
+
+    VBROADCASTSDZrmk = 5780
+
+    VBROADCASTSDZrmkz = 5781
+
+    VBROADCASTSDZrr = 5782
+
+    VBROADCASTSDZrrk = 5783
+
+    VBROADCASTSDZrrkz = 5784
+
+    VBROADCASTSSYrm = 5785
+
+    VBROADCASTSSYrr = 5786
+
+    VBROADCASTSSZ128rm = 5787
+
+    VBROADCASTSSZ128rmk = 5788
+
+    VBROADCASTSSZ128rmkz = 5789
+
+    VBROADCASTSSZ128rr = 5790
+
+    VBROADCASTSSZ128rrk = 5791
+
+    VBROADCASTSSZ128rrkz = 5792
+
+    VBROADCASTSSZ256rm = 5793
+
+    VBROADCASTSSZ256rmk = 5794
+
+    VBROADCASTSSZ256rmkz = 5795
+
+    VBROADCASTSSZ256rr = 5796
+
+    VBROADCASTSSZ256rrk = 5797
+
+    VBROADCASTSSZ256rrkz = 5798
+
+    VBROADCASTSSZrm = 5799
+
+    VBROADCASTSSZrmk = 5800
+
+    VBROADCASTSSZrmkz = 5801
+
+    VBROADCASTSSZrr = 5802
+
+    VBROADCASTSSZrrk = 5803
+
+    VBROADCASTSSZrrkz = 5804
+
+    VBROADCASTSSrm = 5805
+
+    VBROADCASTSSrr = 5806
+
+    VCMPBF16Z128rmbi = 5807
+
+    VCMPBF16Z128rmbik = 5808
+
+    VCMPBF16Z128rmi = 5809
+
+    VCMPBF16Z128rmik = 5810
+
+    VCMPBF16Z128rri = 5811
+
+    VCMPBF16Z128rrik = 5812
+
+    VCMPBF16Z256rmbi = 5813
+
+    VCMPBF16Z256rmbik = 5814
+
+    VCMPBF16Z256rmi = 5815
+
+    VCMPBF16Z256rmik = 5816
+
+    VCMPBF16Z256rri = 5817
+
+    VCMPBF16Z256rrik = 5818
+
+    VCMPBF16Zrmbi = 5819
+
+    VCMPBF16Zrmbik = 5820
+
+    VCMPBF16Zrmi = 5821
+
+    VCMPBF16Zrmik = 5822
+
+    VCMPBF16Zrri = 5823
+
+    VCMPBF16Zrrik = 5824
+
+    VCMPPDYrmi = 5825
+
+    VCMPPDYrri = 5826
+
+    VCMPPDZ128rmbi = 5827
+
+    VCMPPDZ128rmbik = 5828
+
+    VCMPPDZ128rmi = 5829
+
+    VCMPPDZ128rmik = 5830
+
+    VCMPPDZ128rri = 5831
+
+    VCMPPDZ128rrik = 5832
+
+    VCMPPDZ256rmbi = 5833
+
+    VCMPPDZ256rmbik = 5834
+
+    VCMPPDZ256rmi = 5835
+
+    VCMPPDZ256rmik = 5836
+
+    VCMPPDZ256rri = 5837
+
+    VCMPPDZ256rrik = 5838
+
+    VCMPPDZrmbi = 5839
+
+    VCMPPDZrmbik = 5840
+
+    VCMPPDZrmi = 5841
+
+    VCMPPDZrmik = 5842
+
+    VCMPPDZrri = 5843
+
+    VCMPPDZrrib = 5844
+
+    VCMPPDZrribk = 5845
+
+    VCMPPDZrrik = 5846
+
+    VCMPPDrmi = 5847
+
+    VCMPPDrri = 5848
+
+    VCMPPHZ128rmbi = 5849
+
+    VCMPPHZ128rmbik = 5850
+
+    VCMPPHZ128rmi = 5851
+
+    VCMPPHZ128rmik = 5852
+
+    VCMPPHZ128rri = 5853
+
+    VCMPPHZ128rrik = 5854
+
+    VCMPPHZ256rmbi = 5855
+
+    VCMPPHZ256rmbik = 5856
+
+    VCMPPHZ256rmi = 5857
+
+    VCMPPHZ256rmik = 5858
+
+    VCMPPHZ256rri = 5859
+
+    VCMPPHZ256rrik = 5860
+
+    VCMPPHZrmbi = 5861
+
+    VCMPPHZrmbik = 5862
+
+    VCMPPHZrmi = 5863
+
+    VCMPPHZrmik = 5864
+
+    VCMPPHZrri = 5865
+
+    VCMPPHZrrib = 5866
+
+    VCMPPHZrribk = 5867
+
+    VCMPPHZrrik = 5868
+
+    VCMPPSYrmi = 5869
+
+    VCMPPSYrri = 5870
+
+    VCMPPSZ128rmbi = 5871
+
+    VCMPPSZ128rmbik = 5872
+
+    VCMPPSZ128rmi = 5873
+
+    VCMPPSZ128rmik = 5874
+
+    VCMPPSZ128rri = 5875
+
+    VCMPPSZ128rrik = 5876
+
+    VCMPPSZ256rmbi = 5877
+
+    VCMPPSZ256rmbik = 5878
+
+    VCMPPSZ256rmi = 5879
+
+    VCMPPSZ256rmik = 5880
+
+    VCMPPSZ256rri = 5881
+
+    VCMPPSZ256rrik = 5882
+
+    VCMPPSZrmbi = 5883
+
+    VCMPPSZrmbik = 5884
+
+    VCMPPSZrmi = 5885
+
+    VCMPPSZrmik = 5886
+
+    VCMPPSZrri = 5887
+
+    VCMPPSZrrib = 5888
+
+    VCMPPSZrribk = 5889
+
+    VCMPPSZrrik = 5890
+
+    VCMPPSrmi = 5891
+
+    VCMPPSrri = 5892
+
+    VCMPSDZrmi = 5893
+
+    VCMPSDZrmi_Int = 5894
+
+    VCMPSDZrmik_Int = 5895
+
+    VCMPSDZrri = 5896
+
+    VCMPSDZrri_Int = 5897
+
+    VCMPSDZrrib_Int = 5898
+
+    VCMPSDZrribk_Int = 5899
+
+    VCMPSDZrrik_Int = 5900
+
+    VCMPSDrmi = 5901
+
+    VCMPSDrmi_Int = 5902
+
+    VCMPSDrri = 5903
+
+    VCMPSDrri_Int = 5904
+
+    VCMPSHZrmi = 5905
+
+    VCMPSHZrmi_Int = 5906
+
+    VCMPSHZrmik_Int = 5907
+
+    VCMPSHZrri = 5908
+
+    VCMPSHZrri_Int = 5909
+
+    VCMPSHZrrib_Int = 5910
+
+    VCMPSHZrribk_Int = 5911
+
+    VCMPSHZrrik_Int = 5912
+
+    VCMPSSZrmi = 5913
+
+    VCMPSSZrmi_Int = 5914
+
+    VCMPSSZrmik_Int = 5915
+
+    VCMPSSZrri = 5916
+
+    VCMPSSZrri_Int = 5917
+
+    VCMPSSZrrib_Int = 5918
+
+    VCMPSSZrribk_Int = 5919
+
+    VCMPSSZrrik_Int = 5920
+
+    VCMPSSrmi = 5921
+
+    VCMPSSrmi_Int = 5922
+
+    VCMPSSrri = 5923
+
+    VCMPSSrri_Int = 5924
+
+    VCOMISBF16Zrm = 5925
+
+    VCOMISBF16Zrm_Int = 5926
+
+    VCOMISBF16Zrr = 5927
+
+    VCOMISBF16Zrr_Int = 5928
+
+    VCOMISDZrm = 5929
+
+    VCOMISDZrm_Int = 5930
+
+    VCOMISDZrr = 5931
+
+    VCOMISDZrr_Int = 5932
+
+    VCOMISDZrrb = 5933
+
+    VCOMISDrm = 5934
+
+    VCOMISDrm_Int = 5935
+
+    VCOMISDrr = 5936
+
+    VCOMISDrr_Int = 5937
+
+    VCOMISHZrm = 5938
+
+    VCOMISHZrm_Int = 5939
+
+    VCOMISHZrr = 5940
+
+    VCOMISHZrr_Int = 5941
+
+    VCOMISHZrrb = 5942
+
+    VCOMISSZrm = 5943
+
+    VCOMISSZrm_Int = 5944
+
+    VCOMISSZrr = 5945
+
+    VCOMISSZrr_Int = 5946
+
+    VCOMISSZrrb = 5947
+
+    VCOMISSrm = 5948
+
+    VCOMISSrm_Int = 5949
+
+    VCOMISSrr = 5950
+
+    VCOMISSrr_Int = 5951
+
+    VCOMPRESSPDZ128mr = 5952
+
+    VCOMPRESSPDZ128mrk = 5953
+
+    VCOMPRESSPDZ128rr = 5954
+
+    VCOMPRESSPDZ128rrk = 5955
+
+    VCOMPRESSPDZ128rrkz = 5956
+
+    VCOMPRESSPDZ256mr = 5957
+
+    VCOMPRESSPDZ256mrk = 5958
+
+    VCOMPRESSPDZ256rr = 5959
+
+    VCOMPRESSPDZ256rrk = 5960
+
+    VCOMPRESSPDZ256rrkz = 5961
+
+    VCOMPRESSPDZmr = 5962
+
+    VCOMPRESSPDZmrk = 5963
+
+    VCOMPRESSPDZrr = 5964
+
+    VCOMPRESSPDZrrk = 5965
+
+    VCOMPRESSPDZrrkz = 5966
+
+    VCOMPRESSPSZ128mr = 5967
+
+    VCOMPRESSPSZ128mrk = 5968
+
+    VCOMPRESSPSZ128rr = 5969
+
+    VCOMPRESSPSZ128rrk = 5970
+
+    VCOMPRESSPSZ128rrkz = 5971
+
+    VCOMPRESSPSZ256mr = 5972
+
+    VCOMPRESSPSZ256mrk = 5973
+
+    VCOMPRESSPSZ256rr = 5974
+
+    VCOMPRESSPSZ256rrk = 5975
+
+    VCOMPRESSPSZ256rrkz = 5976
+
+    VCOMPRESSPSZmr = 5977
+
+    VCOMPRESSPSZmrk = 5978
+
+    VCOMPRESSPSZrr = 5979
+
+    VCOMPRESSPSZrrk = 5980
+
+    VCOMPRESSPSZrrkz = 5981
+
+    VCOMXSDZrm_Int = 5982
+
+    VCOMXSDZrr_Int = 5983
+
+    VCOMXSDZrrb_Int = 5984
+
+    VCOMXSHZrm_Int = 5985
+
+    VCOMXSHZrr_Int = 5986
+
+    VCOMXSHZrrb_Int = 5987
+
+    VCOMXSSZrm_Int = 5988
+
+    VCOMXSSZrr_Int = 5989
+
+    VCOMXSSZrrb_Int = 5990
+
+    VCVT2PH2BF8SZ128rm = 5991
+
+    VCVT2PH2BF8SZ128rmb = 5992
+
+    VCVT2PH2BF8SZ128rmbk = 5993
+
+    VCVT2PH2BF8SZ128rmbkz = 5994
+
+    VCVT2PH2BF8SZ128rmk = 5995
+
+    VCVT2PH2BF8SZ128rmkz = 5996
+
+    VCVT2PH2BF8SZ128rr = 5997
+
+    VCVT2PH2BF8SZ128rrk = 5998
+
+    VCVT2PH2BF8SZ128rrkz = 5999
+
+    VCVT2PH2BF8SZ256rm = 6000
+
+    VCVT2PH2BF8SZ256rmb = 6001
+
+    VCVT2PH2BF8SZ256rmbk = 6002
+
+    VCVT2PH2BF8SZ256rmbkz = 6003
+
+    VCVT2PH2BF8SZ256rmk = 6004
+
+    VCVT2PH2BF8SZ256rmkz = 6005
+
+    VCVT2PH2BF8SZ256rr = 6006
+
+    VCVT2PH2BF8SZ256rrk = 6007
+
+    VCVT2PH2BF8SZ256rrkz = 6008
+
+    VCVT2PH2BF8SZrm = 6009
+
+    VCVT2PH2BF8SZrmb = 6010
+
+    VCVT2PH2BF8SZrmbk = 6011
+
+    VCVT2PH2BF8SZrmbkz = 6012
+
+    VCVT2PH2BF8SZrmk = 6013
+
+    VCVT2PH2BF8SZrmkz = 6014
+
+    VCVT2PH2BF8SZrr = 6015
+
+    VCVT2PH2BF8SZrrk = 6016
+
+    VCVT2PH2BF8SZrrkz = 6017
+
+    VCVT2PH2BF8Z128rm = 6018
+
+    VCVT2PH2BF8Z128rmb = 6019
+
+    VCVT2PH2BF8Z128rmbk = 6020
+
+    VCVT2PH2BF8Z128rmbkz = 6021
+
+    VCVT2PH2BF8Z128rmk = 6022
+
+    VCVT2PH2BF8Z128rmkz = 6023
+
+    VCVT2PH2BF8Z128rr = 6024
+
+    VCVT2PH2BF8Z128rrk = 6025
+
+    VCVT2PH2BF8Z128rrkz = 6026
+
+    VCVT2PH2BF8Z256rm = 6027
+
+    VCVT2PH2BF8Z256rmb = 6028
+
+    VCVT2PH2BF8Z256rmbk = 6029
+
+    VCVT2PH2BF8Z256rmbkz = 6030
+
+    VCVT2PH2BF8Z256rmk = 6031
+
+    VCVT2PH2BF8Z256rmkz = 6032
+
+    VCVT2PH2BF8Z256rr = 6033
+
+    VCVT2PH2BF8Z256rrk = 6034
+
+    VCVT2PH2BF8Z256rrkz = 6035
+
+    VCVT2PH2BF8Zrm = 6036
+
+    VCVT2PH2BF8Zrmb = 6037
+
+    VCVT2PH2BF8Zrmbk = 6038
+
+    VCVT2PH2BF8Zrmbkz = 6039
+
+    VCVT2PH2BF8Zrmk = 6040
+
+    VCVT2PH2BF8Zrmkz = 6041
+
+    VCVT2PH2BF8Zrr = 6042
+
+    VCVT2PH2BF8Zrrk = 6043
+
+    VCVT2PH2BF8Zrrkz = 6044
+
+    VCVT2PH2HF8SZ128rm = 6045
+
+    VCVT2PH2HF8SZ128rmb = 6046
+
+    VCVT2PH2HF8SZ128rmbk = 6047
+
+    VCVT2PH2HF8SZ128rmbkz = 6048
+
+    VCVT2PH2HF8SZ128rmk = 6049
+
+    VCVT2PH2HF8SZ128rmkz = 6050
+
+    VCVT2PH2HF8SZ128rr = 6051
+
+    VCVT2PH2HF8SZ128rrk = 6052
+
+    VCVT2PH2HF8SZ128rrkz = 6053
+
+    VCVT2PH2HF8SZ256rm = 6054
+
+    VCVT2PH2HF8SZ256rmb = 6055
+
+    VCVT2PH2HF8SZ256rmbk = 6056
+
+    VCVT2PH2HF8SZ256rmbkz = 6057
+
+    VCVT2PH2HF8SZ256rmk = 6058
+
+    VCVT2PH2HF8SZ256rmkz = 6059
+
+    VCVT2PH2HF8SZ256rr = 6060
+
+    VCVT2PH2HF8SZ256rrk = 6061
+
+    VCVT2PH2HF8SZ256rrkz = 6062
+
+    VCVT2PH2HF8SZrm = 6063
+
+    VCVT2PH2HF8SZrmb = 6064
+
+    VCVT2PH2HF8SZrmbk = 6065
+
+    VCVT2PH2HF8SZrmbkz = 6066
+
+    VCVT2PH2HF8SZrmk = 6067
+
+    VCVT2PH2HF8SZrmkz = 6068
+
+    VCVT2PH2HF8SZrr = 6069
+
+    VCVT2PH2HF8SZrrk = 6070
+
+    VCVT2PH2HF8SZrrkz = 6071
+
+    VCVT2PH2HF8Z128rm = 6072
+
+    VCVT2PH2HF8Z128rmb = 6073
+
+    VCVT2PH2HF8Z128rmbk = 6074
+
+    VCVT2PH2HF8Z128rmbkz = 6075
+
+    VCVT2PH2HF8Z128rmk = 6076
+
+    VCVT2PH2HF8Z128rmkz = 6077
+
+    VCVT2PH2HF8Z128rr = 6078
+
+    VCVT2PH2HF8Z128rrk = 6079
+
+    VCVT2PH2HF8Z128rrkz = 6080
+
+    VCVT2PH2HF8Z256rm = 6081
+
+    VCVT2PH2HF8Z256rmb = 6082
+
+    VCVT2PH2HF8Z256rmbk = 6083
+
+    VCVT2PH2HF8Z256rmbkz = 6084
+
+    VCVT2PH2HF8Z256rmk = 6085
+
+    VCVT2PH2HF8Z256rmkz = 6086
+
+    VCVT2PH2HF8Z256rr = 6087
+
+    VCVT2PH2HF8Z256rrk = 6088
+
+    VCVT2PH2HF8Z256rrkz = 6089
+
+    VCVT2PH2HF8Zrm = 6090
+
+    VCVT2PH2HF8Zrmb = 6091
+
+    VCVT2PH2HF8Zrmbk = 6092
+
+    VCVT2PH2HF8Zrmbkz = 6093
+
+    VCVT2PH2HF8Zrmk = 6094
+
+    VCVT2PH2HF8Zrmkz = 6095
+
+    VCVT2PH2HF8Zrr = 6096
+
+    VCVT2PH2HF8Zrrk = 6097
+
+    VCVT2PH2HF8Zrrkz = 6098
+
+    VCVT2PS2PHXZ128rm = 6099
+
+    VCVT2PS2PHXZ128rmb = 6100
+
+    VCVT2PS2PHXZ128rmbk = 6101
+
+    VCVT2PS2PHXZ128rmbkz = 6102
+
+    VCVT2PS2PHXZ128rmk = 6103
+
+    VCVT2PS2PHXZ128rmkz = 6104
+
+    VCVT2PS2PHXZ128rr = 6105
+
+    VCVT2PS2PHXZ128rrk = 6106
+
+    VCVT2PS2PHXZ128rrkz = 6107
+
+    VCVT2PS2PHXZ256rm = 6108
+
+    VCVT2PS2PHXZ256rmb = 6109
+
+    VCVT2PS2PHXZ256rmbk = 6110
+
+    VCVT2PS2PHXZ256rmbkz = 6111
+
+    VCVT2PS2PHXZ256rmk = 6112
+
+    VCVT2PS2PHXZ256rmkz = 6113
+
+    VCVT2PS2PHXZ256rr = 6114
+
+    VCVT2PS2PHXZ256rrk = 6115
+
+    VCVT2PS2PHXZ256rrkz = 6116
+
+    VCVT2PS2PHXZrm = 6117
+
+    VCVT2PS2PHXZrmb = 6118
+
+    VCVT2PS2PHXZrmbk = 6119
+
+    VCVT2PS2PHXZrmbkz = 6120
+
+    VCVT2PS2PHXZrmk = 6121
+
+    VCVT2PS2PHXZrmkz = 6122
+
+    VCVT2PS2PHXZrr = 6123
+
+    VCVT2PS2PHXZrrb = 6124
+
+    VCVT2PS2PHXZrrbk = 6125
+
+    VCVT2PS2PHXZrrbkz = 6126
+
+    VCVT2PS2PHXZrrk = 6127
+
+    VCVT2PS2PHXZrrkz = 6128
+
+    VCVTBF162IBSZ128rm = 6129
+
+    VCVTBF162IBSZ128rmb = 6130
+
+    VCVTBF162IBSZ128rmbk = 6131
+
+    VCVTBF162IBSZ128rmbkz = 6132
+
+    VCVTBF162IBSZ128rmk = 6133
+
+    VCVTBF162IBSZ128rmkz = 6134
+
+    VCVTBF162IBSZ128rr = 6135
+
+    VCVTBF162IBSZ128rrk = 6136
+
+    VCVTBF162IBSZ128rrkz = 6137
+
+    VCVTBF162IBSZ256rm = 6138
+
+    VCVTBF162IBSZ256rmb = 6139
+
+    VCVTBF162IBSZ256rmbk = 6140
+
+    VCVTBF162IBSZ256rmbkz = 6141
+
+    VCVTBF162IBSZ256rmk = 6142
+
+    VCVTBF162IBSZ256rmkz = 6143
+
+    VCVTBF162IBSZ256rr = 6144
+
+    VCVTBF162IBSZ256rrk = 6145
+
+    VCVTBF162IBSZ256rrkz = 6146
+
+    VCVTBF162IBSZrm = 6147
+
+    VCVTBF162IBSZrmb = 6148
+
+    VCVTBF162IBSZrmbk = 6149
+
+    VCVTBF162IBSZrmbkz = 6150
+
+    VCVTBF162IBSZrmk = 6151
+
+    VCVTBF162IBSZrmkz = 6152
+
+    VCVTBF162IBSZrr = 6153
+
+    VCVTBF162IBSZrrk = 6154
+
+    VCVTBF162IBSZrrkz = 6155
+
+    VCVTBF162IUBSZ128rm = 6156
+
+    VCVTBF162IUBSZ128rmb = 6157
+
+    VCVTBF162IUBSZ128rmbk = 6158
+
+    VCVTBF162IUBSZ128rmbkz = 6159
+
+    VCVTBF162IUBSZ128rmk = 6160
+
+    VCVTBF162IUBSZ128rmkz = 6161
+
+    VCVTBF162IUBSZ128rr = 6162
+
+    VCVTBF162IUBSZ128rrk = 6163
+
+    VCVTBF162IUBSZ128rrkz = 6164
+
+    VCVTBF162IUBSZ256rm = 6165
+
+    VCVTBF162IUBSZ256rmb = 6166
+
+    VCVTBF162IUBSZ256rmbk = 6167
+
+    VCVTBF162IUBSZ256rmbkz = 6168
+
+    VCVTBF162IUBSZ256rmk = 6169
+
+    VCVTBF162IUBSZ256rmkz = 6170
+
+    VCVTBF162IUBSZ256rr = 6171
+
+    VCVTBF162IUBSZ256rrk = 6172
+
+    VCVTBF162IUBSZ256rrkz = 6173
+
+    VCVTBF162IUBSZrm = 6174
+
+    VCVTBF162IUBSZrmb = 6175
+
+    VCVTBF162IUBSZrmbk = 6176
+
+    VCVTBF162IUBSZrmbkz = 6177
+
+    VCVTBF162IUBSZrmk = 6178
+
+    VCVTBF162IUBSZrmkz = 6179
+
+    VCVTBF162IUBSZrr = 6180
+
+    VCVTBF162IUBSZrrk = 6181
+
+    VCVTBF162IUBSZrrkz = 6182
+
+    VCVTBIASPH2BF8SZ128rm = 6183
+
+    VCVTBIASPH2BF8SZ128rmb = 6184
+
+    VCVTBIASPH2BF8SZ128rmbk = 6185
+
+    VCVTBIASPH2BF8SZ128rmbkz = 6186
+
+    VCVTBIASPH2BF8SZ128rmk = 6187
+
+    VCVTBIASPH2BF8SZ128rmkz = 6188
+
+    VCVTBIASPH2BF8SZ128rr = 6189
+
+    VCVTBIASPH2BF8SZ128rrk = 6190
+
+    VCVTBIASPH2BF8SZ128rrkz = 6191
+
+    VCVTBIASPH2BF8SZ256rm = 6192
+
+    VCVTBIASPH2BF8SZ256rmb = 6193
+
+    VCVTBIASPH2BF8SZ256rmbk = 6194
+
+    VCVTBIASPH2BF8SZ256rmbkz = 6195
+
+    VCVTBIASPH2BF8SZ256rmk = 6196
+
+    VCVTBIASPH2BF8SZ256rmkz = 6197
+
+    VCVTBIASPH2BF8SZ256rr = 6198
+
+    VCVTBIASPH2BF8SZ256rrk = 6199
+
+    VCVTBIASPH2BF8SZ256rrkz = 6200
+
+    VCVTBIASPH2BF8SZrm = 6201
+
+    VCVTBIASPH2BF8SZrmb = 6202
+
+    VCVTBIASPH2BF8SZrmbk = 6203
+
+    VCVTBIASPH2BF8SZrmbkz = 6204
+
+    VCVTBIASPH2BF8SZrmk = 6205
+
+    VCVTBIASPH2BF8SZrmkz = 6206
+
+    VCVTBIASPH2BF8SZrr = 6207
+
+    VCVTBIASPH2BF8SZrrk = 6208
+
+    VCVTBIASPH2BF8SZrrkz = 6209
+
+    VCVTBIASPH2BF8Z128rm = 6210
+
+    VCVTBIASPH2BF8Z128rmb = 6211
+
+    VCVTBIASPH2BF8Z128rmbk = 6212
+
+    VCVTBIASPH2BF8Z128rmbkz = 6213
+
+    VCVTBIASPH2BF8Z128rmk = 6214
+
+    VCVTBIASPH2BF8Z128rmkz = 6215
+
+    VCVTBIASPH2BF8Z128rr = 6216
+
+    VCVTBIASPH2BF8Z128rrk = 6217
+
+    VCVTBIASPH2BF8Z128rrkz = 6218
+
+    VCVTBIASPH2BF8Z256rm = 6219
+
+    VCVTBIASPH2BF8Z256rmb = 6220
+
+    VCVTBIASPH2BF8Z256rmbk = 6221
+
+    VCVTBIASPH2BF8Z256rmbkz = 6222
+
+    VCVTBIASPH2BF8Z256rmk = 6223
+
+    VCVTBIASPH2BF8Z256rmkz = 6224
+
+    VCVTBIASPH2BF8Z256rr = 6225
+
+    VCVTBIASPH2BF8Z256rrk = 6226
+
+    VCVTBIASPH2BF8Z256rrkz = 6227
+
+    VCVTBIASPH2BF8Zrm = 6228
+
+    VCVTBIASPH2BF8Zrmb = 6229
+
+    VCVTBIASPH2BF8Zrmbk = 6230
+
+    VCVTBIASPH2BF8Zrmbkz = 6231
+
+    VCVTBIASPH2BF8Zrmk = 6232
+
+    VCVTBIASPH2BF8Zrmkz = 6233
+
+    VCVTBIASPH2BF8Zrr = 6234
+
+    VCVTBIASPH2BF8Zrrk = 6235
+
+    VCVTBIASPH2BF8Zrrkz = 6236
+
+    VCVTBIASPH2HF8SZ128rm = 6237
+
+    VCVTBIASPH2HF8SZ128rmb = 6238
+
+    VCVTBIASPH2HF8SZ128rmbk = 6239
+
+    VCVTBIASPH2HF8SZ128rmbkz = 6240
+
+    VCVTBIASPH2HF8SZ128rmk = 6241
+
+    VCVTBIASPH2HF8SZ128rmkz = 6242
+
+    VCVTBIASPH2HF8SZ128rr = 6243
+
+    VCVTBIASPH2HF8SZ128rrk = 6244
+
+    VCVTBIASPH2HF8SZ128rrkz = 6245
+
+    VCVTBIASPH2HF8SZ256rm = 6246
+
+    VCVTBIASPH2HF8SZ256rmb = 6247
+
+    VCVTBIASPH2HF8SZ256rmbk = 6248
+
+    VCVTBIASPH2HF8SZ256rmbkz = 6249
+
+    VCVTBIASPH2HF8SZ256rmk = 6250
+
+    VCVTBIASPH2HF8SZ256rmkz = 6251
+
+    VCVTBIASPH2HF8SZ256rr = 6252
+
+    VCVTBIASPH2HF8SZ256rrk = 6253
+
+    VCVTBIASPH2HF8SZ256rrkz = 6254
+
+    VCVTBIASPH2HF8SZrm = 6255
+
+    VCVTBIASPH2HF8SZrmb = 6256
+
+    VCVTBIASPH2HF8SZrmbk = 6257
+
+    VCVTBIASPH2HF8SZrmbkz = 6258
+
+    VCVTBIASPH2HF8SZrmk = 6259
+
+    VCVTBIASPH2HF8SZrmkz = 6260
+
+    VCVTBIASPH2HF8SZrr = 6261
+
+    VCVTBIASPH2HF8SZrrk = 6262
+
+    VCVTBIASPH2HF8SZrrkz = 6263
+
+    VCVTBIASPH2HF8Z128rm = 6264
+
+    VCVTBIASPH2HF8Z128rmb = 6265
+
+    VCVTBIASPH2HF8Z128rmbk = 6266
+
+    VCVTBIASPH2HF8Z128rmbkz = 6267
+
+    VCVTBIASPH2HF8Z128rmk = 6268
+
+    VCVTBIASPH2HF8Z128rmkz = 6269
+
+    VCVTBIASPH2HF8Z128rr = 6270
+
+    VCVTBIASPH2HF8Z128rrk = 6271
+
+    VCVTBIASPH2HF8Z128rrkz = 6272
+
+    VCVTBIASPH2HF8Z256rm = 6273
+
+    VCVTBIASPH2HF8Z256rmb = 6274
+
+    VCVTBIASPH2HF8Z256rmbk = 6275
+
+    VCVTBIASPH2HF8Z256rmbkz = 6276
+
+    VCVTBIASPH2HF8Z256rmk = 6277
+
+    VCVTBIASPH2HF8Z256rmkz = 6278
+
+    VCVTBIASPH2HF8Z256rr = 6279
+
+    VCVTBIASPH2HF8Z256rrk = 6280
+
+    VCVTBIASPH2HF8Z256rrkz = 6281
+
+    VCVTBIASPH2HF8Zrm = 6282
+
+    VCVTBIASPH2HF8Zrmb = 6283
+
+    VCVTBIASPH2HF8Zrmbk = 6284
+
+    VCVTBIASPH2HF8Zrmbkz = 6285
+
+    VCVTBIASPH2HF8Zrmk = 6286
+
+    VCVTBIASPH2HF8Zrmkz = 6287
+
+    VCVTBIASPH2HF8Zrr = 6288
+
+    VCVTBIASPH2HF8Zrrk = 6289
+
+    VCVTBIASPH2HF8Zrrkz = 6290
+
+    VCVTDQ2PDYrm = 6291
+
+    VCVTDQ2PDYrr = 6292
+
+    VCVTDQ2PDZ128rm = 6293
+
+    VCVTDQ2PDZ128rmb = 6294
+
+    VCVTDQ2PDZ128rmbk = 6295
+
+    VCVTDQ2PDZ128rmbkz = 6296
+
+    VCVTDQ2PDZ128rmk = 6297
+
+    VCVTDQ2PDZ128rmkz = 6298
+
+    VCVTDQ2PDZ128rr = 6299
+
+    VCVTDQ2PDZ128rrk = 6300
+
+    VCVTDQ2PDZ128rrkz = 6301
+
+    VCVTDQ2PDZ256rm = 6302
+
+    VCVTDQ2PDZ256rmb = 6303
+
+    VCVTDQ2PDZ256rmbk = 6304
+
+    VCVTDQ2PDZ256rmbkz = 6305
+
+    VCVTDQ2PDZ256rmk = 6306
+
+    VCVTDQ2PDZ256rmkz = 6307
+
+    VCVTDQ2PDZ256rr = 6308
+
+    VCVTDQ2PDZ256rrk = 6309
+
+    VCVTDQ2PDZ256rrkz = 6310
+
+    VCVTDQ2PDZrm = 6311
+
+    VCVTDQ2PDZrmb = 6312
+
+    VCVTDQ2PDZrmbk = 6313
+
+    VCVTDQ2PDZrmbkz = 6314
+
+    VCVTDQ2PDZrmk = 6315
+
+    VCVTDQ2PDZrmkz = 6316
+
+    VCVTDQ2PDZrr = 6317
+
+    VCVTDQ2PDZrrk = 6318
+
+    VCVTDQ2PDZrrkz = 6319
+
+    VCVTDQ2PDrm = 6320
+
+    VCVTDQ2PDrr = 6321
+
+    VCVTDQ2PHZ128rm = 6322
+
+    VCVTDQ2PHZ128rmb = 6323
+
+    VCVTDQ2PHZ128rmbk = 6324
+
+    VCVTDQ2PHZ128rmbkz = 6325
+
+    VCVTDQ2PHZ128rmk = 6326
+
+    VCVTDQ2PHZ128rmkz = 6327
+
+    VCVTDQ2PHZ128rr = 6328
+
+    VCVTDQ2PHZ128rrk = 6329
+
+    VCVTDQ2PHZ128rrkz = 6330
+
+    VCVTDQ2PHZ256rm = 6331
+
+    VCVTDQ2PHZ256rmb = 6332
+
+    VCVTDQ2PHZ256rmbk = 6333
+
+    VCVTDQ2PHZ256rmbkz = 6334
+
+    VCVTDQ2PHZ256rmk = 6335
+
+    VCVTDQ2PHZ256rmkz = 6336
+
+    VCVTDQ2PHZ256rr = 6337
+
+    VCVTDQ2PHZ256rrk = 6338
+
+    VCVTDQ2PHZ256rrkz = 6339
+
+    VCVTDQ2PHZrm = 6340
+
+    VCVTDQ2PHZrmb = 6341
+
+    VCVTDQ2PHZrmbk = 6342
+
+    VCVTDQ2PHZrmbkz = 6343
+
+    VCVTDQ2PHZrmk = 6344
+
+    VCVTDQ2PHZrmkz = 6345
+
+    VCVTDQ2PHZrr = 6346
+
+    VCVTDQ2PHZrrb = 6347
+
+    VCVTDQ2PHZrrbk = 6348
+
+    VCVTDQ2PHZrrbkz = 6349
+
+    VCVTDQ2PHZrrk = 6350
+
+    VCVTDQ2PHZrrkz = 6351
+
+    VCVTDQ2PSYrm = 6352
+
+    VCVTDQ2PSYrr = 6353
+
+    VCVTDQ2PSZ128rm = 6354
+
+    VCVTDQ2PSZ128rmb = 6355
+
+    VCVTDQ2PSZ128rmbk = 6356
+
+    VCVTDQ2PSZ128rmbkz = 6357
+
+    VCVTDQ2PSZ128rmk = 6358
+
+    VCVTDQ2PSZ128rmkz = 6359
+
+    VCVTDQ2PSZ128rr = 6360
+
+    VCVTDQ2PSZ128rrk = 6361
+
+    VCVTDQ2PSZ128rrkz = 6362
+
+    VCVTDQ2PSZ256rm = 6363
+
+    VCVTDQ2PSZ256rmb = 6364
+
+    VCVTDQ2PSZ256rmbk = 6365
+
+    VCVTDQ2PSZ256rmbkz = 6366
+
+    VCVTDQ2PSZ256rmk = 6367
+
+    VCVTDQ2PSZ256rmkz = 6368
+
+    VCVTDQ2PSZ256rr = 6369
+
+    VCVTDQ2PSZ256rrk = 6370
+
+    VCVTDQ2PSZ256rrkz = 6371
+
+    VCVTDQ2PSZrm = 6372
+
+    VCVTDQ2PSZrmb = 6373
+
+    VCVTDQ2PSZrmbk = 6374
+
+    VCVTDQ2PSZrmbkz = 6375
+
+    VCVTDQ2PSZrmk = 6376
+
+    VCVTDQ2PSZrmkz = 6377
+
+    VCVTDQ2PSZrr = 6378
+
+    VCVTDQ2PSZrrb = 6379
+
+    VCVTDQ2PSZrrbk = 6380
+
+    VCVTDQ2PSZrrbkz = 6381
+
+    VCVTDQ2PSZrrk = 6382
+
+    VCVTDQ2PSZrrkz = 6383
+
+    VCVTDQ2PSrm = 6384
+
+    VCVTDQ2PSrr = 6385
+
+    VCVTHF82PHZ128rm = 6386
+
+    VCVTHF82PHZ128rmk = 6387
+
+    VCVTHF82PHZ128rmkz = 6388
+
+    VCVTHF82PHZ128rr = 6389
+
+    VCVTHF82PHZ128rrk = 6390
+
+    VCVTHF82PHZ128rrkz = 6391
+
+    VCVTHF82PHZ256rm = 6392
+
+    VCVTHF82PHZ256rmk = 6393
+
+    VCVTHF82PHZ256rmkz = 6394
+
+    VCVTHF82PHZ256rr = 6395
+
+    VCVTHF82PHZ256rrk = 6396
+
+    VCVTHF82PHZ256rrkz = 6397
+
+    VCVTHF82PHZrm = 6398
+
+    VCVTHF82PHZrmk = 6399
+
+    VCVTHF82PHZrmkz = 6400
+
+    VCVTHF82PHZrr = 6401
+
+    VCVTHF82PHZrrk = 6402
+
+    VCVTHF82PHZrrkz = 6403
+
+    VCVTNE2PS2BF16Z128rm = 6404
+
+    VCVTNE2PS2BF16Z128rmb = 6405
+
+    VCVTNE2PS2BF16Z128rmbk = 6406
+
+    VCVTNE2PS2BF16Z128rmbkz = 6407
+
+    VCVTNE2PS2BF16Z128rmk = 6408
+
+    VCVTNE2PS2BF16Z128rmkz = 6409
+
+    VCVTNE2PS2BF16Z128rr = 6410
+
+    VCVTNE2PS2BF16Z128rrk = 6411
+
+    VCVTNE2PS2BF16Z128rrkz = 6412
+
+    VCVTNE2PS2BF16Z256rm = 6413
+
+    VCVTNE2PS2BF16Z256rmb = 6414
+
+    VCVTNE2PS2BF16Z256rmbk = 6415
+
+    VCVTNE2PS2BF16Z256rmbkz = 6416
+
+    VCVTNE2PS2BF16Z256rmk = 6417
+
+    VCVTNE2PS2BF16Z256rmkz = 6418
+
+    VCVTNE2PS2BF16Z256rr = 6419
+
+    VCVTNE2PS2BF16Z256rrk = 6420
+
+    VCVTNE2PS2BF16Z256rrkz = 6421
+
+    VCVTNE2PS2BF16Zrm = 6422
+
+    VCVTNE2PS2BF16Zrmb = 6423
+
+    VCVTNE2PS2BF16Zrmbk = 6424
+
+    VCVTNE2PS2BF16Zrmbkz = 6425
+
+    VCVTNE2PS2BF16Zrmk = 6426
+
+    VCVTNE2PS2BF16Zrmkz = 6427
+
+    VCVTNE2PS2BF16Zrr = 6428
+
+    VCVTNE2PS2BF16Zrrk = 6429
+
+    VCVTNE2PS2BF16Zrrkz = 6430
+
+    VCVTNEEBF162PSYrm = 6431
+
+    VCVTNEEBF162PSrm = 6432
+
+    VCVTNEEPH2PSYrm = 6433
+
+    VCVTNEEPH2PSrm = 6434
+
+    VCVTNEOBF162PSYrm = 6435
+
+    VCVTNEOBF162PSrm = 6436
+
+    VCVTNEOPH2PSYrm = 6437
+
+    VCVTNEOPH2PSrm = 6438
+
+    VCVTNEPS2BF16Yrm = 6439
+
+    VCVTNEPS2BF16Yrr = 6440
+
+    VCVTNEPS2BF16Z128rm = 6441
+
+    VCVTNEPS2BF16Z128rmb = 6442
+
+    VCVTNEPS2BF16Z128rmbk = 6443
+
+    VCVTNEPS2BF16Z128rmbkz = 6444
+
+    VCVTNEPS2BF16Z128rmk = 6445
+
+    VCVTNEPS2BF16Z128rmkz = 6446
+
+    VCVTNEPS2BF16Z128rr = 6447
+
+    VCVTNEPS2BF16Z128rrk = 6448
+
+    VCVTNEPS2BF16Z128rrkz = 6449
+
+    VCVTNEPS2BF16Z256rm = 6450
+
+    VCVTNEPS2BF16Z256rmb = 6451
+
+    VCVTNEPS2BF16Z256rmbk = 6452
+
+    VCVTNEPS2BF16Z256rmbkz = 6453
+
+    VCVTNEPS2BF16Z256rmk = 6454
+
+    VCVTNEPS2BF16Z256rmkz = 6455
+
+    VCVTNEPS2BF16Z256rr = 6456
+
+    VCVTNEPS2BF16Z256rrk = 6457
+
+    VCVTNEPS2BF16Z256rrkz = 6458
+
+    VCVTNEPS2BF16Zrm = 6459
+
+    VCVTNEPS2BF16Zrmb = 6460
+
+    VCVTNEPS2BF16Zrmbk = 6461
+
+    VCVTNEPS2BF16Zrmbkz = 6462
+
+    VCVTNEPS2BF16Zrmk = 6463
+
+    VCVTNEPS2BF16Zrmkz = 6464
+
+    VCVTNEPS2BF16Zrr = 6465
+
+    VCVTNEPS2BF16Zrrk = 6466
+
+    VCVTNEPS2BF16Zrrkz = 6467
+
+    VCVTNEPS2BF16rm = 6468
+
+    VCVTNEPS2BF16rr = 6469
+
+    VCVTPD2DQYrm = 6470
+
+    VCVTPD2DQYrr = 6471
+
+    VCVTPD2DQZ128rm = 6472
+
+    VCVTPD2DQZ128rmb = 6473
+
+    VCVTPD2DQZ128rmbk = 6474
+
+    VCVTPD2DQZ128rmbkz = 6475
+
+    VCVTPD2DQZ128rmk = 6476
+
+    VCVTPD2DQZ128rmkz = 6477
+
+    VCVTPD2DQZ128rr = 6478
+
+    VCVTPD2DQZ128rrk = 6479
+
+    VCVTPD2DQZ128rrkz = 6480
+
+    VCVTPD2DQZ256rm = 6481
+
+    VCVTPD2DQZ256rmb = 6482
+
+    VCVTPD2DQZ256rmbk = 6483
+
+    VCVTPD2DQZ256rmbkz = 6484
+
+    VCVTPD2DQZ256rmk = 6485
+
+    VCVTPD2DQZ256rmkz = 6486
+
+    VCVTPD2DQZ256rr = 6487
+
+    VCVTPD2DQZ256rrk = 6488
+
+    VCVTPD2DQZ256rrkz = 6489
+
+    VCVTPD2DQZrm = 6490
+
+    VCVTPD2DQZrmb = 6491
+
+    VCVTPD2DQZrmbk = 6492
+
+    VCVTPD2DQZrmbkz = 6493
+
+    VCVTPD2DQZrmk = 6494
+
+    VCVTPD2DQZrmkz = 6495
+
+    VCVTPD2DQZrr = 6496
+
+    VCVTPD2DQZrrb = 6497
+
+    VCVTPD2DQZrrbk = 6498
+
+    VCVTPD2DQZrrbkz = 6499
+
+    VCVTPD2DQZrrk = 6500
+
+    VCVTPD2DQZrrkz = 6501
+
+    VCVTPD2DQrm = 6502
+
+    VCVTPD2DQrr = 6503
+
+    VCVTPD2PHZ128rm = 6504
+
+    VCVTPD2PHZ128rmb = 6505
+
+    VCVTPD2PHZ128rmbk = 6506
+
+    VCVTPD2PHZ128rmbkz = 6507
+
+    VCVTPD2PHZ128rmk = 6508
+
+    VCVTPD2PHZ128rmkz = 6509
+
+    VCVTPD2PHZ128rr = 6510
+
+    VCVTPD2PHZ128rrk = 6511
+
+    VCVTPD2PHZ128rrkz = 6512
+
+    VCVTPD2PHZ256rm = 6513
+
+    VCVTPD2PHZ256rmb = 6514
+
+    VCVTPD2PHZ256rmbk = 6515
+
+    VCVTPD2PHZ256rmbkz = 6516
+
+    VCVTPD2PHZ256rmk = 6517
+
+    VCVTPD2PHZ256rmkz = 6518
+
+    VCVTPD2PHZ256rr = 6519
+
+    VCVTPD2PHZ256rrk = 6520
+
+    VCVTPD2PHZ256rrkz = 6521
+
+    VCVTPD2PHZrm = 6522
+
+    VCVTPD2PHZrmb = 6523
+
+    VCVTPD2PHZrmbk = 6524
+
+    VCVTPD2PHZrmbkz = 6525
+
+    VCVTPD2PHZrmk = 6526
+
+    VCVTPD2PHZrmkz = 6527
+
+    VCVTPD2PHZrr = 6528
+
+    VCVTPD2PHZrrb = 6529
+
+    VCVTPD2PHZrrbk = 6530
+
+    VCVTPD2PHZrrbkz = 6531
+
+    VCVTPD2PHZrrk = 6532
+
+    VCVTPD2PHZrrkz = 6533
+
+    VCVTPD2PSYrm = 6534
+
+    VCVTPD2PSYrr = 6535
+
+    VCVTPD2PSZ128rm = 6536
+
+    VCVTPD2PSZ128rmb = 6537
+
+    VCVTPD2PSZ128rmbk = 6538
+
+    VCVTPD2PSZ128rmbkz = 6539
+
+    VCVTPD2PSZ128rmk = 6540
+
+    VCVTPD2PSZ128rmkz = 6541
+
+    VCVTPD2PSZ128rr = 6542
+
+    VCVTPD2PSZ128rrk = 6543
+
+    VCVTPD2PSZ128rrkz = 6544
+
+    VCVTPD2PSZ256rm = 6545
+
+    VCVTPD2PSZ256rmb = 6546
+
+    VCVTPD2PSZ256rmbk = 6547
+
+    VCVTPD2PSZ256rmbkz = 6548
+
+    VCVTPD2PSZ256rmk = 6549
+
+    VCVTPD2PSZ256rmkz = 6550
+
+    VCVTPD2PSZ256rr = 6551
+
+    VCVTPD2PSZ256rrk = 6552
+
+    VCVTPD2PSZ256rrkz = 6553
+
+    VCVTPD2PSZrm = 6554
+
+    VCVTPD2PSZrmb = 6555
+
+    VCVTPD2PSZrmbk = 6556
+
+    VCVTPD2PSZrmbkz = 6557
+
+    VCVTPD2PSZrmk = 6558
+
+    VCVTPD2PSZrmkz = 6559
+
+    VCVTPD2PSZrr = 6560
+
+    VCVTPD2PSZrrb = 6561
+
+    VCVTPD2PSZrrbk = 6562
+
+    VCVTPD2PSZrrbkz = 6563
+
+    VCVTPD2PSZrrk = 6564
+
+    VCVTPD2PSZrrkz = 6565
+
+    VCVTPD2PSrm = 6566
+
+    VCVTPD2PSrr = 6567
+
+    VCVTPD2QQZ128rm = 6568
+
+    VCVTPD2QQZ128rmb = 6569
+
+    VCVTPD2QQZ128rmbk = 6570
+
+    VCVTPD2QQZ128rmbkz = 6571
+
+    VCVTPD2QQZ128rmk = 6572
+
+    VCVTPD2QQZ128rmkz = 6573
+
+    VCVTPD2QQZ128rr = 6574
+
+    VCVTPD2QQZ128rrk = 6575
+
+    VCVTPD2QQZ128rrkz = 6576
+
+    VCVTPD2QQZ256rm = 6577
+
+    VCVTPD2QQZ256rmb = 6578
+
+    VCVTPD2QQZ256rmbk = 6579
+
+    VCVTPD2QQZ256rmbkz = 6580
+
+    VCVTPD2QQZ256rmk = 6581
+
+    VCVTPD2QQZ256rmkz = 6582
+
+    VCVTPD2QQZ256rr = 6583
+
+    VCVTPD2QQZ256rrk = 6584
+
+    VCVTPD2QQZ256rrkz = 6585
+
+    VCVTPD2QQZrm = 6586
+
+    VCVTPD2QQZrmb = 6587
+
+    VCVTPD2QQZrmbk = 6588
+
+    VCVTPD2QQZrmbkz = 6589
+
+    VCVTPD2QQZrmk = 6590
+
+    VCVTPD2QQZrmkz = 6591
+
+    VCVTPD2QQZrr = 6592
+
+    VCVTPD2QQZrrb = 6593
+
+    VCVTPD2QQZrrbk = 6594
+
+    VCVTPD2QQZrrbkz = 6595
+
+    VCVTPD2QQZrrk = 6596
+
+    VCVTPD2QQZrrkz = 6597
+
+    VCVTPD2UDQZ128rm = 6598
+
+    VCVTPD2UDQZ128rmb = 6599
+
+    VCVTPD2UDQZ128rmbk = 6600
+
+    VCVTPD2UDQZ128rmbkz = 6601
+
+    VCVTPD2UDQZ128rmk = 6602
+
+    VCVTPD2UDQZ128rmkz = 6603
+
+    VCVTPD2UDQZ128rr = 6604
+
+    VCVTPD2UDQZ128rrk = 6605
+
+    VCVTPD2UDQZ128rrkz = 6606
+
+    VCVTPD2UDQZ256rm = 6607
+
+    VCVTPD2UDQZ256rmb = 6608
+
+    VCVTPD2UDQZ256rmbk = 6609
+
+    VCVTPD2UDQZ256rmbkz = 6610
+
+    VCVTPD2UDQZ256rmk = 6611
+
+    VCVTPD2UDQZ256rmkz = 6612
+
+    VCVTPD2UDQZ256rr = 6613
+
+    VCVTPD2UDQZ256rrk = 6614
+
+    VCVTPD2UDQZ256rrkz = 6615
+
+    VCVTPD2UDQZrm = 6616
+
+    VCVTPD2UDQZrmb = 6617
+
+    VCVTPD2UDQZrmbk = 6618
+
+    VCVTPD2UDQZrmbkz = 6619
+
+    VCVTPD2UDQZrmk = 6620
+
+    VCVTPD2UDQZrmkz = 6621
+
+    VCVTPD2UDQZrr = 6622
+
+    VCVTPD2UDQZrrb = 6623
+
+    VCVTPD2UDQZrrbk = 6624
+
+    VCVTPD2UDQZrrbkz = 6625
+
+    VCVTPD2UDQZrrk = 6626
+
+    VCVTPD2UDQZrrkz = 6627
+
+    VCVTPD2UQQZ128rm = 6628
+
+    VCVTPD2UQQZ128rmb = 6629
+
+    VCVTPD2UQQZ128rmbk = 6630
+
+    VCVTPD2UQQZ128rmbkz = 6631
+
+    VCVTPD2UQQZ128rmk = 6632
+
+    VCVTPD2UQQZ128rmkz = 6633
+
+    VCVTPD2UQQZ128rr = 6634
+
+    VCVTPD2UQQZ128rrk = 6635
+
+    VCVTPD2UQQZ128rrkz = 6636
+
+    VCVTPD2UQQZ256rm = 6637
+
+    VCVTPD2UQQZ256rmb = 6638
+
+    VCVTPD2UQQZ256rmbk = 6639
+
+    VCVTPD2UQQZ256rmbkz = 6640
+
+    VCVTPD2UQQZ256rmk = 6641
+
+    VCVTPD2UQQZ256rmkz = 6642
+
+    VCVTPD2UQQZ256rr = 6643
+
+    VCVTPD2UQQZ256rrk = 6644
+
+    VCVTPD2UQQZ256rrkz = 6645
+
+    VCVTPD2UQQZrm = 6646
+
+    VCVTPD2UQQZrmb = 6647
+
+    VCVTPD2UQQZrmbk = 6648
+
+    VCVTPD2UQQZrmbkz = 6649
+
+    VCVTPD2UQQZrmk = 6650
+
+    VCVTPD2UQQZrmkz = 6651
+
+    VCVTPD2UQQZrr = 6652
+
+    VCVTPD2UQQZrrb = 6653
+
+    VCVTPD2UQQZrrbk = 6654
+
+    VCVTPD2UQQZrrbkz = 6655
+
+    VCVTPD2UQQZrrk = 6656
+
+    VCVTPD2UQQZrrkz = 6657
+
+    VCVTPH2BF8SZ128rm = 6658
+
+    VCVTPH2BF8SZ128rmb = 6659
+
+    VCVTPH2BF8SZ128rmbk = 6660
+
+    VCVTPH2BF8SZ128rmbkz = 6661
+
+    VCVTPH2BF8SZ128rmk = 6662
+
+    VCVTPH2BF8SZ128rmkz = 6663
+
+    VCVTPH2BF8SZ128rr = 6664
+
+    VCVTPH2BF8SZ128rrk = 6665
+
+    VCVTPH2BF8SZ128rrkz = 6666
+
+    VCVTPH2BF8SZ256rm = 6667
+
+    VCVTPH2BF8SZ256rmb = 6668
+
+    VCVTPH2BF8SZ256rmbk = 6669
+
+    VCVTPH2BF8SZ256rmbkz = 6670
+
+    VCVTPH2BF8SZ256rmk = 6671
+
+    VCVTPH2BF8SZ256rmkz = 6672
+
+    VCVTPH2BF8SZ256rr = 6673
+
+    VCVTPH2BF8SZ256rrk = 6674
+
+    VCVTPH2BF8SZ256rrkz = 6675
+
+    VCVTPH2BF8SZrm = 6676
+
+    VCVTPH2BF8SZrmb = 6677
+
+    VCVTPH2BF8SZrmbk = 6678
+
+    VCVTPH2BF8SZrmbkz = 6679
+
+    VCVTPH2BF8SZrmk = 6680
+
+    VCVTPH2BF8SZrmkz = 6681
+
+    VCVTPH2BF8SZrr = 6682
+
+    VCVTPH2BF8SZrrk = 6683
+
+    VCVTPH2BF8SZrrkz = 6684
+
+    VCVTPH2BF8Z128rm = 6685
+
+    VCVTPH2BF8Z128rmb = 6686
+
+    VCVTPH2BF8Z128rmbk = 6687
+
+    VCVTPH2BF8Z128rmbkz = 6688
+
+    VCVTPH2BF8Z128rmk = 6689
+
+    VCVTPH2BF8Z128rmkz = 6690
+
+    VCVTPH2BF8Z128rr = 6691
+
+    VCVTPH2BF8Z128rrk = 6692
+
+    VCVTPH2BF8Z128rrkz = 6693
+
+    VCVTPH2BF8Z256rm = 6694
+
+    VCVTPH2BF8Z256rmb = 6695
+
+    VCVTPH2BF8Z256rmbk = 6696
+
+    VCVTPH2BF8Z256rmbkz = 6697
+
+    VCVTPH2BF8Z256rmk = 6698
+
+    VCVTPH2BF8Z256rmkz = 6699
+
+    VCVTPH2BF8Z256rr = 6700
+
+    VCVTPH2BF8Z256rrk = 6701
+
+    VCVTPH2BF8Z256rrkz = 6702
+
+    VCVTPH2BF8Zrm = 6703
+
+    VCVTPH2BF8Zrmb = 6704
+
+    VCVTPH2BF8Zrmbk = 6705
+
+    VCVTPH2BF8Zrmbkz = 6706
+
+    VCVTPH2BF8Zrmk = 6707
+
+    VCVTPH2BF8Zrmkz = 6708
+
+    VCVTPH2BF8Zrr = 6709
+
+    VCVTPH2BF8Zrrk = 6710
+
+    VCVTPH2BF8Zrrkz = 6711
+
+    VCVTPH2DQZ128rm = 6712
+
+    VCVTPH2DQZ128rmb = 6713
+
+    VCVTPH2DQZ128rmbk = 6714
+
+    VCVTPH2DQZ128rmbkz = 6715
+
+    VCVTPH2DQZ128rmk = 6716
+
+    VCVTPH2DQZ128rmkz = 6717
+
+    VCVTPH2DQZ128rr = 6718
+
+    VCVTPH2DQZ128rrk = 6719
+
+    VCVTPH2DQZ128rrkz = 6720
+
+    VCVTPH2DQZ256rm = 6721
+
+    VCVTPH2DQZ256rmb = 6722
+
+    VCVTPH2DQZ256rmbk = 6723
+
+    VCVTPH2DQZ256rmbkz = 6724
+
+    VCVTPH2DQZ256rmk = 6725
+
+    VCVTPH2DQZ256rmkz = 6726
+
+    VCVTPH2DQZ256rr = 6727
+
+    VCVTPH2DQZ256rrk = 6728
+
+    VCVTPH2DQZ256rrkz = 6729
+
+    VCVTPH2DQZrm = 6730
+
+    VCVTPH2DQZrmb = 6731
+
+    VCVTPH2DQZrmbk = 6732
+
+    VCVTPH2DQZrmbkz = 6733
+
+    VCVTPH2DQZrmk = 6734
+
+    VCVTPH2DQZrmkz = 6735
+
+    VCVTPH2DQZrr = 6736
+
+    VCVTPH2DQZrrb = 6737
+
+    VCVTPH2DQZrrbk = 6738
+
+    VCVTPH2DQZrrbkz = 6739
+
+    VCVTPH2DQZrrk = 6740
+
+    VCVTPH2DQZrrkz = 6741
+
+    VCVTPH2HF8SZ128rm = 6742
+
+    VCVTPH2HF8SZ128rmb = 6743
+
+    VCVTPH2HF8SZ128rmbk = 6744
+
+    VCVTPH2HF8SZ128rmbkz = 6745
+
+    VCVTPH2HF8SZ128rmk = 6746
+
+    VCVTPH2HF8SZ128rmkz = 6747
+
+    VCVTPH2HF8SZ128rr = 6748
+
+    VCVTPH2HF8SZ128rrk = 6749
+
+    VCVTPH2HF8SZ128rrkz = 6750
+
+    VCVTPH2HF8SZ256rm = 6751
+
+    VCVTPH2HF8SZ256rmb = 6752
+
+    VCVTPH2HF8SZ256rmbk = 6753
+
+    VCVTPH2HF8SZ256rmbkz = 6754
+
+    VCVTPH2HF8SZ256rmk = 6755
+
+    VCVTPH2HF8SZ256rmkz = 6756
+
+    VCVTPH2HF8SZ256rr = 6757
+
+    VCVTPH2HF8SZ256rrk = 6758
+
+    VCVTPH2HF8SZ256rrkz = 6759
+
+    VCVTPH2HF8SZrm = 6760
+
+    VCVTPH2HF8SZrmb = 6761
+
+    VCVTPH2HF8SZrmbk = 6762
+
+    VCVTPH2HF8SZrmbkz = 6763
+
+    VCVTPH2HF8SZrmk = 6764
+
+    VCVTPH2HF8SZrmkz = 6765
+
+    VCVTPH2HF8SZrr = 6766
+
+    VCVTPH2HF8SZrrk = 6767
+
+    VCVTPH2HF8SZrrkz = 6768
+
+    VCVTPH2HF8Z128rm = 6769
+
+    VCVTPH2HF8Z128rmb = 6770
+
+    VCVTPH2HF8Z128rmbk = 6771
+
+    VCVTPH2HF8Z128rmbkz = 6772
+
+    VCVTPH2HF8Z128rmk = 6773
+
+    VCVTPH2HF8Z128rmkz = 6774
+
+    VCVTPH2HF8Z128rr = 6775
+
+    VCVTPH2HF8Z128rrk = 6776
+
+    VCVTPH2HF8Z128rrkz = 6777
+
+    VCVTPH2HF8Z256rm = 6778
+
+    VCVTPH2HF8Z256rmb = 6779
+
+    VCVTPH2HF8Z256rmbk = 6780
+
+    VCVTPH2HF8Z256rmbkz = 6781
+
+    VCVTPH2HF8Z256rmk = 6782
+
+    VCVTPH2HF8Z256rmkz = 6783
+
+    VCVTPH2HF8Z256rr = 6784
+
+    VCVTPH2HF8Z256rrk = 6785
+
+    VCVTPH2HF8Z256rrkz = 6786
+
+    VCVTPH2HF8Zrm = 6787
+
+    VCVTPH2HF8Zrmb = 6788
+
+    VCVTPH2HF8Zrmbk = 6789
+
+    VCVTPH2HF8Zrmbkz = 6790
+
+    VCVTPH2HF8Zrmk = 6791
+
+    VCVTPH2HF8Zrmkz = 6792
+
+    VCVTPH2HF8Zrr = 6793
+
+    VCVTPH2HF8Zrrk = 6794
+
+    VCVTPH2HF8Zrrkz = 6795
+
+    VCVTPH2IBSZ128rm = 6796
+
+    VCVTPH2IBSZ128rmb = 6797
+
+    VCVTPH2IBSZ128rmbk = 6798
+
+    VCVTPH2IBSZ128rmbkz = 6799
+
+    VCVTPH2IBSZ128rmk = 6800
+
+    VCVTPH2IBSZ128rmkz = 6801
+
+    VCVTPH2IBSZ128rr = 6802
+
+    VCVTPH2IBSZ128rrk = 6803
+
+    VCVTPH2IBSZ128rrkz = 6804
+
+    VCVTPH2IBSZ256rm = 6805
+
+    VCVTPH2IBSZ256rmb = 6806
+
+    VCVTPH2IBSZ256rmbk = 6807
+
+    VCVTPH2IBSZ256rmbkz = 6808
+
+    VCVTPH2IBSZ256rmk = 6809
+
+    VCVTPH2IBSZ256rmkz = 6810
+
+    VCVTPH2IBSZ256rr = 6811
+
+    VCVTPH2IBSZ256rrk = 6812
+
+    VCVTPH2IBSZ256rrkz = 6813
+
+    VCVTPH2IBSZrm = 6814
+
+    VCVTPH2IBSZrmb = 6815
+
+    VCVTPH2IBSZrmbk = 6816
+
+    VCVTPH2IBSZrmbkz = 6817
+
+    VCVTPH2IBSZrmk = 6818
+
+    VCVTPH2IBSZrmkz = 6819
+
+    VCVTPH2IBSZrr = 6820
+
+    VCVTPH2IBSZrrb = 6821
+
+    VCVTPH2IBSZrrbk = 6822
+
+    VCVTPH2IBSZrrbkz = 6823
+
+    VCVTPH2IBSZrrk = 6824
+
+    VCVTPH2IBSZrrkz = 6825
+
+    VCVTPH2IUBSZ128rm = 6826
+
+    VCVTPH2IUBSZ128rmb = 6827
+
+    VCVTPH2IUBSZ128rmbk = 6828
+
+    VCVTPH2IUBSZ128rmbkz = 6829
+
+    VCVTPH2IUBSZ128rmk = 6830
+
+    VCVTPH2IUBSZ128rmkz = 6831
+
+    VCVTPH2IUBSZ128rr = 6832
+
+    VCVTPH2IUBSZ128rrk = 6833
+
+    VCVTPH2IUBSZ128rrkz = 6834
+
+    VCVTPH2IUBSZ256rm = 6835
+
+    VCVTPH2IUBSZ256rmb = 6836
+
+    VCVTPH2IUBSZ256rmbk = 6837
+
+    VCVTPH2IUBSZ256rmbkz = 6838
+
+    VCVTPH2IUBSZ256rmk = 6839
+
+    VCVTPH2IUBSZ256rmkz = 6840
+
+    VCVTPH2IUBSZ256rr = 6841
+
+    VCVTPH2IUBSZ256rrk = 6842
+
+    VCVTPH2IUBSZ256rrkz = 6843
+
+    VCVTPH2IUBSZrm = 6844
+
+    VCVTPH2IUBSZrmb = 6845
+
+    VCVTPH2IUBSZrmbk = 6846
+
+    VCVTPH2IUBSZrmbkz = 6847
+
+    VCVTPH2IUBSZrmk = 6848
+
+    VCVTPH2IUBSZrmkz = 6849
+
+    VCVTPH2IUBSZrr = 6850
+
+    VCVTPH2IUBSZrrb = 6851
+
+    VCVTPH2IUBSZrrbk = 6852
+
+    VCVTPH2IUBSZrrbkz = 6853
+
+    VCVTPH2IUBSZrrk = 6854
+
+    VCVTPH2IUBSZrrkz = 6855
+
+    VCVTPH2PDZ128rm = 6856
+
+    VCVTPH2PDZ128rmb = 6857
+
+    VCVTPH2PDZ128rmbk = 6858
+
+    VCVTPH2PDZ128rmbkz = 6859
+
+    VCVTPH2PDZ128rmk = 6860
+
+    VCVTPH2PDZ128rmkz = 6861
+
+    VCVTPH2PDZ128rr = 6862
+
+    VCVTPH2PDZ128rrk = 6863
+
+    VCVTPH2PDZ128rrkz = 6864
+
+    VCVTPH2PDZ256rm = 6865
+
+    VCVTPH2PDZ256rmb = 6866
+
+    VCVTPH2PDZ256rmbk = 6867
+
+    VCVTPH2PDZ256rmbkz = 6868
+
+    VCVTPH2PDZ256rmk = 6869
+
+    VCVTPH2PDZ256rmkz = 6870
+
+    VCVTPH2PDZ256rr = 6871
+
+    VCVTPH2PDZ256rrk = 6872
+
+    VCVTPH2PDZ256rrkz = 6873
+
+    VCVTPH2PDZrm = 6874
+
+    VCVTPH2PDZrmb = 6875
+
+    VCVTPH2PDZrmbk = 6876
+
+    VCVTPH2PDZrmbkz = 6877
+
+    VCVTPH2PDZrmk = 6878
+
+    VCVTPH2PDZrmkz = 6879
+
+    VCVTPH2PDZrr = 6880
+
+    VCVTPH2PDZrrb = 6881
+
+    VCVTPH2PDZrrbk = 6882
+
+    VCVTPH2PDZrrbkz = 6883
+
+    VCVTPH2PDZrrk = 6884
+
+    VCVTPH2PDZrrkz = 6885
+
+    VCVTPH2PSXZ128rm = 6886
+
+    VCVTPH2PSXZ128rmb = 6887
+
+    VCVTPH2PSXZ128rmbk = 6888
+
+    VCVTPH2PSXZ128rmbkz = 6889
+
+    VCVTPH2PSXZ128rmk = 6890
+
+    VCVTPH2PSXZ128rmkz = 6891
+
+    VCVTPH2PSXZ128rr = 6892
+
+    VCVTPH2PSXZ128rrk = 6893
+
+    VCVTPH2PSXZ128rrkz = 6894
+
+    VCVTPH2PSXZ256rm = 6895
+
+    VCVTPH2PSXZ256rmb = 6896
+
+    VCVTPH2PSXZ256rmbk = 6897
+
+    VCVTPH2PSXZ256rmbkz = 6898
+
+    VCVTPH2PSXZ256rmk = 6899
+
+    VCVTPH2PSXZ256rmkz = 6900
+
+    VCVTPH2PSXZ256rr = 6901
+
+    VCVTPH2PSXZ256rrk = 6902
+
+    VCVTPH2PSXZ256rrkz = 6903
+
+    VCVTPH2PSXZrm = 6904
+
+    VCVTPH2PSXZrmb = 6905
+
+    VCVTPH2PSXZrmbk = 6906
+
+    VCVTPH2PSXZrmbkz = 6907
+
+    VCVTPH2PSXZrmk = 6908
+
+    VCVTPH2PSXZrmkz = 6909
+
+    VCVTPH2PSXZrr = 6910
+
+    VCVTPH2PSXZrrb = 6911
+
+    VCVTPH2PSXZrrbk = 6912
+
+    VCVTPH2PSXZrrbkz = 6913
+
+    VCVTPH2PSXZrrk = 6914
+
+    VCVTPH2PSXZrrkz = 6915
+
+    VCVTPH2PSYrm = 6916
+
+    VCVTPH2PSYrr = 6917
+
+    VCVTPH2PSZ128rm = 6918
+
+    VCVTPH2PSZ128rmk = 6919
+
+    VCVTPH2PSZ128rmkz = 6920
+
+    VCVTPH2PSZ128rr = 6921
+
+    VCVTPH2PSZ128rrk = 6922
+
+    VCVTPH2PSZ128rrkz = 6923
+
+    VCVTPH2PSZ256rm = 6924
+
+    VCVTPH2PSZ256rmk = 6925
+
+    VCVTPH2PSZ256rmkz = 6926
+
+    VCVTPH2PSZ256rr = 6927
+
+    VCVTPH2PSZ256rrk = 6928
+
+    VCVTPH2PSZ256rrkz = 6929
+
+    VCVTPH2PSZrm = 6930
+
+    VCVTPH2PSZrmk = 6931
+
+    VCVTPH2PSZrmkz = 6932
+
+    VCVTPH2PSZrr = 6933
+
+    VCVTPH2PSZrrb = 6934
+
+    VCVTPH2PSZrrbk = 6935
+
+    VCVTPH2PSZrrbkz = 6936
+
+    VCVTPH2PSZrrk = 6937
+
+    VCVTPH2PSZrrkz = 6938
+
+    VCVTPH2PSrm = 6939
+
+    VCVTPH2PSrr = 6940
+
+    VCVTPH2QQZ128rm = 6941
+
+    VCVTPH2QQZ128rmb = 6942
+
+    VCVTPH2QQZ128rmbk = 6943
+
+    VCVTPH2QQZ128rmbkz = 6944
+
+    VCVTPH2QQZ128rmk = 6945
+
+    VCVTPH2QQZ128rmkz = 6946
+
+    VCVTPH2QQZ128rr = 6947
+
+    VCVTPH2QQZ128rrk = 6948
+
+    VCVTPH2QQZ128rrkz = 6949
+
+    VCVTPH2QQZ256rm = 6950
+
+    VCVTPH2QQZ256rmb = 6951
+
+    VCVTPH2QQZ256rmbk = 6952
+
+    VCVTPH2QQZ256rmbkz = 6953
+
+    VCVTPH2QQZ256rmk = 6954
+
+    VCVTPH2QQZ256rmkz = 6955
+
+    VCVTPH2QQZ256rr = 6956
+
+    VCVTPH2QQZ256rrk = 6957
+
+    VCVTPH2QQZ256rrkz = 6958
+
+    VCVTPH2QQZrm = 6959
+
+    VCVTPH2QQZrmb = 6960
+
+    VCVTPH2QQZrmbk = 6961
+
+    VCVTPH2QQZrmbkz = 6962
+
+    VCVTPH2QQZrmk = 6963
+
+    VCVTPH2QQZrmkz = 6964
+
+    VCVTPH2QQZrr = 6965
+
+    VCVTPH2QQZrrb = 6966
+
+    VCVTPH2QQZrrbk = 6967
+
+    VCVTPH2QQZrrbkz = 6968
+
+    VCVTPH2QQZrrk = 6969
+
+    VCVTPH2QQZrrkz = 6970
+
+    VCVTPH2UDQZ128rm = 6971
+
+    VCVTPH2UDQZ128rmb = 6972
+
+    VCVTPH2UDQZ128rmbk = 6973
+
+    VCVTPH2UDQZ128rmbkz = 6974
+
+    VCVTPH2UDQZ128rmk = 6975
+
+    VCVTPH2UDQZ128rmkz = 6976
+
+    VCVTPH2UDQZ128rr = 6977
+
+    VCVTPH2UDQZ128rrk = 6978
+
+    VCVTPH2UDQZ128rrkz = 6979
+
+    VCVTPH2UDQZ256rm = 6980
+
+    VCVTPH2UDQZ256rmb = 6981
+
+    VCVTPH2UDQZ256rmbk = 6982
+
+    VCVTPH2UDQZ256rmbkz = 6983
+
+    VCVTPH2UDQZ256rmk = 6984
+
+    VCVTPH2UDQZ256rmkz = 6985
+
+    VCVTPH2UDQZ256rr = 6986
+
+    VCVTPH2UDQZ256rrk = 6987
+
+    VCVTPH2UDQZ256rrkz = 6988
+
+    VCVTPH2UDQZrm = 6989
+
+    VCVTPH2UDQZrmb = 6990
+
+    VCVTPH2UDQZrmbk = 6991
+
+    VCVTPH2UDQZrmbkz = 6992
+
+    VCVTPH2UDQZrmk = 6993
+
+    VCVTPH2UDQZrmkz = 6994
+
+    VCVTPH2UDQZrr = 6995
+
+    VCVTPH2UDQZrrb = 6996
+
+    VCVTPH2UDQZrrbk = 6997
+
+    VCVTPH2UDQZrrbkz = 6998
+
+    VCVTPH2UDQZrrk = 6999
+
+    VCVTPH2UDQZrrkz = 7000
+
+    VCVTPH2UQQZ128rm = 7001
+
+    VCVTPH2UQQZ128rmb = 7002
+
+    VCVTPH2UQQZ128rmbk = 7003
+
+    VCVTPH2UQQZ128rmbkz = 7004
+
+    VCVTPH2UQQZ128rmk = 7005
+
+    VCVTPH2UQQZ128rmkz = 7006
+
+    VCVTPH2UQQZ128rr = 7007
+
+    VCVTPH2UQQZ128rrk = 7008
+
+    VCVTPH2UQQZ128rrkz = 7009
+
+    VCVTPH2UQQZ256rm = 7010
+
+    VCVTPH2UQQZ256rmb = 7011
+
+    VCVTPH2UQQZ256rmbk = 7012
+
+    VCVTPH2UQQZ256rmbkz = 7013
+
+    VCVTPH2UQQZ256rmk = 7014
+
+    VCVTPH2UQQZ256rmkz = 7015
+
+    VCVTPH2UQQZ256rr = 7016
+
+    VCVTPH2UQQZ256rrk = 7017
+
+    VCVTPH2UQQZ256rrkz = 7018
+
+    VCVTPH2UQQZrm = 7019
+
+    VCVTPH2UQQZrmb = 7020
+
+    VCVTPH2UQQZrmbk = 7021
+
+    VCVTPH2UQQZrmbkz = 7022
+
+    VCVTPH2UQQZrmk = 7023
+
+    VCVTPH2UQQZrmkz = 7024
+
+    VCVTPH2UQQZrr = 7025
+
+    VCVTPH2UQQZrrb = 7026
+
+    VCVTPH2UQQZrrbk = 7027
+
+    VCVTPH2UQQZrrbkz = 7028
+
+    VCVTPH2UQQZrrk = 7029
+
+    VCVTPH2UQQZrrkz = 7030
+
+    VCVTPH2UWZ128rm = 7031
+
+    VCVTPH2UWZ128rmb = 7032
+
+    VCVTPH2UWZ128rmbk = 7033
+
+    VCVTPH2UWZ128rmbkz = 7034
+
+    VCVTPH2UWZ128rmk = 7035
+
+    VCVTPH2UWZ128rmkz = 7036
+
+    VCVTPH2UWZ128rr = 7037
+
+    VCVTPH2UWZ128rrk = 7038
+
+    VCVTPH2UWZ128rrkz = 7039
+
+    VCVTPH2UWZ256rm = 7040
+
+    VCVTPH2UWZ256rmb = 7041
+
+    VCVTPH2UWZ256rmbk = 7042
+
+    VCVTPH2UWZ256rmbkz = 7043
+
+    VCVTPH2UWZ256rmk = 7044
+
+    VCVTPH2UWZ256rmkz = 7045
+
+    VCVTPH2UWZ256rr = 7046
+
+    VCVTPH2UWZ256rrk = 7047
+
+    VCVTPH2UWZ256rrkz = 7048
+
+    VCVTPH2UWZrm = 7049
+
+    VCVTPH2UWZrmb = 7050
+
+    VCVTPH2UWZrmbk = 7051
+
+    VCVTPH2UWZrmbkz = 7052
+
+    VCVTPH2UWZrmk = 7053
+
+    VCVTPH2UWZrmkz = 7054
+
+    VCVTPH2UWZrr = 7055
+
+    VCVTPH2UWZrrb = 7056
+
+    VCVTPH2UWZrrbk = 7057
+
+    VCVTPH2UWZrrbkz = 7058
+
+    VCVTPH2UWZrrk = 7059
+
+    VCVTPH2UWZrrkz = 7060
+
+    VCVTPH2WZ128rm = 7061
+
+    VCVTPH2WZ128rmb = 7062
+
+    VCVTPH2WZ128rmbk = 7063
+
+    VCVTPH2WZ128rmbkz = 7064
+
+    VCVTPH2WZ128rmk = 7065
+
+    VCVTPH2WZ128rmkz = 7066
+
+    VCVTPH2WZ128rr = 7067
+
+    VCVTPH2WZ128rrk = 7068
+
+    VCVTPH2WZ128rrkz = 7069
+
+    VCVTPH2WZ256rm = 7070
+
+    VCVTPH2WZ256rmb = 7071
+
+    VCVTPH2WZ256rmbk = 7072
+
+    VCVTPH2WZ256rmbkz = 7073
+
+    VCVTPH2WZ256rmk = 7074
+
+    VCVTPH2WZ256rmkz = 7075
+
+    VCVTPH2WZ256rr = 7076
+
+    VCVTPH2WZ256rrk = 7077
+
+    VCVTPH2WZ256rrkz = 7078
+
+    VCVTPH2WZrm = 7079
+
+    VCVTPH2WZrmb = 7080
+
+    VCVTPH2WZrmbk = 7081
+
+    VCVTPH2WZrmbkz = 7082
+
+    VCVTPH2WZrmk = 7083
+
+    VCVTPH2WZrmkz = 7084
+
+    VCVTPH2WZrr = 7085
+
+    VCVTPH2WZrrb = 7086
+
+    VCVTPH2WZrrbk = 7087
+
+    VCVTPH2WZrrbkz = 7088
+
+    VCVTPH2WZrrk = 7089
+
+    VCVTPH2WZrrkz = 7090
+
+    VCVTPS2DQYrm = 7091
+
+    VCVTPS2DQYrr = 7092
+
+    VCVTPS2DQZ128rm = 7093
+
+    VCVTPS2DQZ128rmb = 7094
+
+    VCVTPS2DQZ128rmbk = 7095
+
+    VCVTPS2DQZ128rmbkz = 7096
+
+    VCVTPS2DQZ128rmk = 7097
+
+    VCVTPS2DQZ128rmkz = 7098
+
+    VCVTPS2DQZ128rr = 7099
+
+    VCVTPS2DQZ128rrk = 7100
+
+    VCVTPS2DQZ128rrkz = 7101
+
+    VCVTPS2DQZ256rm = 7102
+
+    VCVTPS2DQZ256rmb = 7103
+
+    VCVTPS2DQZ256rmbk = 7104
+
+    VCVTPS2DQZ256rmbkz = 7105
+
+    VCVTPS2DQZ256rmk = 7106
+
+    VCVTPS2DQZ256rmkz = 7107
+
+    VCVTPS2DQZ256rr = 7108
+
+    VCVTPS2DQZ256rrk = 7109
+
+    VCVTPS2DQZ256rrkz = 7110
+
+    VCVTPS2DQZrm = 7111
+
+    VCVTPS2DQZrmb = 7112
+
+    VCVTPS2DQZrmbk = 7113
+
+    VCVTPS2DQZrmbkz = 7114
+
+    VCVTPS2DQZrmk = 7115
+
+    VCVTPS2DQZrmkz = 7116
+
+    VCVTPS2DQZrr = 7117
+
+    VCVTPS2DQZrrb = 7118
+
+    VCVTPS2DQZrrbk = 7119
+
+    VCVTPS2DQZrrbkz = 7120
+
+    VCVTPS2DQZrrk = 7121
+
+    VCVTPS2DQZrrkz = 7122
+
+    VCVTPS2DQrm = 7123
+
+    VCVTPS2DQrr = 7124
+
+    VCVTPS2IBSZ128rm = 7125
+
+    VCVTPS2IBSZ128rmb = 7126
+
+    VCVTPS2IBSZ128rmbk = 7127
+
+    VCVTPS2IBSZ128rmbkz = 7128
+
+    VCVTPS2IBSZ128rmk = 7129
+
+    VCVTPS2IBSZ128rmkz = 7130
+
+    VCVTPS2IBSZ128rr = 7131
+
+    VCVTPS2IBSZ128rrk = 7132
+
+    VCVTPS2IBSZ128rrkz = 7133
+
+    VCVTPS2IBSZ256rm = 7134
+
+    VCVTPS2IBSZ256rmb = 7135
+
+    VCVTPS2IBSZ256rmbk = 7136
+
+    VCVTPS2IBSZ256rmbkz = 7137
+
+    VCVTPS2IBSZ256rmk = 7138
+
+    VCVTPS2IBSZ256rmkz = 7139
+
+    VCVTPS2IBSZ256rr = 7140
+
+    VCVTPS2IBSZ256rrk = 7141
+
+    VCVTPS2IBSZ256rrkz = 7142
+
+    VCVTPS2IBSZrm = 7143
+
+    VCVTPS2IBSZrmb = 7144
+
+    VCVTPS2IBSZrmbk = 7145
+
+    VCVTPS2IBSZrmbkz = 7146
+
+    VCVTPS2IBSZrmk = 7147
+
+    VCVTPS2IBSZrmkz = 7148
+
+    VCVTPS2IBSZrr = 7149
+
+    VCVTPS2IBSZrrb = 7150
+
+    VCVTPS2IBSZrrbk = 7151
+
+    VCVTPS2IBSZrrbkz = 7152
+
+    VCVTPS2IBSZrrk = 7153
+
+    VCVTPS2IBSZrrkz = 7154
+
+    VCVTPS2IUBSZ128rm = 7155
+
+    VCVTPS2IUBSZ128rmb = 7156
+
+    VCVTPS2IUBSZ128rmbk = 7157
+
+    VCVTPS2IUBSZ128rmbkz = 7158
+
+    VCVTPS2IUBSZ128rmk = 7159
+
+    VCVTPS2IUBSZ128rmkz = 7160
+
+    VCVTPS2IUBSZ128rr = 7161
+
+    VCVTPS2IUBSZ128rrk = 7162
+
+    VCVTPS2IUBSZ128rrkz = 7163
+
+    VCVTPS2IUBSZ256rm = 7164
+
+    VCVTPS2IUBSZ256rmb = 7165
+
+    VCVTPS2IUBSZ256rmbk = 7166
+
+    VCVTPS2IUBSZ256rmbkz = 7167
+
+    VCVTPS2IUBSZ256rmk = 7168
+
+    VCVTPS2IUBSZ256rmkz = 7169
+
+    VCVTPS2IUBSZ256rr = 7170
+
+    VCVTPS2IUBSZ256rrk = 7171
+
+    VCVTPS2IUBSZ256rrkz = 7172
+
+    VCVTPS2IUBSZrm = 7173
+
+    VCVTPS2IUBSZrmb = 7174
+
+    VCVTPS2IUBSZrmbk = 7175
+
+    VCVTPS2IUBSZrmbkz = 7176
+
+    VCVTPS2IUBSZrmk = 7177
+
+    VCVTPS2IUBSZrmkz = 7178
+
+    VCVTPS2IUBSZrr = 7179
+
+    VCVTPS2IUBSZrrb = 7180
+
+    VCVTPS2IUBSZrrbk = 7181
+
+    VCVTPS2IUBSZrrbkz = 7182
+
+    VCVTPS2IUBSZrrk = 7183
+
+    VCVTPS2IUBSZrrkz = 7184
+
+    VCVTPS2PDYrm = 7185
+
+    VCVTPS2PDYrr = 7186
+
+    VCVTPS2PDZ128rm = 7187
+
+    VCVTPS2PDZ128rmb = 7188
+
+    VCVTPS2PDZ128rmbk = 7189
+
+    VCVTPS2PDZ128rmbkz = 7190
+
+    VCVTPS2PDZ128rmk = 7191
+
+    VCVTPS2PDZ128rmkz = 7192
+
+    VCVTPS2PDZ128rr = 7193
+
+    VCVTPS2PDZ128rrk = 7194
+
+    VCVTPS2PDZ128rrkz = 7195
+
+    VCVTPS2PDZ256rm = 7196
+
+    VCVTPS2PDZ256rmb = 7197
+
+    VCVTPS2PDZ256rmbk = 7198
+
+    VCVTPS2PDZ256rmbkz = 7199
+
+    VCVTPS2PDZ256rmk = 7200
+
+    VCVTPS2PDZ256rmkz = 7201
+
+    VCVTPS2PDZ256rr = 7202
+
+    VCVTPS2PDZ256rrk = 7203
+
+    VCVTPS2PDZ256rrkz = 7204
+
+    VCVTPS2PDZrm = 7205
+
+    VCVTPS2PDZrmb = 7206
+
+    VCVTPS2PDZrmbk = 7207
+
+    VCVTPS2PDZrmbkz = 7208
+
+    VCVTPS2PDZrmk = 7209
+
+    VCVTPS2PDZrmkz = 7210
+
+    VCVTPS2PDZrr = 7211
+
+    VCVTPS2PDZrrb = 7212
+
+    VCVTPS2PDZrrbk = 7213
+
+    VCVTPS2PDZrrbkz = 7214
+
+    VCVTPS2PDZrrk = 7215
+
+    VCVTPS2PDZrrkz = 7216
+
+    VCVTPS2PDrm = 7217
+
+    VCVTPS2PDrr = 7218
+
+    VCVTPS2PHXZ128rm = 7219
+
+    VCVTPS2PHXZ128rmb = 7220
+
+    VCVTPS2PHXZ128rmbk = 7221
+
+    VCVTPS2PHXZ128rmbkz = 7222
+
+    VCVTPS2PHXZ128rmk = 7223
+
+    VCVTPS2PHXZ128rmkz = 7224
+
+    VCVTPS2PHXZ128rr = 7225
+
+    VCVTPS2PHXZ128rrk = 7226
+
+    VCVTPS2PHXZ128rrkz = 7227
+
+    VCVTPS2PHXZ256rm = 7228
+
+    VCVTPS2PHXZ256rmb = 7229
+
+    VCVTPS2PHXZ256rmbk = 7230
+
+    VCVTPS2PHXZ256rmbkz = 7231
+
+    VCVTPS2PHXZ256rmk = 7232
+
+    VCVTPS2PHXZ256rmkz = 7233
+
+    VCVTPS2PHXZ256rr = 7234
+
+    VCVTPS2PHXZ256rrk = 7235
+
+    VCVTPS2PHXZ256rrkz = 7236
+
+    VCVTPS2PHXZrm = 7237
+
+    VCVTPS2PHXZrmb = 7238
+
+    VCVTPS2PHXZrmbk = 7239
+
+    VCVTPS2PHXZrmbkz = 7240
+
+    VCVTPS2PHXZrmk = 7241
+
+    VCVTPS2PHXZrmkz = 7242
+
+    VCVTPS2PHXZrr = 7243
+
+    VCVTPS2PHXZrrb = 7244
+
+    VCVTPS2PHXZrrbk = 7245
+
+    VCVTPS2PHXZrrbkz = 7246
+
+    VCVTPS2PHXZrrk = 7247
+
+    VCVTPS2PHXZrrkz = 7248
+
+    VCVTPS2PHYmr = 7249
+
+    VCVTPS2PHYrr = 7250
+
+    VCVTPS2PHZ128mr = 7251
+
+    VCVTPS2PHZ128mrk = 7252
+
+    VCVTPS2PHZ128rr = 7253
+
+    VCVTPS2PHZ128rrk = 7254
+
+    VCVTPS2PHZ128rrkz = 7255
+
+    VCVTPS2PHZ256mr = 7256
+
+    VCVTPS2PHZ256mrk = 7257
+
+    VCVTPS2PHZ256rr = 7258
+
+    VCVTPS2PHZ256rrk = 7259
+
+    VCVTPS2PHZ256rrkz = 7260
+
+    VCVTPS2PHZmr = 7261
+
+    VCVTPS2PHZmrk = 7262
+
+    VCVTPS2PHZrr = 7263
+
+    VCVTPS2PHZrrb = 7264
+
+    VCVTPS2PHZrrbk = 7265
+
+    VCVTPS2PHZrrbkz = 7266
+
+    VCVTPS2PHZrrk = 7267
+
+    VCVTPS2PHZrrkz = 7268
+
+    VCVTPS2PHmr = 7269
+
+    VCVTPS2PHrr = 7270
+
+    VCVTPS2QQZ128rm = 7271
+
+    VCVTPS2QQZ128rmb = 7272
+
+    VCVTPS2QQZ128rmbk = 7273
+
+    VCVTPS2QQZ128rmbkz = 7274
+
+    VCVTPS2QQZ128rmk = 7275
+
+    VCVTPS2QQZ128rmkz = 7276
+
+    VCVTPS2QQZ128rr = 7277
+
+    VCVTPS2QQZ128rrk = 7278
+
+    VCVTPS2QQZ128rrkz = 7279
+
+    VCVTPS2QQZ256rm = 7280
+
+    VCVTPS2QQZ256rmb = 7281
+
+    VCVTPS2QQZ256rmbk = 7282
+
+    VCVTPS2QQZ256rmbkz = 7283
+
+    VCVTPS2QQZ256rmk = 7284
+
+    VCVTPS2QQZ256rmkz = 7285
+
+    VCVTPS2QQZ256rr = 7286
+
+    VCVTPS2QQZ256rrk = 7287
+
+    VCVTPS2QQZ256rrkz = 7288
+
+    VCVTPS2QQZrm = 7289
+
+    VCVTPS2QQZrmb = 7290
+
+    VCVTPS2QQZrmbk = 7291
+
+    VCVTPS2QQZrmbkz = 7292
+
+    VCVTPS2QQZrmk = 7293
+
+    VCVTPS2QQZrmkz = 7294
+
+    VCVTPS2QQZrr = 7295
+
+    VCVTPS2QQZrrb = 7296
+
+    VCVTPS2QQZrrbk = 7297
+
+    VCVTPS2QQZrrbkz = 7298
+
+    VCVTPS2QQZrrk = 7299
+
+    VCVTPS2QQZrrkz = 7300
+
+    VCVTPS2UDQZ128rm = 7301
+
+    VCVTPS2UDQZ128rmb = 7302
+
+    VCVTPS2UDQZ128rmbk = 7303
+
+    VCVTPS2UDQZ128rmbkz = 7304
+
+    VCVTPS2UDQZ128rmk = 7305
+
+    VCVTPS2UDQZ128rmkz = 7306
+
+    VCVTPS2UDQZ128rr = 7307
+
+    VCVTPS2UDQZ128rrk = 7308
+
+    VCVTPS2UDQZ128rrkz = 7309
+
+    VCVTPS2UDQZ256rm = 7310
+
+    VCVTPS2UDQZ256rmb = 7311
+
+    VCVTPS2UDQZ256rmbk = 7312
+
+    VCVTPS2UDQZ256rmbkz = 7313
+
+    VCVTPS2UDQZ256rmk = 7314
+
+    VCVTPS2UDQZ256rmkz = 7315
+
+    VCVTPS2UDQZ256rr = 7316
+
+    VCVTPS2UDQZ256rrk = 7317
+
+    VCVTPS2UDQZ256rrkz = 7318
+
+    VCVTPS2UDQZrm = 7319
+
+    VCVTPS2UDQZrmb = 7320
+
+    VCVTPS2UDQZrmbk = 7321
+
+    VCVTPS2UDQZrmbkz = 7322
+
+    VCVTPS2UDQZrmk = 7323
+
+    VCVTPS2UDQZrmkz = 7324
+
+    VCVTPS2UDQZrr = 7325
+
+    VCVTPS2UDQZrrb = 7326
+
+    VCVTPS2UDQZrrbk = 7327
+
+    VCVTPS2UDQZrrbkz = 7328
+
+    VCVTPS2UDQZrrk = 7329
+
+    VCVTPS2UDQZrrkz = 7330
+
+    VCVTPS2UQQZ128rm = 7331
+
+    VCVTPS2UQQZ128rmb = 7332
+
+    VCVTPS2UQQZ128rmbk = 7333
+
+    VCVTPS2UQQZ128rmbkz = 7334
+
+    VCVTPS2UQQZ128rmk = 7335
+
+    VCVTPS2UQQZ128rmkz = 7336
+
+    VCVTPS2UQQZ128rr = 7337
+
+    VCVTPS2UQQZ128rrk = 7338
+
+    VCVTPS2UQQZ128rrkz = 7339
+
+    VCVTPS2UQQZ256rm = 7340
+
+    VCVTPS2UQQZ256rmb = 7341
+
+    VCVTPS2UQQZ256rmbk = 7342
+
+    VCVTPS2UQQZ256rmbkz = 7343
+
+    VCVTPS2UQQZ256rmk = 7344
+
+    VCVTPS2UQQZ256rmkz = 7345
+
+    VCVTPS2UQQZ256rr = 7346
+
+    VCVTPS2UQQZ256rrk = 7347
+
+    VCVTPS2UQQZ256rrkz = 7348
+
+    VCVTPS2UQQZrm = 7349
+
+    VCVTPS2UQQZrmb = 7350
+
+    VCVTPS2UQQZrmbk = 7351
+
+    VCVTPS2UQQZrmbkz = 7352
+
+    VCVTPS2UQQZrmk = 7353
+
+    VCVTPS2UQQZrmkz = 7354
+
+    VCVTPS2UQQZrr = 7355
+
+    VCVTPS2UQQZrrb = 7356
+
+    VCVTPS2UQQZrrbk = 7357
+
+    VCVTPS2UQQZrrbkz = 7358
+
+    VCVTPS2UQQZrrk = 7359
+
+    VCVTPS2UQQZrrkz = 7360
+
+    VCVTQQ2PDZ128rm = 7361
+
+    VCVTQQ2PDZ128rmb = 7362
+
+    VCVTQQ2PDZ128rmbk = 7363
+
+    VCVTQQ2PDZ128rmbkz = 7364
+
+    VCVTQQ2PDZ128rmk = 7365
+
+    VCVTQQ2PDZ128rmkz = 7366
+
+    VCVTQQ2PDZ128rr = 7367
+
+    VCVTQQ2PDZ128rrk = 7368
+
+    VCVTQQ2PDZ128rrkz = 7369
+
+    VCVTQQ2PDZ256rm = 7370
+
+    VCVTQQ2PDZ256rmb = 7371
+
+    VCVTQQ2PDZ256rmbk = 7372
+
+    VCVTQQ2PDZ256rmbkz = 7373
+
+    VCVTQQ2PDZ256rmk = 7374
+
+    VCVTQQ2PDZ256rmkz = 7375
+
+    VCVTQQ2PDZ256rr = 7376
+
+    VCVTQQ2PDZ256rrk = 7377
+
+    VCVTQQ2PDZ256rrkz = 7378
+
+    VCVTQQ2PDZrm = 7379
+
+    VCVTQQ2PDZrmb = 7380
+
+    VCVTQQ2PDZrmbk = 7381
+
+    VCVTQQ2PDZrmbkz = 7382
+
+    VCVTQQ2PDZrmk = 7383
+
+    VCVTQQ2PDZrmkz = 7384
+
+    VCVTQQ2PDZrr = 7385
+
+    VCVTQQ2PDZrrb = 7386
+
+    VCVTQQ2PDZrrbk = 7387
+
+    VCVTQQ2PDZrrbkz = 7388
+
+    VCVTQQ2PDZrrk = 7389
+
+    VCVTQQ2PDZrrkz = 7390
+
+    VCVTQQ2PHZ128rm = 7391
+
+    VCVTQQ2PHZ128rmb = 7392
+
+    VCVTQQ2PHZ128rmbk = 7393
+
+    VCVTQQ2PHZ128rmbkz = 7394
+
+    VCVTQQ2PHZ128rmk = 7395
+
+    VCVTQQ2PHZ128rmkz = 7396
+
+    VCVTQQ2PHZ128rr = 7397
+
+    VCVTQQ2PHZ128rrk = 7398
+
+    VCVTQQ2PHZ128rrkz = 7399
+
+    VCVTQQ2PHZ256rm = 7400
+
+    VCVTQQ2PHZ256rmb = 7401
+
+    VCVTQQ2PHZ256rmbk = 7402
+
+    VCVTQQ2PHZ256rmbkz = 7403
+
+    VCVTQQ2PHZ256rmk = 7404
+
+    VCVTQQ2PHZ256rmkz = 7405
+
+    VCVTQQ2PHZ256rr = 7406
+
+    VCVTQQ2PHZ256rrk = 7407
+
+    VCVTQQ2PHZ256rrkz = 7408
+
+    VCVTQQ2PHZrm = 7409
+
+    VCVTQQ2PHZrmb = 7410
+
+    VCVTQQ2PHZrmbk = 7411
+
+    VCVTQQ2PHZrmbkz = 7412
+
+    VCVTQQ2PHZrmk = 7413
+
+    VCVTQQ2PHZrmkz = 7414
+
+    VCVTQQ2PHZrr = 7415
+
+    VCVTQQ2PHZrrb = 7416
+
+    VCVTQQ2PHZrrbk = 7417
+
+    VCVTQQ2PHZrrbkz = 7418
+
+    VCVTQQ2PHZrrk = 7419
+
+    VCVTQQ2PHZrrkz = 7420
+
+    VCVTQQ2PSZ128rm = 7421
+
+    VCVTQQ2PSZ128rmb = 7422
+
+    VCVTQQ2PSZ128rmbk = 7423
+
+    VCVTQQ2PSZ128rmbkz = 7424
+
+    VCVTQQ2PSZ128rmk = 7425
+
+    VCVTQQ2PSZ128rmkz = 7426
+
+    VCVTQQ2PSZ128rr = 7427
+
+    VCVTQQ2PSZ128rrk = 7428
+
+    VCVTQQ2PSZ128rrkz = 7429
+
+    VCVTQQ2PSZ256rm = 7430
+
+    VCVTQQ2PSZ256rmb = 7431
+
+    VCVTQQ2PSZ256rmbk = 7432
+
+    VCVTQQ2PSZ256rmbkz = 7433
+
+    VCVTQQ2PSZ256rmk = 7434
+
+    VCVTQQ2PSZ256rmkz = 7435
+
+    VCVTQQ2PSZ256rr = 7436
+
+    VCVTQQ2PSZ256rrk = 7437
+
+    VCVTQQ2PSZ256rrkz = 7438
+
+    VCVTQQ2PSZrm = 7439
+
+    VCVTQQ2PSZrmb = 7440
+
+    VCVTQQ2PSZrmbk = 7441
+
+    VCVTQQ2PSZrmbkz = 7442
+
+    VCVTQQ2PSZrmk = 7443
+
+    VCVTQQ2PSZrmkz = 7444
+
+    VCVTQQ2PSZrr = 7445
+
+    VCVTQQ2PSZrrb = 7446
+
+    VCVTQQ2PSZrrbk = 7447
+
+    VCVTQQ2PSZrrbkz = 7448
+
+    VCVTQQ2PSZrrk = 7449
+
+    VCVTQQ2PSZrrkz = 7450
+
+    VCVTSD2SHZrm = 7451
+
+    VCVTSD2SHZrm_Int = 7452
+
+    VCVTSD2SHZrmk_Int = 7453
+
+    VCVTSD2SHZrmkz_Int = 7454
+
+    VCVTSD2SHZrr = 7455
+
+    VCVTSD2SHZrr_Int = 7456
+
+    VCVTSD2SHZrrb_Int = 7457
+
+    VCVTSD2SHZrrbk_Int = 7458
+
+    VCVTSD2SHZrrbkz_Int = 7459
+
+    VCVTSD2SHZrrk_Int = 7460
+
+    VCVTSD2SHZrrkz_Int = 7461
+
+    VCVTSD2SI64Zrm = 7462
+
+    VCVTSD2SI64Zrm_Int = 7463
+
+    VCVTSD2SI64Zrr = 7464
+
+    VCVTSD2SI64Zrr_Int = 7465
+
+    VCVTSD2SI64Zrrb_Int = 7466
+
+    VCVTSD2SI64rm = 7467
+
+    VCVTSD2SI64rm_Int = 7468
+
+    VCVTSD2SI64rr = 7469
+
+    VCVTSD2SI64rr_Int = 7470
+
+    VCVTSD2SIZrm = 7471
+
+    VCVTSD2SIZrm_Int = 7472
+
+    VCVTSD2SIZrr = 7473
+
+    VCVTSD2SIZrr_Int = 7474
+
+    VCVTSD2SIZrrb_Int = 7475
+
+    VCVTSD2SIrm = 7476
+
+    VCVTSD2SIrm_Int = 7477
+
+    VCVTSD2SIrr = 7478
+
+    VCVTSD2SIrr_Int = 7479
+
+    VCVTSD2SSZrm = 7480
+
+    VCVTSD2SSZrm_Int = 7481
+
+    VCVTSD2SSZrmk_Int = 7482
+
+    VCVTSD2SSZrmkz_Int = 7483
+
+    VCVTSD2SSZrr = 7484
+
+    VCVTSD2SSZrr_Int = 7485
+
+    VCVTSD2SSZrrb_Int = 7486
+
+    VCVTSD2SSZrrbk_Int = 7487
+
+    VCVTSD2SSZrrbkz_Int = 7488
+
+    VCVTSD2SSZrrk_Int = 7489
+
+    VCVTSD2SSZrrkz_Int = 7490
+
+    VCVTSD2SSrm = 7491
+
+    VCVTSD2SSrm_Int = 7492
+
+    VCVTSD2SSrr = 7493
+
+    VCVTSD2SSrr_Int = 7494
+
+    VCVTSD2USI64Zrm_Int = 7495
+
+    VCVTSD2USI64Zrr_Int = 7496
+
+    VCVTSD2USI64Zrrb_Int = 7497
+
+    VCVTSD2USIZrm_Int = 7498
+
+    VCVTSD2USIZrr_Int = 7499
+
+    VCVTSD2USIZrrb_Int = 7500
+
+    VCVTSH2SDZrm = 7501
+
+    VCVTSH2SDZrm_Int = 7502
+
+    VCVTSH2SDZrmk_Int = 7503
+
+    VCVTSH2SDZrmkz_Int = 7504
+
+    VCVTSH2SDZrr = 7505
+
+    VCVTSH2SDZrr_Int = 7506
+
+    VCVTSH2SDZrrb_Int = 7507
+
+    VCVTSH2SDZrrbk_Int = 7508
+
+    VCVTSH2SDZrrbkz_Int = 7509
+
+    VCVTSH2SDZrrk_Int = 7510
+
+    VCVTSH2SDZrrkz_Int = 7511
+
+    VCVTSH2SI64Zrm_Int = 7512
+
+    VCVTSH2SI64Zrr_Int = 7513
+
+    VCVTSH2SI64Zrrb_Int = 7514
+
+    VCVTSH2SIZrm_Int = 7515
+
+    VCVTSH2SIZrr_Int = 7516
+
+    VCVTSH2SIZrrb_Int = 7517
+
+    VCVTSH2SSZrm = 7518
+
+    VCVTSH2SSZrm_Int = 7519
+
+    VCVTSH2SSZrmk_Int = 7520
+
+    VCVTSH2SSZrmkz_Int = 7521
+
+    VCVTSH2SSZrr = 7522
+
+    VCVTSH2SSZrr_Int = 7523
+
+    VCVTSH2SSZrrb_Int = 7524
+
+    VCVTSH2SSZrrbk_Int = 7525
+
+    VCVTSH2SSZrrbkz_Int = 7526
+
+    VCVTSH2SSZrrk_Int = 7527
+
+    VCVTSH2SSZrrkz_Int = 7528
+
+    VCVTSH2USI64Zrm_Int = 7529
+
+    VCVTSH2USI64Zrr_Int = 7530
+
+    VCVTSH2USI64Zrrb_Int = 7531
+
+    VCVTSH2USIZrm_Int = 7532
+
+    VCVTSH2USIZrr_Int = 7533
+
+    VCVTSH2USIZrrb_Int = 7534
+
+    VCVTSI2SDZrm = 7535
+
+    VCVTSI2SDZrm_Int = 7536
+
+    VCVTSI2SDZrr = 7537
+
+    VCVTSI2SDZrr_Int = 7538
+
+    VCVTSI2SDrm = 7539
+
+    VCVTSI2SDrm_Int = 7540
+
+    VCVTSI2SDrr = 7541
+
+    VCVTSI2SDrr_Int = 7542
+
+    VCVTSI2SHZrm = 7543
+
+    VCVTSI2SHZrm_Int = 7544
+
+    VCVTSI2SHZrr = 7545
+
+    VCVTSI2SHZrr_Int = 7546
+
+    VCVTSI2SHZrrb_Int = 7547
+
+    VCVTSI2SSZrm = 7548
+
+    VCVTSI2SSZrm_Int = 7549
+
+    VCVTSI2SSZrr = 7550
+
+    VCVTSI2SSZrr_Int = 7551
+
+    VCVTSI2SSZrrb_Int = 7552
+
+    VCVTSI2SSrm = 7553
+
+    VCVTSI2SSrm_Int = 7554
+
+    VCVTSI2SSrr = 7555
+
+    VCVTSI2SSrr_Int = 7556
+
+    VCVTSI642SDZrm = 7557
+
+    VCVTSI642SDZrm_Int = 7558
+
+    VCVTSI642SDZrr = 7559
+
+    VCVTSI642SDZrr_Int = 7560
+
+    VCVTSI642SDZrrb_Int = 7561
+
+    VCVTSI642SDrm = 7562
+
+    VCVTSI642SDrm_Int = 7563
+
+    VCVTSI642SDrr = 7564
+
+    VCVTSI642SDrr_Int = 7565
+
+    VCVTSI642SHZrm = 7566
+
+    VCVTSI642SHZrm_Int = 7567
+
+    VCVTSI642SHZrr = 7568
+
+    VCVTSI642SHZrr_Int = 7569
+
+    VCVTSI642SHZrrb_Int = 7570
+
+    VCVTSI642SSZrm = 7571
+
+    VCVTSI642SSZrm_Int = 7572
+
+    VCVTSI642SSZrr = 7573
+
+    VCVTSI642SSZrr_Int = 7574
+
+    VCVTSI642SSZrrb_Int = 7575
+
+    VCVTSI642SSrm = 7576
+
+    VCVTSI642SSrm_Int = 7577
+
+    VCVTSI642SSrr = 7578
+
+    VCVTSI642SSrr_Int = 7579
+
+    VCVTSS2SDZrm = 7580
+
+    VCVTSS2SDZrm_Int = 7581
+
+    VCVTSS2SDZrmk_Int = 7582
+
+    VCVTSS2SDZrmkz_Int = 7583
+
+    VCVTSS2SDZrr = 7584
+
+    VCVTSS2SDZrr_Int = 7585
+
+    VCVTSS2SDZrrb_Int = 7586
+
+    VCVTSS2SDZrrbk_Int = 7587
+
+    VCVTSS2SDZrrbkz_Int = 7588
+
+    VCVTSS2SDZrrk_Int = 7589
+
+    VCVTSS2SDZrrkz_Int = 7590
+
+    VCVTSS2SDrm = 7591
+
+    VCVTSS2SDrm_Int = 7592
+
+    VCVTSS2SDrr = 7593
+
+    VCVTSS2SDrr_Int = 7594
+
+    VCVTSS2SHZrm = 7595
+
+    VCVTSS2SHZrm_Int = 7596
+
+    VCVTSS2SHZrmk_Int = 7597
+
+    VCVTSS2SHZrmkz_Int = 7598
+
+    VCVTSS2SHZrr = 7599
+
+    VCVTSS2SHZrr_Int = 7600
+
+    VCVTSS2SHZrrb_Int = 7601
+
+    VCVTSS2SHZrrbk_Int = 7602
+
+    VCVTSS2SHZrrbkz_Int = 7603
+
+    VCVTSS2SHZrrk_Int = 7604
+
+    VCVTSS2SHZrrkz_Int = 7605
+
+    VCVTSS2SI64Zrm = 7606
+
+    VCVTSS2SI64Zrm_Int = 7607
+
+    VCVTSS2SI64Zrr = 7608
+
+    VCVTSS2SI64Zrr_Int = 7609
+
+    VCVTSS2SI64Zrrb_Int = 7610
+
+    VCVTSS2SI64rm = 7611
+
+    VCVTSS2SI64rm_Int = 7612
+
+    VCVTSS2SI64rr = 7613
+
+    VCVTSS2SI64rr_Int = 7614
+
+    VCVTSS2SIZrm = 7615
+
+    VCVTSS2SIZrm_Int = 7616
+
+    VCVTSS2SIZrr = 7617
+
+    VCVTSS2SIZrr_Int = 7618
+
+    VCVTSS2SIZrrb_Int = 7619
+
+    VCVTSS2SIrm = 7620
+
+    VCVTSS2SIrm_Int = 7621
+
+    VCVTSS2SIrr = 7622
+
+    VCVTSS2SIrr_Int = 7623
+
+    VCVTSS2USI64Zrm_Int = 7624
+
+    VCVTSS2USI64Zrr_Int = 7625
+
+    VCVTSS2USI64Zrrb_Int = 7626
+
+    VCVTSS2USIZrm_Int = 7627
+
+    VCVTSS2USIZrr_Int = 7628
+
+    VCVTSS2USIZrrb_Int = 7629
+
+    VCVTTBF162IBSZ128rm = 7630
+
+    VCVTTBF162IBSZ128rmb = 7631
+
+    VCVTTBF162IBSZ128rmbk = 7632
+
+    VCVTTBF162IBSZ128rmbkz = 7633
+
+    VCVTTBF162IBSZ128rmk = 7634
+
+    VCVTTBF162IBSZ128rmkz = 7635
+
+    VCVTTBF162IBSZ128rr = 7636
+
+    VCVTTBF162IBSZ128rrk = 7637
+
+    VCVTTBF162IBSZ128rrkz = 7638
+
+    VCVTTBF162IBSZ256rm = 7639
+
+    VCVTTBF162IBSZ256rmb = 7640
+
+    VCVTTBF162IBSZ256rmbk = 7641
+
+    VCVTTBF162IBSZ256rmbkz = 7642
+
+    VCVTTBF162IBSZ256rmk = 7643
+
+    VCVTTBF162IBSZ256rmkz = 7644
+
+    VCVTTBF162IBSZ256rr = 7645
+
+    VCVTTBF162IBSZ256rrk = 7646
+
+    VCVTTBF162IBSZ256rrkz = 7647
+
+    VCVTTBF162IBSZrm = 7648
+
+    VCVTTBF162IBSZrmb = 7649
+
+    VCVTTBF162IBSZrmbk = 7650
+
+    VCVTTBF162IBSZrmbkz = 7651
+
+    VCVTTBF162IBSZrmk = 7652
+
+    VCVTTBF162IBSZrmkz = 7653
+
+    VCVTTBF162IBSZrr = 7654
+
+    VCVTTBF162IBSZrrk = 7655
+
+    VCVTTBF162IBSZrrkz = 7656
+
+    VCVTTBF162IUBSZ128rm = 7657
+
+    VCVTTBF162IUBSZ128rmb = 7658
+
+    VCVTTBF162IUBSZ128rmbk = 7659
+
+    VCVTTBF162IUBSZ128rmbkz = 7660
+
+    VCVTTBF162IUBSZ128rmk = 7661
+
+    VCVTTBF162IUBSZ128rmkz = 7662
+
+    VCVTTBF162IUBSZ128rr = 7663
+
+    VCVTTBF162IUBSZ128rrk = 7664
+
+    VCVTTBF162IUBSZ128rrkz = 7665
+
+    VCVTTBF162IUBSZ256rm = 7666
+
+    VCVTTBF162IUBSZ256rmb = 7667
+
+    VCVTTBF162IUBSZ256rmbk = 7668
+
+    VCVTTBF162IUBSZ256rmbkz = 7669
+
+    VCVTTBF162IUBSZ256rmk = 7670
+
+    VCVTTBF162IUBSZ256rmkz = 7671
+
+    VCVTTBF162IUBSZ256rr = 7672
+
+    VCVTTBF162IUBSZ256rrk = 7673
+
+    VCVTTBF162IUBSZ256rrkz = 7674
+
+    VCVTTBF162IUBSZrm = 7675
+
+    VCVTTBF162IUBSZrmb = 7676
+
+    VCVTTBF162IUBSZrmbk = 7677
+
+    VCVTTBF162IUBSZrmbkz = 7678
+
+    VCVTTBF162IUBSZrmk = 7679
+
+    VCVTTBF162IUBSZrmkz = 7680
+
+    VCVTTBF162IUBSZrr = 7681
+
+    VCVTTBF162IUBSZrrk = 7682
+
+    VCVTTBF162IUBSZrrkz = 7683
+
+    VCVTTPD2DQSZ128rm = 7684
+
+    VCVTTPD2DQSZ128rmb = 7685
+
+    VCVTTPD2DQSZ128rmbk = 7686
+
+    VCVTTPD2DQSZ128rmbkz = 7687
+
+    VCVTTPD2DQSZ128rmk = 7688
+
+    VCVTTPD2DQSZ128rmkz = 7689
+
+    VCVTTPD2DQSZ128rr = 7690
+
+    VCVTTPD2DQSZ128rrk = 7691
+
+    VCVTTPD2DQSZ128rrkz = 7692
+
+    VCVTTPD2DQSZ256rm = 7693
+
+    VCVTTPD2DQSZ256rmb = 7694
+
+    VCVTTPD2DQSZ256rmbk = 7695
+
+    VCVTTPD2DQSZ256rmbkz = 7696
+
+    VCVTTPD2DQSZ256rmk = 7697
+
+    VCVTTPD2DQSZ256rmkz = 7698
+
+    VCVTTPD2DQSZ256rr = 7699
+
+    VCVTTPD2DQSZ256rrb = 7700
+
+    VCVTTPD2DQSZ256rrbk = 7701
+
+    VCVTTPD2DQSZ256rrbkz = 7702
+
+    VCVTTPD2DQSZ256rrk = 7703
+
+    VCVTTPD2DQSZ256rrkz = 7704
+
+    VCVTTPD2DQSZrm = 7705
+
+    VCVTTPD2DQSZrmb = 7706
+
+    VCVTTPD2DQSZrmbk = 7707
+
+    VCVTTPD2DQSZrmbkz = 7708
+
+    VCVTTPD2DQSZrmk = 7709
+
+    VCVTTPD2DQSZrmkz = 7710
+
+    VCVTTPD2DQSZrr = 7711
+
+    VCVTTPD2DQSZrrb = 7712
+
+    VCVTTPD2DQSZrrbk = 7713
+
+    VCVTTPD2DQSZrrbkz = 7714
+
+    VCVTTPD2DQSZrrk = 7715
+
+    VCVTTPD2DQSZrrkz = 7716
+
+    VCVTTPD2DQYrm = 7717
+
+    VCVTTPD2DQYrr = 7718
+
+    VCVTTPD2DQZ128rm = 7719
+
+    VCVTTPD2DQZ128rmb = 7720
+
+    VCVTTPD2DQZ128rmbk = 7721
+
+    VCVTTPD2DQZ128rmbkz = 7722
+
+    VCVTTPD2DQZ128rmk = 7723
+
+    VCVTTPD2DQZ128rmkz = 7724
+
+    VCVTTPD2DQZ128rr = 7725
+
+    VCVTTPD2DQZ128rrk = 7726
+
+    VCVTTPD2DQZ128rrkz = 7727
+
+    VCVTTPD2DQZ256rm = 7728
+
+    VCVTTPD2DQZ256rmb = 7729
+
+    VCVTTPD2DQZ256rmbk = 7730
+
+    VCVTTPD2DQZ256rmbkz = 7731
+
+    VCVTTPD2DQZ256rmk = 7732
+
+    VCVTTPD2DQZ256rmkz = 7733
+
+    VCVTTPD2DQZ256rr = 7734
+
+    VCVTTPD2DQZ256rrk = 7735
+
+    VCVTTPD2DQZ256rrkz = 7736
+
+    VCVTTPD2DQZrm = 7737
+
+    VCVTTPD2DQZrmb = 7738
+
+    VCVTTPD2DQZrmbk = 7739
+
+    VCVTTPD2DQZrmbkz = 7740
+
+    VCVTTPD2DQZrmk = 7741
+
+    VCVTTPD2DQZrmkz = 7742
+
+    VCVTTPD2DQZrr = 7743
+
+    VCVTTPD2DQZrrb = 7744
+
+    VCVTTPD2DQZrrbk = 7745
+
+    VCVTTPD2DQZrrbkz = 7746
+
+    VCVTTPD2DQZrrk = 7747
+
+    VCVTTPD2DQZrrkz = 7748
+
+    VCVTTPD2DQrm = 7749
+
+    VCVTTPD2DQrr = 7750
+
+    VCVTTPD2QQSZ128rm = 7751
+
+    VCVTTPD2QQSZ128rmb = 7752
+
+    VCVTTPD2QQSZ128rmbk = 7753
+
+    VCVTTPD2QQSZ128rmbkz = 7754
+
+    VCVTTPD2QQSZ128rmk = 7755
+
+    VCVTTPD2QQSZ128rmkz = 7756
+
+    VCVTTPD2QQSZ128rr = 7757
+
+    VCVTTPD2QQSZ128rrk = 7758
+
+    VCVTTPD2QQSZ128rrkz = 7759
+
+    VCVTTPD2QQSZ256rm = 7760
+
+    VCVTTPD2QQSZ256rmb = 7761
+
+    VCVTTPD2QQSZ256rmbk = 7762
+
+    VCVTTPD2QQSZ256rmbkz = 7763
+
+    VCVTTPD2QQSZ256rmk = 7764
+
+    VCVTTPD2QQSZ256rmkz = 7765
+
+    VCVTTPD2QQSZ256rr = 7766
+
+    VCVTTPD2QQSZ256rrb = 7767
+
+    VCVTTPD2QQSZ256rrbk = 7768
+
+    VCVTTPD2QQSZ256rrbkz = 7769
+
+    VCVTTPD2QQSZ256rrk = 7770
+
+    VCVTTPD2QQSZ256rrkz = 7771
+
+    VCVTTPD2QQSZrm = 7772
+
+    VCVTTPD2QQSZrmb = 7773
+
+    VCVTTPD2QQSZrmbk = 7774
+
+    VCVTTPD2QQSZrmbkz = 7775
+
+    VCVTTPD2QQSZrmk = 7776
+
+    VCVTTPD2QQSZrmkz = 7777
+
+    VCVTTPD2QQSZrr = 7778
+
+    VCVTTPD2QQSZrrb = 7779
+
+    VCVTTPD2QQSZrrbk = 7780
+
+    VCVTTPD2QQSZrrbkz = 7781
+
+    VCVTTPD2QQSZrrk = 7782
+
+    VCVTTPD2QQSZrrkz = 7783
+
+    VCVTTPD2QQZ128rm = 7784
+
+    VCVTTPD2QQZ128rmb = 7785
+
+    VCVTTPD2QQZ128rmbk = 7786
+
+    VCVTTPD2QQZ128rmbkz = 7787
+
+    VCVTTPD2QQZ128rmk = 7788
+
+    VCVTTPD2QQZ128rmkz = 7789
+
+    VCVTTPD2QQZ128rr = 7790
+
+    VCVTTPD2QQZ128rrk = 7791
+
+    VCVTTPD2QQZ128rrkz = 7792
+
+    VCVTTPD2QQZ256rm = 7793
+
+    VCVTTPD2QQZ256rmb = 7794
+
+    VCVTTPD2QQZ256rmbk = 7795
+
+    VCVTTPD2QQZ256rmbkz = 7796
+
+    VCVTTPD2QQZ256rmk = 7797
+
+    VCVTTPD2QQZ256rmkz = 7798
+
+    VCVTTPD2QQZ256rr = 7799
+
+    VCVTTPD2QQZ256rrk = 7800
+
+    VCVTTPD2QQZ256rrkz = 7801
+
+    VCVTTPD2QQZrm = 7802
+
+    VCVTTPD2QQZrmb = 7803
+
+    VCVTTPD2QQZrmbk = 7804
+
+    VCVTTPD2QQZrmbkz = 7805
+
+    VCVTTPD2QQZrmk = 7806
+
+    VCVTTPD2QQZrmkz = 7807
+
+    VCVTTPD2QQZrr = 7808
+
+    VCVTTPD2QQZrrb = 7809
+
+    VCVTTPD2QQZrrbk = 7810
+
+    VCVTTPD2QQZrrbkz = 7811
+
+    VCVTTPD2QQZrrk = 7812
+
+    VCVTTPD2QQZrrkz = 7813
+
+    VCVTTPD2UDQSZ128rm = 7814
+
+    VCVTTPD2UDQSZ128rmb = 7815
+
+    VCVTTPD2UDQSZ128rmbk = 7816
+
+    VCVTTPD2UDQSZ128rmbkz = 7817
+
+    VCVTTPD2UDQSZ128rmk = 7818
+
+    VCVTTPD2UDQSZ128rmkz = 7819
+
+    VCVTTPD2UDQSZ128rr = 7820
+
+    VCVTTPD2UDQSZ128rrk = 7821
+
+    VCVTTPD2UDQSZ128rrkz = 7822
+
+    VCVTTPD2UDQSZ256rm = 7823
+
+    VCVTTPD2UDQSZ256rmb = 7824
+
+    VCVTTPD2UDQSZ256rmbk = 7825
+
+    VCVTTPD2UDQSZ256rmbkz = 7826
+
+    VCVTTPD2UDQSZ256rmk = 7827
+
+    VCVTTPD2UDQSZ256rmkz = 7828
+
+    VCVTTPD2UDQSZ256rr = 7829
+
+    VCVTTPD2UDQSZ256rrb = 7830
+
+    VCVTTPD2UDQSZ256rrbk = 7831
+
+    VCVTTPD2UDQSZ256rrbkz = 7832
+
+    VCVTTPD2UDQSZ256rrk = 7833
+
+    VCVTTPD2UDQSZ256rrkz = 7834
+
+    VCVTTPD2UDQSZrm = 7835
+
+    VCVTTPD2UDQSZrmb = 7836
+
+    VCVTTPD2UDQSZrmbk = 7837
+
+    VCVTTPD2UDQSZrmbkz = 7838
+
+    VCVTTPD2UDQSZrmk = 7839
+
+    VCVTTPD2UDQSZrmkz = 7840
+
+    VCVTTPD2UDQSZrr = 7841
+
+    VCVTTPD2UDQSZrrb = 7842
+
+    VCVTTPD2UDQSZrrbk = 7843
+
+    VCVTTPD2UDQSZrrbkz = 7844
+
+    VCVTTPD2UDQSZrrk = 7845
+
+    VCVTTPD2UDQSZrrkz = 7846
+
+    VCVTTPD2UDQZ128rm = 7847
+
+    VCVTTPD2UDQZ128rmb = 7848
+
+    VCVTTPD2UDQZ128rmbk = 7849
+
+    VCVTTPD2UDQZ128rmbkz = 7850
+
+    VCVTTPD2UDQZ128rmk = 7851
+
+    VCVTTPD2UDQZ128rmkz = 7852
+
+    VCVTTPD2UDQZ128rr = 7853
+
+    VCVTTPD2UDQZ128rrk = 7854
+
+    VCVTTPD2UDQZ128rrkz = 7855
+
+    VCVTTPD2UDQZ256rm = 7856
+
+    VCVTTPD2UDQZ256rmb = 7857
+
+    VCVTTPD2UDQZ256rmbk = 7858
+
+    VCVTTPD2UDQZ256rmbkz = 7859
+
+    VCVTTPD2UDQZ256rmk = 7860
+
+    VCVTTPD2UDQZ256rmkz = 7861
+
+    VCVTTPD2UDQZ256rr = 7862
+
+    VCVTTPD2UDQZ256rrk = 7863
+
+    VCVTTPD2UDQZ256rrkz = 7864
+
+    VCVTTPD2UDQZrm = 7865
+
+    VCVTTPD2UDQZrmb = 7866
+
+    VCVTTPD2UDQZrmbk = 7867
+
+    VCVTTPD2UDQZrmbkz = 7868
+
+    VCVTTPD2UDQZrmk = 7869
+
+    VCVTTPD2UDQZrmkz = 7870
+
+    VCVTTPD2UDQZrr = 7871
+
+    VCVTTPD2UDQZrrb = 7872
+
+    VCVTTPD2UDQZrrbk = 7873
+
+    VCVTTPD2UDQZrrbkz = 7874
+
+    VCVTTPD2UDQZrrk = 7875
+
+    VCVTTPD2UDQZrrkz = 7876
+
+    VCVTTPD2UQQSZ128rm = 7877
+
+    VCVTTPD2UQQSZ128rmb = 7878
+
+    VCVTTPD2UQQSZ128rmbk = 7879
+
+    VCVTTPD2UQQSZ128rmbkz = 7880
+
+    VCVTTPD2UQQSZ128rmk = 7881
+
+    VCVTTPD2UQQSZ128rmkz = 7882
+
+    VCVTTPD2UQQSZ128rr = 7883
+
+    VCVTTPD2UQQSZ128rrk = 7884
+
+    VCVTTPD2UQQSZ128rrkz = 7885
+
+    VCVTTPD2UQQSZ256rm = 7886
+
+    VCVTTPD2UQQSZ256rmb = 7887
+
+    VCVTTPD2UQQSZ256rmbk = 7888
+
+    VCVTTPD2UQQSZ256rmbkz = 7889
+
+    VCVTTPD2UQQSZ256rmk = 7890
+
+    VCVTTPD2UQQSZ256rmkz = 7891
+
+    VCVTTPD2UQQSZ256rr = 7892
+
+    VCVTTPD2UQQSZ256rrb = 7893
+
+    VCVTTPD2UQQSZ256rrbk = 7894
+
+    VCVTTPD2UQQSZ256rrbkz = 7895
+
+    VCVTTPD2UQQSZ256rrk = 7896
+
+    VCVTTPD2UQQSZ256rrkz = 7897
+
+    VCVTTPD2UQQSZrm = 7898
+
+    VCVTTPD2UQQSZrmb = 7899
+
+    VCVTTPD2UQQSZrmbk = 7900
+
+    VCVTTPD2UQQSZrmbkz = 7901
+
+    VCVTTPD2UQQSZrmk = 7902
+
+    VCVTTPD2UQQSZrmkz = 7903
+
+    VCVTTPD2UQQSZrr = 7904
+
+    VCVTTPD2UQQSZrrb = 7905
+
+    VCVTTPD2UQQSZrrbk = 7906
+
+    VCVTTPD2UQQSZrrbkz = 7907
+
+    VCVTTPD2UQQSZrrk = 7908
+
+    VCVTTPD2UQQSZrrkz = 7909
+
+    VCVTTPD2UQQZ128rm = 7910
+
+    VCVTTPD2UQQZ128rmb = 7911
+
+    VCVTTPD2UQQZ128rmbk = 7912
+
+    VCVTTPD2UQQZ128rmbkz = 7913
+
+    VCVTTPD2UQQZ128rmk = 7914
+
+    VCVTTPD2UQQZ128rmkz = 7915
+
+    VCVTTPD2UQQZ128rr = 7916
+
+    VCVTTPD2UQQZ128rrk = 7917
+
+    VCVTTPD2UQQZ128rrkz = 7918
+
+    VCVTTPD2UQQZ256rm = 7919
+
+    VCVTTPD2UQQZ256rmb = 7920
+
+    VCVTTPD2UQQZ256rmbk = 7921
+
+    VCVTTPD2UQQZ256rmbkz = 7922
+
+    VCVTTPD2UQQZ256rmk = 7923
+
+    VCVTTPD2UQQZ256rmkz = 7924
+
+    VCVTTPD2UQQZ256rr = 7925
+
+    VCVTTPD2UQQZ256rrk = 7926
+
+    VCVTTPD2UQQZ256rrkz = 7927
+
+    VCVTTPD2UQQZrm = 7928
+
+    VCVTTPD2UQQZrmb = 7929
+
+    VCVTTPD2UQQZrmbk = 7930
+
+    VCVTTPD2UQQZrmbkz = 7931
+
+    VCVTTPD2UQQZrmk = 7932
+
+    VCVTTPD2UQQZrmkz = 7933
+
+    VCVTTPD2UQQZrr = 7934
+
+    VCVTTPD2UQQZrrb = 7935
+
+    VCVTTPD2UQQZrrbk = 7936
+
+    VCVTTPD2UQQZrrbkz = 7937
+
+    VCVTTPD2UQQZrrk = 7938
+
+    VCVTTPD2UQQZrrkz = 7939
+
+    VCVTTPH2DQZ128rm = 7940
+
+    VCVTTPH2DQZ128rmb = 7941
+
+    VCVTTPH2DQZ128rmbk = 7942
+
+    VCVTTPH2DQZ128rmbkz = 7943
+
+    VCVTTPH2DQZ128rmk = 7944
+
+    VCVTTPH2DQZ128rmkz = 7945
+
+    VCVTTPH2DQZ128rr = 7946
+
+    VCVTTPH2DQZ128rrk = 7947
+
+    VCVTTPH2DQZ128rrkz = 7948
+
+    VCVTTPH2DQZ256rm = 7949
+
+    VCVTTPH2DQZ256rmb = 7950
+
+    VCVTTPH2DQZ256rmbk = 7951
+
+    VCVTTPH2DQZ256rmbkz = 7952
+
+    VCVTTPH2DQZ256rmk = 7953
+
+    VCVTTPH2DQZ256rmkz = 7954
+
+    VCVTTPH2DQZ256rr = 7955
+
+    VCVTTPH2DQZ256rrk = 7956
+
+    VCVTTPH2DQZ256rrkz = 7957
+
+    VCVTTPH2DQZrm = 7958
+
+    VCVTTPH2DQZrmb = 7959
+
+    VCVTTPH2DQZrmbk = 7960
+
+    VCVTTPH2DQZrmbkz = 7961
+
+    VCVTTPH2DQZrmk = 7962
+
+    VCVTTPH2DQZrmkz = 7963
+
+    VCVTTPH2DQZrr = 7964
+
+    VCVTTPH2DQZrrb = 7965
+
+    VCVTTPH2DQZrrbk = 7966
+
+    VCVTTPH2DQZrrbkz = 7967
+
+    VCVTTPH2DQZrrk = 7968
+
+    VCVTTPH2DQZrrkz = 7969
+
+    VCVTTPH2IBSZ128rm = 7970
+
+    VCVTTPH2IBSZ128rmb = 7971
+
+    VCVTTPH2IBSZ128rmbk = 7972
+
+    VCVTTPH2IBSZ128rmbkz = 7973
+
+    VCVTTPH2IBSZ128rmk = 7974
+
+    VCVTTPH2IBSZ128rmkz = 7975
+
+    VCVTTPH2IBSZ128rr = 7976
+
+    VCVTTPH2IBSZ128rrk = 7977
+
+    VCVTTPH2IBSZ128rrkz = 7978
+
+    VCVTTPH2IBSZ256rm = 7979
+
+    VCVTTPH2IBSZ256rmb = 7980
+
+    VCVTTPH2IBSZ256rmbk = 7981
+
+    VCVTTPH2IBSZ256rmbkz = 7982
+
+    VCVTTPH2IBSZ256rmk = 7983
+
+    VCVTTPH2IBSZ256rmkz = 7984
+
+    VCVTTPH2IBSZ256rr = 7985
+
+    VCVTTPH2IBSZ256rrk = 7986
+
+    VCVTTPH2IBSZ256rrkz = 7987
+
+    VCVTTPH2IBSZrm = 7988
+
+    VCVTTPH2IBSZrmb = 7989
+
+    VCVTTPH2IBSZrmbk = 7990
+
+    VCVTTPH2IBSZrmbkz = 7991
+
+    VCVTTPH2IBSZrmk = 7992
+
+    VCVTTPH2IBSZrmkz = 7993
+
+    VCVTTPH2IBSZrr = 7994
+
+    VCVTTPH2IBSZrrb = 7995
+
+    VCVTTPH2IBSZrrbk = 7996
+
+    VCVTTPH2IBSZrrbkz = 7997
+
+    VCVTTPH2IBSZrrk = 7998
+
+    VCVTTPH2IBSZrrkz = 7999
+
+    VCVTTPH2IUBSZ128rm = 8000
+
+    VCVTTPH2IUBSZ128rmb = 8001
+
+    VCVTTPH2IUBSZ128rmbk = 8002
+
+    VCVTTPH2IUBSZ128rmbkz = 8003
+
+    VCVTTPH2IUBSZ128rmk = 8004
+
+    VCVTTPH2IUBSZ128rmkz = 8005
+
+    VCVTTPH2IUBSZ128rr = 8006
+
+    VCVTTPH2IUBSZ128rrk = 8007
+
+    VCVTTPH2IUBSZ128rrkz = 8008
+
+    VCVTTPH2IUBSZ256rm = 8009
+
+    VCVTTPH2IUBSZ256rmb = 8010
+
+    VCVTTPH2IUBSZ256rmbk = 8011
+
+    VCVTTPH2IUBSZ256rmbkz = 8012
+
+    VCVTTPH2IUBSZ256rmk = 8013
+
+    VCVTTPH2IUBSZ256rmkz = 8014
+
+    VCVTTPH2IUBSZ256rr = 8015
+
+    VCVTTPH2IUBSZ256rrk = 8016
+
+    VCVTTPH2IUBSZ256rrkz = 8017
+
+    VCVTTPH2IUBSZrm = 8018
+
+    VCVTTPH2IUBSZrmb = 8019
+
+    VCVTTPH2IUBSZrmbk = 8020
+
+    VCVTTPH2IUBSZrmbkz = 8021
+
+    VCVTTPH2IUBSZrmk = 8022
+
+    VCVTTPH2IUBSZrmkz = 8023
+
+    VCVTTPH2IUBSZrr = 8024
+
+    VCVTTPH2IUBSZrrb = 8025
+
+    VCVTTPH2IUBSZrrbk = 8026
+
+    VCVTTPH2IUBSZrrbkz = 8027
+
+    VCVTTPH2IUBSZrrk = 8028
+
+    VCVTTPH2IUBSZrrkz = 8029
+
+    VCVTTPH2QQZ128rm = 8030
+
+    VCVTTPH2QQZ128rmb = 8031
+
+    VCVTTPH2QQZ128rmbk = 8032
+
+    VCVTTPH2QQZ128rmbkz = 8033
+
+    VCVTTPH2QQZ128rmk = 8034
+
+    VCVTTPH2QQZ128rmkz = 8035
+
+    VCVTTPH2QQZ128rr = 8036
+
+    VCVTTPH2QQZ128rrk = 8037
+
+    VCVTTPH2QQZ128rrkz = 8038
+
+    VCVTTPH2QQZ256rm = 8039
+
+    VCVTTPH2QQZ256rmb = 8040
+
+    VCVTTPH2QQZ256rmbk = 8041
+
+    VCVTTPH2QQZ256rmbkz = 8042
+
+    VCVTTPH2QQZ256rmk = 8043
+
+    VCVTTPH2QQZ256rmkz = 8044
+
+    VCVTTPH2QQZ256rr = 8045
+
+    VCVTTPH2QQZ256rrk = 8046
+
+    VCVTTPH2QQZ256rrkz = 8047
+
+    VCVTTPH2QQZrm = 8048
+
+    VCVTTPH2QQZrmb = 8049
+
+    VCVTTPH2QQZrmbk = 8050
+
+    VCVTTPH2QQZrmbkz = 8051
+
+    VCVTTPH2QQZrmk = 8052
+
+    VCVTTPH2QQZrmkz = 8053
+
+    VCVTTPH2QQZrr = 8054
+
+    VCVTTPH2QQZrrb = 8055
+
+    VCVTTPH2QQZrrbk = 8056
+
+    VCVTTPH2QQZrrbkz = 8057
+
+    VCVTTPH2QQZrrk = 8058
+
+    VCVTTPH2QQZrrkz = 8059
+
+    VCVTTPH2UDQZ128rm = 8060
+
+    VCVTTPH2UDQZ128rmb = 8061
+
+    VCVTTPH2UDQZ128rmbk = 8062
+
+    VCVTTPH2UDQZ128rmbkz = 8063
+
+    VCVTTPH2UDQZ128rmk = 8064
+
+    VCVTTPH2UDQZ128rmkz = 8065
+
+    VCVTTPH2UDQZ128rr = 8066
+
+    VCVTTPH2UDQZ128rrk = 8067
+
+    VCVTTPH2UDQZ128rrkz = 8068
+
+    VCVTTPH2UDQZ256rm = 8069
+
+    VCVTTPH2UDQZ256rmb = 8070
+
+    VCVTTPH2UDQZ256rmbk = 8071
+
+    VCVTTPH2UDQZ256rmbkz = 8072
+
+    VCVTTPH2UDQZ256rmk = 8073
+
+    VCVTTPH2UDQZ256rmkz = 8074
+
+    VCVTTPH2UDQZ256rr = 8075
+
+    VCVTTPH2UDQZ256rrk = 8076
+
+    VCVTTPH2UDQZ256rrkz = 8077
+
+    VCVTTPH2UDQZrm = 8078
+
+    VCVTTPH2UDQZrmb = 8079
+
+    VCVTTPH2UDQZrmbk = 8080
+
+    VCVTTPH2UDQZrmbkz = 8081
+
+    VCVTTPH2UDQZrmk = 8082
+
+    VCVTTPH2UDQZrmkz = 8083
+
+    VCVTTPH2UDQZrr = 8084
+
+    VCVTTPH2UDQZrrb = 8085
+
+    VCVTTPH2UDQZrrbk = 8086
+
+    VCVTTPH2UDQZrrbkz = 8087
+
+    VCVTTPH2UDQZrrk = 8088
+
+    VCVTTPH2UDQZrrkz = 8089
+
+    VCVTTPH2UQQZ128rm = 8090
+
+    VCVTTPH2UQQZ128rmb = 8091
+
+    VCVTTPH2UQQZ128rmbk = 8092
+
+    VCVTTPH2UQQZ128rmbkz = 8093
+
+    VCVTTPH2UQQZ128rmk = 8094
+
+    VCVTTPH2UQQZ128rmkz = 8095
+
+    VCVTTPH2UQQZ128rr = 8096
+
+    VCVTTPH2UQQZ128rrk = 8097
+
+    VCVTTPH2UQQZ128rrkz = 8098
+
+    VCVTTPH2UQQZ256rm = 8099
+
+    VCVTTPH2UQQZ256rmb = 8100
+
+    VCVTTPH2UQQZ256rmbk = 8101
+
+    VCVTTPH2UQQZ256rmbkz = 8102
+
+    VCVTTPH2UQQZ256rmk = 8103
+
+    VCVTTPH2UQQZ256rmkz = 8104
+
+    VCVTTPH2UQQZ256rr = 8105
+
+    VCVTTPH2UQQZ256rrk = 8106
+
+    VCVTTPH2UQQZ256rrkz = 8107
+
+    VCVTTPH2UQQZrm = 8108
+
+    VCVTTPH2UQQZrmb = 8109
+
+    VCVTTPH2UQQZrmbk = 8110
+
+    VCVTTPH2UQQZrmbkz = 8111
+
+    VCVTTPH2UQQZrmk = 8112
+
+    VCVTTPH2UQQZrmkz = 8113
+
+    VCVTTPH2UQQZrr = 8114
+
+    VCVTTPH2UQQZrrb = 8115
+
+    VCVTTPH2UQQZrrbk = 8116
+
+    VCVTTPH2UQQZrrbkz = 8117
+
+    VCVTTPH2UQQZrrk = 8118
+
+    VCVTTPH2UQQZrrkz = 8119
+
+    VCVTTPH2UWZ128rm = 8120
+
+    VCVTTPH2UWZ128rmb = 8121
+
+    VCVTTPH2UWZ128rmbk = 8122
+
+    VCVTTPH2UWZ128rmbkz = 8123
+
+    VCVTTPH2UWZ128rmk = 8124
+
+    VCVTTPH2UWZ128rmkz = 8125
+
+    VCVTTPH2UWZ128rr = 8126
+
+    VCVTTPH2UWZ128rrk = 8127
+
+    VCVTTPH2UWZ128rrkz = 8128
+
+    VCVTTPH2UWZ256rm = 8129
+
+    VCVTTPH2UWZ256rmb = 8130
+
+    VCVTTPH2UWZ256rmbk = 8131
+
+    VCVTTPH2UWZ256rmbkz = 8132
+
+    VCVTTPH2UWZ256rmk = 8133
+
+    VCVTTPH2UWZ256rmkz = 8134
+
+    VCVTTPH2UWZ256rr = 8135
+
+    VCVTTPH2UWZ256rrk = 8136
+
+    VCVTTPH2UWZ256rrkz = 8137
+
+    VCVTTPH2UWZrm = 8138
+
+    VCVTTPH2UWZrmb = 8139
+
+    VCVTTPH2UWZrmbk = 8140
+
+    VCVTTPH2UWZrmbkz = 8141
+
+    VCVTTPH2UWZrmk = 8142
+
+    VCVTTPH2UWZrmkz = 8143
+
+    VCVTTPH2UWZrr = 8144
+
+    VCVTTPH2UWZrrb = 8145
+
+    VCVTTPH2UWZrrbk = 8146
+
+    VCVTTPH2UWZrrbkz = 8147
+
+    VCVTTPH2UWZrrk = 8148
+
+    VCVTTPH2UWZrrkz = 8149
+
+    VCVTTPH2WZ128rm = 8150
+
+    VCVTTPH2WZ128rmb = 8151
+
+    VCVTTPH2WZ128rmbk = 8152
+
+    VCVTTPH2WZ128rmbkz = 8153
+
+    VCVTTPH2WZ128rmk = 8154
+
+    VCVTTPH2WZ128rmkz = 8155
+
+    VCVTTPH2WZ128rr = 8156
+
+    VCVTTPH2WZ128rrk = 8157
+
+    VCVTTPH2WZ128rrkz = 8158
+
+    VCVTTPH2WZ256rm = 8159
+
+    VCVTTPH2WZ256rmb = 8160
+
+    VCVTTPH2WZ256rmbk = 8161
+
+    VCVTTPH2WZ256rmbkz = 8162
+
+    VCVTTPH2WZ256rmk = 8163
+
+    VCVTTPH2WZ256rmkz = 8164
+
+    VCVTTPH2WZ256rr = 8165
+
+    VCVTTPH2WZ256rrk = 8166
+
+    VCVTTPH2WZ256rrkz = 8167
+
+    VCVTTPH2WZrm = 8168
+
+    VCVTTPH2WZrmb = 8169
+
+    VCVTTPH2WZrmbk = 8170
+
+    VCVTTPH2WZrmbkz = 8171
+
+    VCVTTPH2WZrmk = 8172
+
+    VCVTTPH2WZrmkz = 8173
+
+    VCVTTPH2WZrr = 8174
+
+    VCVTTPH2WZrrb = 8175
+
+    VCVTTPH2WZrrbk = 8176
+
+    VCVTTPH2WZrrbkz = 8177
+
+    VCVTTPH2WZrrk = 8178
+
+    VCVTTPH2WZrrkz = 8179
+
+    VCVTTPS2DQSZ128rm = 8180
+
+    VCVTTPS2DQSZ128rmb = 8181
+
+    VCVTTPS2DQSZ128rmbk = 8182
+
+    VCVTTPS2DQSZ128rmbkz = 8183
+
+    VCVTTPS2DQSZ128rmk = 8184
+
+    VCVTTPS2DQSZ128rmkz = 8185
+
+    VCVTTPS2DQSZ128rr = 8186
+
+    VCVTTPS2DQSZ128rrk = 8187
+
+    VCVTTPS2DQSZ128rrkz = 8188
+
+    VCVTTPS2DQSZ256rm = 8189
+
+    VCVTTPS2DQSZ256rmb = 8190
+
+    VCVTTPS2DQSZ256rmbk = 8191
+
+    VCVTTPS2DQSZ256rmbkz = 8192
+
+    VCVTTPS2DQSZ256rmk = 8193
+
+    VCVTTPS2DQSZ256rmkz = 8194
+
+    VCVTTPS2DQSZ256rr = 8195
+
+    VCVTTPS2DQSZ256rrk = 8196
+
+    VCVTTPS2DQSZ256rrkz = 8197
+
+    VCVTTPS2DQSZrm = 8198
+
+    VCVTTPS2DQSZrmb = 8199
+
+    VCVTTPS2DQSZrmbk = 8200
+
+    VCVTTPS2DQSZrmbkz = 8201
+
+    VCVTTPS2DQSZrmk = 8202
+
+    VCVTTPS2DQSZrmkz = 8203
+
+    VCVTTPS2DQSZrr = 8204
+
+    VCVTTPS2DQSZrrb = 8205
+
+    VCVTTPS2DQSZrrbk = 8206
+
+    VCVTTPS2DQSZrrbkz = 8207
+
+    VCVTTPS2DQSZrrk = 8208
+
+    VCVTTPS2DQSZrrkz = 8209
+
+    VCVTTPS2DQYrm = 8210
+
+    VCVTTPS2DQYrr = 8211
+
+    VCVTTPS2DQZ128rm = 8212
+
+    VCVTTPS2DQZ128rmb = 8213
+
+    VCVTTPS2DQZ128rmbk = 8214
+
+    VCVTTPS2DQZ128rmbkz = 8215
+
+    VCVTTPS2DQZ128rmk = 8216
+
+    VCVTTPS2DQZ128rmkz = 8217
+
+    VCVTTPS2DQZ128rr = 8218
+
+    VCVTTPS2DQZ128rrk = 8219
+
+    VCVTTPS2DQZ128rrkz = 8220
+
+    VCVTTPS2DQZ256rm = 8221
+
+    VCVTTPS2DQZ256rmb = 8222
+
+    VCVTTPS2DQZ256rmbk = 8223
+
+    VCVTTPS2DQZ256rmbkz = 8224
+
+    VCVTTPS2DQZ256rmk = 8225
+
+    VCVTTPS2DQZ256rmkz = 8226
+
+    VCVTTPS2DQZ256rr = 8227
+
+    VCVTTPS2DQZ256rrk = 8228
+
+    VCVTTPS2DQZ256rrkz = 8229
+
+    VCVTTPS2DQZrm = 8230
+
+    VCVTTPS2DQZrmb = 8231
+
+    VCVTTPS2DQZrmbk = 8232
+
+    VCVTTPS2DQZrmbkz = 8233
+
+    VCVTTPS2DQZrmk = 8234
+
+    VCVTTPS2DQZrmkz = 8235
+
+    VCVTTPS2DQZrr = 8236
+
+    VCVTTPS2DQZrrb = 8237
+
+    VCVTTPS2DQZrrbk = 8238
+
+    VCVTTPS2DQZrrbkz = 8239
+
+    VCVTTPS2DQZrrk = 8240
+
+    VCVTTPS2DQZrrkz = 8241
+
+    VCVTTPS2DQrm = 8242
+
+    VCVTTPS2DQrr = 8243
+
+    VCVTTPS2IBSZ128rm = 8244
+
+    VCVTTPS2IBSZ128rmb = 8245
+
+    VCVTTPS2IBSZ128rmbk = 8246
+
+    VCVTTPS2IBSZ128rmbkz = 8247
+
+    VCVTTPS2IBSZ128rmk = 8248
+
+    VCVTTPS2IBSZ128rmkz = 8249
+
+    VCVTTPS2IBSZ128rr = 8250
+
+    VCVTTPS2IBSZ128rrk = 8251
+
+    VCVTTPS2IBSZ128rrkz = 8252
+
+    VCVTTPS2IBSZ256rm = 8253
+
+    VCVTTPS2IBSZ256rmb = 8254
+
+    VCVTTPS2IBSZ256rmbk = 8255
+
+    VCVTTPS2IBSZ256rmbkz = 8256
+
+    VCVTTPS2IBSZ256rmk = 8257
+
+    VCVTTPS2IBSZ256rmkz = 8258
+
+    VCVTTPS2IBSZ256rr = 8259
+
+    VCVTTPS2IBSZ256rrk = 8260
+
+    VCVTTPS2IBSZ256rrkz = 8261
+
+    VCVTTPS2IBSZrm = 8262
+
+    VCVTTPS2IBSZrmb = 8263
+
+    VCVTTPS2IBSZrmbk = 8264
+
+    VCVTTPS2IBSZrmbkz = 8265
+
+    VCVTTPS2IBSZrmk = 8266
+
+    VCVTTPS2IBSZrmkz = 8267
+
+    VCVTTPS2IBSZrr = 8268
+
+    VCVTTPS2IBSZrrb = 8269
+
+    VCVTTPS2IBSZrrbk = 8270
+
+    VCVTTPS2IBSZrrbkz = 8271
+
+    VCVTTPS2IBSZrrk = 8272
+
+    VCVTTPS2IBSZrrkz = 8273
+
+    VCVTTPS2IUBSZ128rm = 8274
+
+    VCVTTPS2IUBSZ128rmb = 8275
+
+    VCVTTPS2IUBSZ128rmbk = 8276
+
+    VCVTTPS2IUBSZ128rmbkz = 8277
+
+    VCVTTPS2IUBSZ128rmk = 8278
+
+    VCVTTPS2IUBSZ128rmkz = 8279
+
+    VCVTTPS2IUBSZ128rr = 8280
+
+    VCVTTPS2IUBSZ128rrk = 8281
+
+    VCVTTPS2IUBSZ128rrkz = 8282
+
+    VCVTTPS2IUBSZ256rm = 8283
+
+    VCVTTPS2IUBSZ256rmb = 8284
+
+    VCVTTPS2IUBSZ256rmbk = 8285
+
+    VCVTTPS2IUBSZ256rmbkz = 8286
+
+    VCVTTPS2IUBSZ256rmk = 8287
+
+    VCVTTPS2IUBSZ256rmkz = 8288
+
+    VCVTTPS2IUBSZ256rr = 8289
+
+    VCVTTPS2IUBSZ256rrk = 8290
+
+    VCVTTPS2IUBSZ256rrkz = 8291
+
+    VCVTTPS2IUBSZrm = 8292
+
+    VCVTTPS2IUBSZrmb = 8293
+
+    VCVTTPS2IUBSZrmbk = 8294
+
+    VCVTTPS2IUBSZrmbkz = 8295
+
+    VCVTTPS2IUBSZrmk = 8296
+
+    VCVTTPS2IUBSZrmkz = 8297
+
+    VCVTTPS2IUBSZrr = 8298
+
+    VCVTTPS2IUBSZrrb = 8299
+
+    VCVTTPS2IUBSZrrbk = 8300
+
+    VCVTTPS2IUBSZrrbkz = 8301
+
+    VCVTTPS2IUBSZrrk = 8302
+
+    VCVTTPS2IUBSZrrkz = 8303
+
+    VCVTTPS2QQSZ128rm = 8304
+
+    VCVTTPS2QQSZ128rmb = 8305
+
+    VCVTTPS2QQSZ128rmbk = 8306
+
+    VCVTTPS2QQSZ128rmbkz = 8307
+
+    VCVTTPS2QQSZ128rmk = 8308
+
+    VCVTTPS2QQSZ128rmkz = 8309
+
+    VCVTTPS2QQSZ128rr = 8310
+
+    VCVTTPS2QQSZ128rrk = 8311
+
+    VCVTTPS2QQSZ128rrkz = 8312
+
+    VCVTTPS2QQSZ256rm = 8313
+
+    VCVTTPS2QQSZ256rmb = 8314
+
+    VCVTTPS2QQSZ256rmbk = 8315
+
+    VCVTTPS2QQSZ256rmbkz = 8316
+
+    VCVTTPS2QQSZ256rmk = 8317
+
+    VCVTTPS2QQSZ256rmkz = 8318
+
+    VCVTTPS2QQSZ256rr = 8319
+
+    VCVTTPS2QQSZ256rrb = 8320
+
+    VCVTTPS2QQSZ256rrbk = 8321
+
+    VCVTTPS2QQSZ256rrbkz = 8322
+
+    VCVTTPS2QQSZ256rrk = 8323
+
+    VCVTTPS2QQSZ256rrkz = 8324
+
+    VCVTTPS2QQSZrm = 8325
+
+    VCVTTPS2QQSZrmb = 8326
+
+    VCVTTPS2QQSZrmbk = 8327
+
+    VCVTTPS2QQSZrmbkz = 8328
+
+    VCVTTPS2QQSZrmk = 8329
+
+    VCVTTPS2QQSZrmkz = 8330
+
+    VCVTTPS2QQSZrr = 8331
+
+    VCVTTPS2QQSZrrb = 8332
+
+    VCVTTPS2QQSZrrbk = 8333
+
+    VCVTTPS2QQSZrrbkz = 8334
+
+    VCVTTPS2QQSZrrk = 8335
+
+    VCVTTPS2QQSZrrkz = 8336
+
+    VCVTTPS2QQZ128rm = 8337
+
+    VCVTTPS2QQZ128rmb = 8338
+
+    VCVTTPS2QQZ128rmbk = 8339
+
+    VCVTTPS2QQZ128rmbkz = 8340
+
+    VCVTTPS2QQZ128rmk = 8341
+
+    VCVTTPS2QQZ128rmkz = 8342
+
+    VCVTTPS2QQZ128rr = 8343
+
+    VCVTTPS2QQZ128rrk = 8344
+
+    VCVTTPS2QQZ128rrkz = 8345
+
+    VCVTTPS2QQZ256rm = 8346
+
+    VCVTTPS2QQZ256rmb = 8347
+
+    VCVTTPS2QQZ256rmbk = 8348
+
+    VCVTTPS2QQZ256rmbkz = 8349
+
+    VCVTTPS2QQZ256rmk = 8350
+
+    VCVTTPS2QQZ256rmkz = 8351
+
+    VCVTTPS2QQZ256rr = 8352
+
+    VCVTTPS2QQZ256rrk = 8353
+
+    VCVTTPS2QQZ256rrkz = 8354
+
+    VCVTTPS2QQZrm = 8355
+
+    VCVTTPS2QQZrmb = 8356
+
+    VCVTTPS2QQZrmbk = 8357
+
+    VCVTTPS2QQZrmbkz = 8358
+
+    VCVTTPS2QQZrmk = 8359
+
+    VCVTTPS2QQZrmkz = 8360
+
+    VCVTTPS2QQZrr = 8361
+
+    VCVTTPS2QQZrrb = 8362
+
+    VCVTTPS2QQZrrbk = 8363
+
+    VCVTTPS2QQZrrbkz = 8364
+
+    VCVTTPS2QQZrrk = 8365
+
+    VCVTTPS2QQZrrkz = 8366
+
+    VCVTTPS2UDQSZ128rm = 8367
+
+    VCVTTPS2UDQSZ128rmb = 8368
+
+    VCVTTPS2UDQSZ128rmbk = 8369
+
+    VCVTTPS2UDQSZ128rmbkz = 8370
+
+    VCVTTPS2UDQSZ128rmk = 8371
+
+    VCVTTPS2UDQSZ128rmkz = 8372
+
+    VCVTTPS2UDQSZ128rr = 8373
+
+    VCVTTPS2UDQSZ128rrk = 8374
+
+    VCVTTPS2UDQSZ128rrkz = 8375
+
+    VCVTTPS2UDQSZ256rm = 8376
+
+    VCVTTPS2UDQSZ256rmb = 8377
+
+    VCVTTPS2UDQSZ256rmbk = 8378
+
+    VCVTTPS2UDQSZ256rmbkz = 8379
+
+    VCVTTPS2UDQSZ256rmk = 8380
+
+    VCVTTPS2UDQSZ256rmkz = 8381
+
+    VCVTTPS2UDQSZ256rr = 8382
+
+    VCVTTPS2UDQSZ256rrk = 8383
+
+    VCVTTPS2UDQSZ256rrkz = 8384
+
+    VCVTTPS2UDQSZrm = 8385
+
+    VCVTTPS2UDQSZrmb = 8386
+
+    VCVTTPS2UDQSZrmbk = 8387
+
+    VCVTTPS2UDQSZrmbkz = 8388
+
+    VCVTTPS2UDQSZrmk = 8389
+
+    VCVTTPS2UDQSZrmkz = 8390
+
+    VCVTTPS2UDQSZrr = 8391
+
+    VCVTTPS2UDQSZrrb = 8392
+
+    VCVTTPS2UDQSZrrbk = 8393
+
+    VCVTTPS2UDQSZrrbkz = 8394
+
+    VCVTTPS2UDQSZrrk = 8395
+
+    VCVTTPS2UDQSZrrkz = 8396
+
+    VCVTTPS2UDQZ128rm = 8397
+
+    VCVTTPS2UDQZ128rmb = 8398
+
+    VCVTTPS2UDQZ128rmbk = 8399
+
+    VCVTTPS2UDQZ128rmbkz = 8400
+
+    VCVTTPS2UDQZ128rmk = 8401
+
+    VCVTTPS2UDQZ128rmkz = 8402
+
+    VCVTTPS2UDQZ128rr = 8403
+
+    VCVTTPS2UDQZ128rrk = 8404
+
+    VCVTTPS2UDQZ128rrkz = 8405
+
+    VCVTTPS2UDQZ256rm = 8406
+
+    VCVTTPS2UDQZ256rmb = 8407
+
+    VCVTTPS2UDQZ256rmbk = 8408
+
+    VCVTTPS2UDQZ256rmbkz = 8409
+
+    VCVTTPS2UDQZ256rmk = 8410
+
+    VCVTTPS2UDQZ256rmkz = 8411
+
+    VCVTTPS2UDQZ256rr = 8412
+
+    VCVTTPS2UDQZ256rrk = 8413
+
+    VCVTTPS2UDQZ256rrkz = 8414
+
+    VCVTTPS2UDQZrm = 8415
+
+    VCVTTPS2UDQZrmb = 8416
+
+    VCVTTPS2UDQZrmbk = 8417
+
+    VCVTTPS2UDQZrmbkz = 8418
+
+    VCVTTPS2UDQZrmk = 8419
+
+    VCVTTPS2UDQZrmkz = 8420
+
+    VCVTTPS2UDQZrr = 8421
+
+    VCVTTPS2UDQZrrb = 8422
+
+    VCVTTPS2UDQZrrbk = 8423
+
+    VCVTTPS2UDQZrrbkz = 8424
+
+    VCVTTPS2UDQZrrk = 8425
+
+    VCVTTPS2UDQZrrkz = 8426
+
+    VCVTTPS2UQQSZ128rm = 8427
+
+    VCVTTPS2UQQSZ128rmb = 8428
+
+    VCVTTPS2UQQSZ128rmbk = 8429
+
+    VCVTTPS2UQQSZ128rmbkz = 8430
+
+    VCVTTPS2UQQSZ128rmk = 8431
+
+    VCVTTPS2UQQSZ128rmkz = 8432
+
+    VCVTTPS2UQQSZ128rr = 8433
+
+    VCVTTPS2UQQSZ128rrk = 8434
+
+    VCVTTPS2UQQSZ128rrkz = 8435
+
+    VCVTTPS2UQQSZ256rm = 8436
+
+    VCVTTPS2UQQSZ256rmb = 8437
+
+    VCVTTPS2UQQSZ256rmbk = 8438
+
+    VCVTTPS2UQQSZ256rmbkz = 8439
+
+    VCVTTPS2UQQSZ256rmk = 8440
+
+    VCVTTPS2UQQSZ256rmkz = 8441
+
+    VCVTTPS2UQQSZ256rr = 8442
+
+    VCVTTPS2UQQSZ256rrb = 8443
+
+    VCVTTPS2UQQSZ256rrbk = 8444
+
+    VCVTTPS2UQQSZ256rrbkz = 8445
+
+    VCVTTPS2UQQSZ256rrk = 8446
+
+    VCVTTPS2UQQSZ256rrkz = 8447
+
+    VCVTTPS2UQQSZrm = 8448
+
+    VCVTTPS2UQQSZrmb = 8449
+
+    VCVTTPS2UQQSZrmbk = 8450
+
+    VCVTTPS2UQQSZrmbkz = 8451
+
+    VCVTTPS2UQQSZrmk = 8452
+
+    VCVTTPS2UQQSZrmkz = 8453
+
+    VCVTTPS2UQQSZrr = 8454
+
+    VCVTTPS2UQQSZrrb = 8455
+
+    VCVTTPS2UQQSZrrbk = 8456
+
+    VCVTTPS2UQQSZrrbkz = 8457
+
+    VCVTTPS2UQQSZrrk = 8458
+
+    VCVTTPS2UQQSZrrkz = 8459
+
+    VCVTTPS2UQQZ128rm = 8460
+
+    VCVTTPS2UQQZ128rmb = 8461
+
+    VCVTTPS2UQQZ128rmbk = 8462
+
+    VCVTTPS2UQQZ128rmbkz = 8463
+
+    VCVTTPS2UQQZ128rmk = 8464
+
+    VCVTTPS2UQQZ128rmkz = 8465
+
+    VCVTTPS2UQQZ128rr = 8466
+
+    VCVTTPS2UQQZ128rrk = 8467
+
+    VCVTTPS2UQQZ128rrkz = 8468
+
+    VCVTTPS2UQQZ256rm = 8469
+
+    VCVTTPS2UQQZ256rmb = 8470
+
+    VCVTTPS2UQQZ256rmbk = 8471
+
+    VCVTTPS2UQQZ256rmbkz = 8472
+
+    VCVTTPS2UQQZ256rmk = 8473
+
+    VCVTTPS2UQQZ256rmkz = 8474
+
+    VCVTTPS2UQQZ256rr = 8475
+
+    VCVTTPS2UQQZ256rrk = 8476
+
+    VCVTTPS2UQQZ256rrkz = 8477
+
+    VCVTTPS2UQQZrm = 8478
+
+    VCVTTPS2UQQZrmb = 8479
+
+    VCVTTPS2UQQZrmbk = 8480
+
+    VCVTTPS2UQQZrmbkz = 8481
+
+    VCVTTPS2UQQZrmk = 8482
+
+    VCVTTPS2UQQZrmkz = 8483
+
+    VCVTTPS2UQQZrr = 8484
+
+    VCVTTPS2UQQZrrb = 8485
+
+    VCVTTPS2UQQZrrbk = 8486
+
+    VCVTTPS2UQQZrrbkz = 8487
+
+    VCVTTPS2UQQZrrk = 8488
+
+    VCVTTPS2UQQZrrkz = 8489
+
+    VCVTTSD2SI64Srm = 8490
+
+    VCVTTSD2SI64Srm_Int = 8491
+
+    VCVTTSD2SI64Srr = 8492
+
+    VCVTTSD2SI64Srr_Int = 8493
+
+    VCVTTSD2SI64Srrb_Int = 8494
+
+    VCVTTSD2SI64Zrm = 8495
+
+    VCVTTSD2SI64Zrm_Int = 8496
+
+    VCVTTSD2SI64Zrr = 8497
+
+    VCVTTSD2SI64Zrr_Int = 8498
+
+    VCVTTSD2SI64Zrrb_Int = 8499
+
+    VCVTTSD2SI64rm = 8500
+
+    VCVTTSD2SI64rm_Int = 8501
+
+    VCVTTSD2SI64rr = 8502
+
+    VCVTTSD2SI64rr_Int = 8503
+
+    VCVTTSD2SISrm = 8504
+
+    VCVTTSD2SISrm_Int = 8505
+
+    VCVTTSD2SISrr = 8506
+
+    VCVTTSD2SISrr_Int = 8507
+
+    VCVTTSD2SISrrb_Int = 8508
+
+    VCVTTSD2SIZrm = 8509
+
+    VCVTTSD2SIZrm_Int = 8510
+
+    VCVTTSD2SIZrr = 8511
+
+    VCVTTSD2SIZrr_Int = 8512
+
+    VCVTTSD2SIZrrb_Int = 8513
+
+    VCVTTSD2SIrm = 8514
+
+    VCVTTSD2SIrm_Int = 8515
+
+    VCVTTSD2SIrr = 8516
+
+    VCVTTSD2SIrr_Int = 8517
+
+    VCVTTSD2USI64Srm = 8518
+
+    VCVTTSD2USI64Srm_Int = 8519
+
+    VCVTTSD2USI64Srr = 8520
+
+    VCVTTSD2USI64Srr_Int = 8521
+
+    VCVTTSD2USI64Srrb_Int = 8522
+
+    VCVTTSD2USI64Zrm = 8523
+
+    VCVTTSD2USI64Zrm_Int = 8524
+
+    VCVTTSD2USI64Zrr = 8525
+
+    VCVTTSD2USI64Zrr_Int = 8526
+
+    VCVTTSD2USI64Zrrb_Int = 8527
+
+    VCVTTSD2USISrm = 8528
+
+    VCVTTSD2USISrm_Int = 8529
+
+    VCVTTSD2USISrr = 8530
+
+    VCVTTSD2USISrr_Int = 8531
+
+    VCVTTSD2USISrrb_Int = 8532
+
+    VCVTTSD2USIZrm = 8533
+
+    VCVTTSD2USIZrm_Int = 8534
+
+    VCVTTSD2USIZrr = 8535
+
+    VCVTTSD2USIZrr_Int = 8536
+
+    VCVTTSD2USIZrrb_Int = 8537
+
+    VCVTTSH2SI64Zrm = 8538
+
+    VCVTTSH2SI64Zrm_Int = 8539
+
+    VCVTTSH2SI64Zrr = 8540
+
+    VCVTTSH2SI64Zrr_Int = 8541
+
+    VCVTTSH2SI64Zrrb_Int = 8542
+
+    VCVTTSH2SIZrm = 8543
+
+    VCVTTSH2SIZrm_Int = 8544
+
+    VCVTTSH2SIZrr = 8545
+
+    VCVTTSH2SIZrr_Int = 8546
+
+    VCVTTSH2SIZrrb_Int = 8547
+
+    VCVTTSH2USI64Zrm = 8548
+
+    VCVTTSH2USI64Zrm_Int = 8549
+
+    VCVTTSH2USI64Zrr = 8550
+
+    VCVTTSH2USI64Zrr_Int = 8551
+
+    VCVTTSH2USI64Zrrb_Int = 8552
+
+    VCVTTSH2USIZrm = 8553
+
+    VCVTTSH2USIZrm_Int = 8554
+
+    VCVTTSH2USIZrr = 8555
+
+    VCVTTSH2USIZrr_Int = 8556
+
+    VCVTTSH2USIZrrb_Int = 8557
+
+    VCVTTSS2SI64Srm = 8558
+
+    VCVTTSS2SI64Srm_Int = 8559
+
+    VCVTTSS2SI64Srr = 8560
+
+    VCVTTSS2SI64Srr_Int = 8561
+
+    VCVTTSS2SI64Srrb_Int = 8562
+
+    VCVTTSS2SI64Zrm = 8563
+
+    VCVTTSS2SI64Zrm_Int = 8564
+
+    VCVTTSS2SI64Zrr = 8565
+
+    VCVTTSS2SI64Zrr_Int = 8566
+
+    VCVTTSS2SI64Zrrb_Int = 8567
+
+    VCVTTSS2SI64rm = 8568
+
+    VCVTTSS2SI64rm_Int = 8569
+
+    VCVTTSS2SI64rr = 8570
+
+    VCVTTSS2SI64rr_Int = 8571
+
+    VCVTTSS2SISrm = 8572
+
+    VCVTTSS2SISrm_Int = 8573
+
+    VCVTTSS2SISrr = 8574
+
+    VCVTTSS2SISrr_Int = 8575
+
+    VCVTTSS2SISrrb_Int = 8576
+
+    VCVTTSS2SIZrm = 8577
+
+    VCVTTSS2SIZrm_Int = 8578
+
+    VCVTTSS2SIZrr = 8579
+
+    VCVTTSS2SIZrr_Int = 8580
+
+    VCVTTSS2SIZrrb_Int = 8581
+
+    VCVTTSS2SIrm = 8582
+
+    VCVTTSS2SIrm_Int = 8583
+
+    VCVTTSS2SIrr = 8584
+
+    VCVTTSS2SIrr_Int = 8585
+
+    VCVTTSS2USI64Srm = 8586
+
+    VCVTTSS2USI64Srm_Int = 8587
+
+    VCVTTSS2USI64Srr = 8588
+
+    VCVTTSS2USI64Srr_Int = 8589
+
+    VCVTTSS2USI64Srrb_Int = 8590
+
+    VCVTTSS2USI64Zrm = 8591
+
+    VCVTTSS2USI64Zrm_Int = 8592
+
+    VCVTTSS2USI64Zrr = 8593
+
+    VCVTTSS2USI64Zrr_Int = 8594
+
+    VCVTTSS2USI64Zrrb_Int = 8595
+
+    VCVTTSS2USISrm = 8596
+
+    VCVTTSS2USISrm_Int = 8597
+
+    VCVTTSS2USISrr = 8598
+
+    VCVTTSS2USISrr_Int = 8599
+
+    VCVTTSS2USISrrb_Int = 8600
+
+    VCVTTSS2USIZrm = 8601
+
+    VCVTTSS2USIZrm_Int = 8602
+
+    VCVTTSS2USIZrr = 8603
+
+    VCVTTSS2USIZrr_Int = 8604
+
+    VCVTTSS2USIZrrb_Int = 8605
+
+    VCVTUDQ2PDZ128rm = 8606
+
+    VCVTUDQ2PDZ128rmb = 8607
+
+    VCVTUDQ2PDZ128rmbk = 8608
+
+    VCVTUDQ2PDZ128rmbkz = 8609
+
+    VCVTUDQ2PDZ128rmk = 8610
+
+    VCVTUDQ2PDZ128rmkz = 8611
+
+    VCVTUDQ2PDZ128rr = 8612
+
+    VCVTUDQ2PDZ128rrk = 8613
+
+    VCVTUDQ2PDZ128rrkz = 8614
+
+    VCVTUDQ2PDZ256rm = 8615
+
+    VCVTUDQ2PDZ256rmb = 8616
+
+    VCVTUDQ2PDZ256rmbk = 8617
+
+    VCVTUDQ2PDZ256rmbkz = 8618
+
+    VCVTUDQ2PDZ256rmk = 8619
+
+    VCVTUDQ2PDZ256rmkz = 8620
+
+    VCVTUDQ2PDZ256rr = 8621
+
+    VCVTUDQ2PDZ256rrk = 8622
+
+    VCVTUDQ2PDZ256rrkz = 8623
+
+    VCVTUDQ2PDZrm = 8624
+
+    VCVTUDQ2PDZrmb = 8625
+
+    VCVTUDQ2PDZrmbk = 8626
+
+    VCVTUDQ2PDZrmbkz = 8627
+
+    VCVTUDQ2PDZrmk = 8628
+
+    VCVTUDQ2PDZrmkz = 8629
+
+    VCVTUDQ2PDZrr = 8630
+
+    VCVTUDQ2PDZrrk = 8631
+
+    VCVTUDQ2PDZrrkz = 8632
+
+    VCVTUDQ2PHZ128rm = 8633
+
+    VCVTUDQ2PHZ128rmb = 8634
+
+    VCVTUDQ2PHZ128rmbk = 8635
+
+    VCVTUDQ2PHZ128rmbkz = 8636
+
+    VCVTUDQ2PHZ128rmk = 8637
+
+    VCVTUDQ2PHZ128rmkz = 8638
+
+    VCVTUDQ2PHZ128rr = 8639
+
+    VCVTUDQ2PHZ128rrk = 8640
+
+    VCVTUDQ2PHZ128rrkz = 8641
+
+    VCVTUDQ2PHZ256rm = 8642
+
+    VCVTUDQ2PHZ256rmb = 8643
+
+    VCVTUDQ2PHZ256rmbk = 8644
+
+    VCVTUDQ2PHZ256rmbkz = 8645
+
+    VCVTUDQ2PHZ256rmk = 8646
+
+    VCVTUDQ2PHZ256rmkz = 8647
+
+    VCVTUDQ2PHZ256rr = 8648
+
+    VCVTUDQ2PHZ256rrk = 8649
+
+    VCVTUDQ2PHZ256rrkz = 8650
+
+    VCVTUDQ2PHZrm = 8651
+
+    VCVTUDQ2PHZrmb = 8652
+
+    VCVTUDQ2PHZrmbk = 8653
+
+    VCVTUDQ2PHZrmbkz = 8654
+
+    VCVTUDQ2PHZrmk = 8655
+
+    VCVTUDQ2PHZrmkz = 8656
+
+    VCVTUDQ2PHZrr = 8657
+
+    VCVTUDQ2PHZrrb = 8658
+
+    VCVTUDQ2PHZrrbk = 8659
+
+    VCVTUDQ2PHZrrbkz = 8660
+
+    VCVTUDQ2PHZrrk = 8661
+
+    VCVTUDQ2PHZrrkz = 8662
+
+    VCVTUDQ2PSZ128rm = 8663
+
+    VCVTUDQ2PSZ128rmb = 8664
+
+    VCVTUDQ2PSZ128rmbk = 8665
+
+    VCVTUDQ2PSZ128rmbkz = 8666
+
+    VCVTUDQ2PSZ128rmk = 8667
+
+    VCVTUDQ2PSZ128rmkz = 8668
+
+    VCVTUDQ2PSZ128rr = 8669
+
+    VCVTUDQ2PSZ128rrk = 8670
+
+    VCVTUDQ2PSZ128rrkz = 8671
+
+    VCVTUDQ2PSZ256rm = 8672
+
+    VCVTUDQ2PSZ256rmb = 8673
+
+    VCVTUDQ2PSZ256rmbk = 8674
+
+    VCVTUDQ2PSZ256rmbkz = 8675
+
+    VCVTUDQ2PSZ256rmk = 8676
+
+    VCVTUDQ2PSZ256rmkz = 8677
+
+    VCVTUDQ2PSZ256rr = 8678
+
+    VCVTUDQ2PSZ256rrk = 8679
+
+    VCVTUDQ2PSZ256rrkz = 8680
+
+    VCVTUDQ2PSZrm = 8681
+
+    VCVTUDQ2PSZrmb = 8682
+
+    VCVTUDQ2PSZrmbk = 8683
+
+    VCVTUDQ2PSZrmbkz = 8684
+
+    VCVTUDQ2PSZrmk = 8685
+
+    VCVTUDQ2PSZrmkz = 8686
+
+    VCVTUDQ2PSZrr = 8687
+
+    VCVTUDQ2PSZrrb = 8688
+
+    VCVTUDQ2PSZrrbk = 8689
+
+    VCVTUDQ2PSZrrbkz = 8690
+
+    VCVTUDQ2PSZrrk = 8691
+
+    VCVTUDQ2PSZrrkz = 8692
+
+    VCVTUQQ2PDZ128rm = 8693
+
+    VCVTUQQ2PDZ128rmb = 8694
+
+    VCVTUQQ2PDZ128rmbk = 8695
+
+    VCVTUQQ2PDZ128rmbkz = 8696
+
+    VCVTUQQ2PDZ128rmk = 8697
+
+    VCVTUQQ2PDZ128rmkz = 8698
+
+    VCVTUQQ2PDZ128rr = 8699
+
+    VCVTUQQ2PDZ128rrk = 8700
+
+    VCVTUQQ2PDZ128rrkz = 8701
+
+    VCVTUQQ2PDZ256rm = 8702
+
+    VCVTUQQ2PDZ256rmb = 8703
+
+    VCVTUQQ2PDZ256rmbk = 8704
+
+    VCVTUQQ2PDZ256rmbkz = 8705
+
+    VCVTUQQ2PDZ256rmk = 8706
+
+    VCVTUQQ2PDZ256rmkz = 8707
+
+    VCVTUQQ2PDZ256rr = 8708
+
+    VCVTUQQ2PDZ256rrk = 8709
+
+    VCVTUQQ2PDZ256rrkz = 8710
+
+    VCVTUQQ2PDZrm = 8711
+
+    VCVTUQQ2PDZrmb = 8712
+
+    VCVTUQQ2PDZrmbk = 8713
+
+    VCVTUQQ2PDZrmbkz = 8714
+
+    VCVTUQQ2PDZrmk = 8715
+
+    VCVTUQQ2PDZrmkz = 8716
+
+    VCVTUQQ2PDZrr = 8717
+
+    VCVTUQQ2PDZrrb = 8718
+
+    VCVTUQQ2PDZrrbk = 8719
+
+    VCVTUQQ2PDZrrbkz = 8720
+
+    VCVTUQQ2PDZrrk = 8721
+
+    VCVTUQQ2PDZrrkz = 8722
+
+    VCVTUQQ2PHZ128rm = 8723
+
+    VCVTUQQ2PHZ128rmb = 8724
+
+    VCVTUQQ2PHZ128rmbk = 8725
+
+    VCVTUQQ2PHZ128rmbkz = 8726
+
+    VCVTUQQ2PHZ128rmk = 8727
+
+    VCVTUQQ2PHZ128rmkz = 8728
+
+    VCVTUQQ2PHZ128rr = 8729
+
+    VCVTUQQ2PHZ128rrk = 8730
+
+    VCVTUQQ2PHZ128rrkz = 8731
+
+    VCVTUQQ2PHZ256rm = 8732
+
+    VCVTUQQ2PHZ256rmb = 8733
+
+    VCVTUQQ2PHZ256rmbk = 8734
+
+    VCVTUQQ2PHZ256rmbkz = 8735
+
+    VCVTUQQ2PHZ256rmk = 8736
+
+    VCVTUQQ2PHZ256rmkz = 8737
+
+    VCVTUQQ2PHZ256rr = 8738
+
+    VCVTUQQ2PHZ256rrk = 8739
+
+    VCVTUQQ2PHZ256rrkz = 8740
+
+    VCVTUQQ2PHZrm = 8741
+
+    VCVTUQQ2PHZrmb = 8742
+
+    VCVTUQQ2PHZrmbk = 8743
+
+    VCVTUQQ2PHZrmbkz = 8744
+
+    VCVTUQQ2PHZrmk = 8745
+
+    VCVTUQQ2PHZrmkz = 8746
+
+    VCVTUQQ2PHZrr = 8747
+
+    VCVTUQQ2PHZrrb = 8748
+
+    VCVTUQQ2PHZrrbk = 8749
+
+    VCVTUQQ2PHZrrbkz = 8750
+
+    VCVTUQQ2PHZrrk = 8751
+
+    VCVTUQQ2PHZrrkz = 8752
+
+    VCVTUQQ2PSZ128rm = 8753
+
+    VCVTUQQ2PSZ128rmb = 8754
+
+    VCVTUQQ2PSZ128rmbk = 8755
+
+    VCVTUQQ2PSZ128rmbkz = 8756
+
+    VCVTUQQ2PSZ128rmk = 8757
+
+    VCVTUQQ2PSZ128rmkz = 8758
+
+    VCVTUQQ2PSZ128rr = 8759
+
+    VCVTUQQ2PSZ128rrk = 8760
+
+    VCVTUQQ2PSZ128rrkz = 8761
+
+    VCVTUQQ2PSZ256rm = 8762
+
+    VCVTUQQ2PSZ256rmb = 8763
+
+    VCVTUQQ2PSZ256rmbk = 8764
+
+    VCVTUQQ2PSZ256rmbkz = 8765
+
+    VCVTUQQ2PSZ256rmk = 8766
+
+    VCVTUQQ2PSZ256rmkz = 8767
+
+    VCVTUQQ2PSZ256rr = 8768
+
+    VCVTUQQ2PSZ256rrk = 8769
+
+    VCVTUQQ2PSZ256rrkz = 8770
+
+    VCVTUQQ2PSZrm = 8771
+
+    VCVTUQQ2PSZrmb = 8772
+
+    VCVTUQQ2PSZrmbk = 8773
+
+    VCVTUQQ2PSZrmbkz = 8774
+
+    VCVTUQQ2PSZrmk = 8775
+
+    VCVTUQQ2PSZrmkz = 8776
+
+    VCVTUQQ2PSZrr = 8777
+
+    VCVTUQQ2PSZrrb = 8778
+
+    VCVTUQQ2PSZrrbk = 8779
+
+    VCVTUQQ2PSZrrbkz = 8780
+
+    VCVTUQQ2PSZrrk = 8781
+
+    VCVTUQQ2PSZrrkz = 8782
+
+    VCVTUSI2SDZrm = 8783
+
+    VCVTUSI2SDZrm_Int = 8784
+
+    VCVTUSI2SDZrr = 8785
+
+    VCVTUSI2SDZrr_Int = 8786
+
+    VCVTUSI2SHZrm = 8787
+
+    VCVTUSI2SHZrm_Int = 8788
+
+    VCVTUSI2SHZrr = 8789
+
+    VCVTUSI2SHZrr_Int = 8790
+
+    VCVTUSI2SHZrrb_Int = 8791
+
+    VCVTUSI2SSZrm = 8792
+
+    VCVTUSI2SSZrm_Int = 8793
+
+    VCVTUSI2SSZrr = 8794
+
+    VCVTUSI2SSZrr_Int = 8795
+
+    VCVTUSI2SSZrrb_Int = 8796
+
+    VCVTUSI642SDZrm = 8797
+
+    VCVTUSI642SDZrm_Int = 8798
+
+    VCVTUSI642SDZrr = 8799
+
+    VCVTUSI642SDZrr_Int = 8800
+
+    VCVTUSI642SDZrrb_Int = 8801
+
+    VCVTUSI642SHZrm = 8802
+
+    VCVTUSI642SHZrm_Int = 8803
+
+    VCVTUSI642SHZrr = 8804
+
+    VCVTUSI642SHZrr_Int = 8805
+
+    VCVTUSI642SHZrrb_Int = 8806
+
+    VCVTUSI642SSZrm = 8807
+
+    VCVTUSI642SSZrm_Int = 8808
+
+    VCVTUSI642SSZrr = 8809
+
+    VCVTUSI642SSZrr_Int = 8810
+
+    VCVTUSI642SSZrrb_Int = 8811
+
+    VCVTUW2PHZ128rm = 8812
+
+    VCVTUW2PHZ128rmb = 8813
+
+    VCVTUW2PHZ128rmbk = 8814
+
+    VCVTUW2PHZ128rmbkz = 8815
+
+    VCVTUW2PHZ128rmk = 8816
+
+    VCVTUW2PHZ128rmkz = 8817
+
+    VCVTUW2PHZ128rr = 8818
+
+    VCVTUW2PHZ128rrk = 8819
+
+    VCVTUW2PHZ128rrkz = 8820
+
+    VCVTUW2PHZ256rm = 8821
+
+    VCVTUW2PHZ256rmb = 8822
+
+    VCVTUW2PHZ256rmbk = 8823
+
+    VCVTUW2PHZ256rmbkz = 8824
+
+    VCVTUW2PHZ256rmk = 8825
+
+    VCVTUW2PHZ256rmkz = 8826
+
+    VCVTUW2PHZ256rr = 8827
+
+    VCVTUW2PHZ256rrk = 8828
+
+    VCVTUW2PHZ256rrkz = 8829
+
+    VCVTUW2PHZrm = 8830
+
+    VCVTUW2PHZrmb = 8831
+
+    VCVTUW2PHZrmbk = 8832
+
+    VCVTUW2PHZrmbkz = 8833
+
+    VCVTUW2PHZrmk = 8834
+
+    VCVTUW2PHZrmkz = 8835
+
+    VCVTUW2PHZrr = 8836
+
+    VCVTUW2PHZrrb = 8837
+
+    VCVTUW2PHZrrbk = 8838
+
+    VCVTUW2PHZrrbkz = 8839
+
+    VCVTUW2PHZrrk = 8840
+
+    VCVTUW2PHZrrkz = 8841
+
+    VCVTW2PHZ128rm = 8842
+
+    VCVTW2PHZ128rmb = 8843
+
+    VCVTW2PHZ128rmbk = 8844
+
+    VCVTW2PHZ128rmbkz = 8845
+
+    VCVTW2PHZ128rmk = 8846
+
+    VCVTW2PHZ128rmkz = 8847
+
+    VCVTW2PHZ128rr = 8848
+
+    VCVTW2PHZ128rrk = 8849
+
+    VCVTW2PHZ128rrkz = 8850
+
+    VCVTW2PHZ256rm = 8851
+
+    VCVTW2PHZ256rmb = 8852
+
+    VCVTW2PHZ256rmbk = 8853
+
+    VCVTW2PHZ256rmbkz = 8854
+
+    VCVTW2PHZ256rmk = 8855
+
+    VCVTW2PHZ256rmkz = 8856
+
+    VCVTW2PHZ256rr = 8857
+
+    VCVTW2PHZ256rrk = 8858
+
+    VCVTW2PHZ256rrkz = 8859
+
+    VCVTW2PHZrm = 8860
+
+    VCVTW2PHZrmb = 8861
+
+    VCVTW2PHZrmbk = 8862
+
+    VCVTW2PHZrmbkz = 8863
+
+    VCVTW2PHZrmk = 8864
+
+    VCVTW2PHZrmkz = 8865
+
+    VCVTW2PHZrr = 8866
+
+    VCVTW2PHZrrb = 8867
+
+    VCVTW2PHZrrbk = 8868
+
+    VCVTW2PHZrrbkz = 8869
+
+    VCVTW2PHZrrk = 8870
+
+    VCVTW2PHZrrkz = 8871
+
+    VDBPSADBWZ128rmi = 8872
+
+    VDBPSADBWZ128rmik = 8873
+
+    VDBPSADBWZ128rmikz = 8874
+
+    VDBPSADBWZ128rri = 8875
+
+    VDBPSADBWZ128rrik = 8876
+
+    VDBPSADBWZ128rrikz = 8877
+
+    VDBPSADBWZ256rmi = 8878
+
+    VDBPSADBWZ256rmik = 8879
+
+    VDBPSADBWZ256rmikz = 8880
+
+    VDBPSADBWZ256rri = 8881
+
+    VDBPSADBWZ256rrik = 8882
+
+    VDBPSADBWZ256rrikz = 8883
+
+    VDBPSADBWZrmi = 8884
+
+    VDBPSADBWZrmik = 8885
+
+    VDBPSADBWZrmikz = 8886
+
+    VDBPSADBWZrri = 8887
+
+    VDBPSADBWZrrik = 8888
+
+    VDBPSADBWZrrikz = 8889
+
+    VDIVBF16Z128rm = 8890
+
+    VDIVBF16Z128rmb = 8891
+
+    VDIVBF16Z128rmbk = 8892
+
+    VDIVBF16Z128rmbkz = 8893
+
+    VDIVBF16Z128rmk = 8894
+
+    VDIVBF16Z128rmkz = 8895
+
+    VDIVBF16Z128rr = 8896
+
+    VDIVBF16Z128rrk = 8897
+
+    VDIVBF16Z128rrkz = 8898
+
+    VDIVBF16Z256rm = 8899
+
+    VDIVBF16Z256rmb = 8900
+
+    VDIVBF16Z256rmbk = 8901
+
+    VDIVBF16Z256rmbkz = 8902
+
+    VDIVBF16Z256rmk = 8903
+
+    VDIVBF16Z256rmkz = 8904
+
+    VDIVBF16Z256rr = 8905
+
+    VDIVBF16Z256rrk = 8906
+
+    VDIVBF16Z256rrkz = 8907
+
+    VDIVBF16Zrm = 8908
+
+    VDIVBF16Zrmb = 8909
+
+    VDIVBF16Zrmbk = 8910
+
+    VDIVBF16Zrmbkz = 8911
+
+    VDIVBF16Zrmk = 8912
+
+    VDIVBF16Zrmkz = 8913
+
+    VDIVBF16Zrr = 8914
+
+    VDIVBF16Zrrk = 8915
+
+    VDIVBF16Zrrkz = 8916
+
+    VDIVPDYrm = 8917
+
+    VDIVPDYrr = 8918
+
+    VDIVPDZ128rm = 8919
+
+    VDIVPDZ128rmb = 8920
+
+    VDIVPDZ128rmbk = 8921
+
+    VDIVPDZ128rmbkz = 8922
+
+    VDIVPDZ128rmk = 8923
+
+    VDIVPDZ128rmkz = 8924
+
+    VDIVPDZ128rr = 8925
+
+    VDIVPDZ128rrk = 8926
+
+    VDIVPDZ128rrkz = 8927
+
+    VDIVPDZ256rm = 8928
+
+    VDIVPDZ256rmb = 8929
+
+    VDIVPDZ256rmbk = 8930
+
+    VDIVPDZ256rmbkz = 8931
+
+    VDIVPDZ256rmk = 8932
+
+    VDIVPDZ256rmkz = 8933
+
+    VDIVPDZ256rr = 8934
+
+    VDIVPDZ256rrk = 8935
+
+    VDIVPDZ256rrkz = 8936
+
+    VDIVPDZrm = 8937
+
+    VDIVPDZrmb = 8938
+
+    VDIVPDZrmbk = 8939
+
+    VDIVPDZrmbkz = 8940
+
+    VDIVPDZrmk = 8941
+
+    VDIVPDZrmkz = 8942
+
+    VDIVPDZrr = 8943
+
+    VDIVPDZrrb = 8944
+
+    VDIVPDZrrbk = 8945
+
+    VDIVPDZrrbkz = 8946
+
+    VDIVPDZrrk = 8947
+
+    VDIVPDZrrkz = 8948
+
+    VDIVPDrm = 8949
+
+    VDIVPDrr = 8950
+
+    VDIVPHZ128rm = 8951
+
+    VDIVPHZ128rmb = 8952
+
+    VDIVPHZ128rmbk = 8953
+
+    VDIVPHZ128rmbkz = 8954
+
+    VDIVPHZ128rmk = 8955
+
+    VDIVPHZ128rmkz = 8956
+
+    VDIVPHZ128rr = 8957
+
+    VDIVPHZ128rrk = 8958
+
+    VDIVPHZ128rrkz = 8959
+
+    VDIVPHZ256rm = 8960
+
+    VDIVPHZ256rmb = 8961
+
+    VDIVPHZ256rmbk = 8962
+
+    VDIVPHZ256rmbkz = 8963
+
+    VDIVPHZ256rmk = 8964
+
+    VDIVPHZ256rmkz = 8965
+
+    VDIVPHZ256rr = 8966
+
+    VDIVPHZ256rrk = 8967
+
+    VDIVPHZ256rrkz = 8968
+
+    VDIVPHZrm = 8969
+
+    VDIVPHZrmb = 8970
+
+    VDIVPHZrmbk = 8971
+
+    VDIVPHZrmbkz = 8972
+
+    VDIVPHZrmk = 8973
+
+    VDIVPHZrmkz = 8974
+
+    VDIVPHZrr = 8975
+
+    VDIVPHZrrb = 8976
+
+    VDIVPHZrrbk = 8977
+
+    VDIVPHZrrbkz = 8978
+
+    VDIVPHZrrk = 8979
+
+    VDIVPHZrrkz = 8980
+
+    VDIVPSYrm = 8981
+
+    VDIVPSYrr = 8982
+
+    VDIVPSZ128rm = 8983
+
+    VDIVPSZ128rmb = 8984
+
+    VDIVPSZ128rmbk = 8985
+
+    VDIVPSZ128rmbkz = 8986
+
+    VDIVPSZ128rmk = 8987
+
+    VDIVPSZ128rmkz = 8988
+
+    VDIVPSZ128rr = 8989
+
+    VDIVPSZ128rrk = 8990
+
+    VDIVPSZ128rrkz = 8991
+
+    VDIVPSZ256rm = 8992
+
+    VDIVPSZ256rmb = 8993
+
+    VDIVPSZ256rmbk = 8994
+
+    VDIVPSZ256rmbkz = 8995
+
+    VDIVPSZ256rmk = 8996
+
+    VDIVPSZ256rmkz = 8997
+
+    VDIVPSZ256rr = 8998
+
+    VDIVPSZ256rrk = 8999
+
+    VDIVPSZ256rrkz = 9000
+
+    VDIVPSZrm = 9001
+
+    VDIVPSZrmb = 9002
+
+    VDIVPSZrmbk = 9003
+
+    VDIVPSZrmbkz = 9004
+
+    VDIVPSZrmk = 9005
+
+    VDIVPSZrmkz = 9006
+
+    VDIVPSZrr = 9007
+
+    VDIVPSZrrb = 9008
+
+    VDIVPSZrrbk = 9009
+
+    VDIVPSZrrbkz = 9010
+
+    VDIVPSZrrk = 9011
+
+    VDIVPSZrrkz = 9012
+
+    VDIVPSrm = 9013
+
+    VDIVPSrr = 9014
+
+    VDIVSDZrm = 9015
+
+    VDIVSDZrm_Int = 9016
+
+    VDIVSDZrmk_Int = 9017
+
+    VDIVSDZrmkz_Int = 9018
+
+    VDIVSDZrr = 9019
+
+    VDIVSDZrr_Int = 9020
+
+    VDIVSDZrrb_Int = 9021
+
+    VDIVSDZrrbk_Int = 9022
+
+    VDIVSDZrrbkz_Int = 9023
+
+    VDIVSDZrrk_Int = 9024
+
+    VDIVSDZrrkz_Int = 9025
+
+    VDIVSDrm = 9026
+
+    VDIVSDrm_Int = 9027
+
+    VDIVSDrr = 9028
+
+    VDIVSDrr_Int = 9029
+
+    VDIVSHZrm = 9030
+
+    VDIVSHZrm_Int = 9031
+
+    VDIVSHZrmk_Int = 9032
+
+    VDIVSHZrmkz_Int = 9033
+
+    VDIVSHZrr = 9034
+
+    VDIVSHZrr_Int = 9035
+
+    VDIVSHZrrb_Int = 9036
+
+    VDIVSHZrrbk_Int = 9037
+
+    VDIVSHZrrbkz_Int = 9038
+
+    VDIVSHZrrk_Int = 9039
+
+    VDIVSHZrrkz_Int = 9040
+
+    VDIVSSZrm = 9041
+
+    VDIVSSZrm_Int = 9042
+
+    VDIVSSZrmk_Int = 9043
+
+    VDIVSSZrmkz_Int = 9044
+
+    VDIVSSZrr = 9045
+
+    VDIVSSZrr_Int = 9046
+
+    VDIVSSZrrb_Int = 9047
+
+    VDIVSSZrrbk_Int = 9048
+
+    VDIVSSZrrbkz_Int = 9049
+
+    VDIVSSZrrk_Int = 9050
+
+    VDIVSSZrrkz_Int = 9051
+
+    VDIVSSrm = 9052
+
+    VDIVSSrm_Int = 9053
+
+    VDIVSSrr = 9054
+
+    VDIVSSrr_Int = 9055
+
+    VDPBF16PSZ128m = 9056
+
+    VDPBF16PSZ128mb = 9057
+
+    VDPBF16PSZ128mbk = 9058
+
+    VDPBF16PSZ128mbkz = 9059
+
+    VDPBF16PSZ128mk = 9060
+
+    VDPBF16PSZ128mkz = 9061
+
+    VDPBF16PSZ128r = 9062
+
+    VDPBF16PSZ128rk = 9063
+
+    VDPBF16PSZ128rkz = 9064
+
+    VDPBF16PSZ256m = 9065
+
+    VDPBF16PSZ256mb = 9066
+
+    VDPBF16PSZ256mbk = 9067
+
+    VDPBF16PSZ256mbkz = 9068
+
+    VDPBF16PSZ256mk = 9069
+
+    VDPBF16PSZ256mkz = 9070
+
+    VDPBF16PSZ256r = 9071
+
+    VDPBF16PSZ256rk = 9072
+
+    VDPBF16PSZ256rkz = 9073
+
+    VDPBF16PSZm = 9074
+
+    VDPBF16PSZmb = 9075
+
+    VDPBF16PSZmbk = 9076
+
+    VDPBF16PSZmbkz = 9077
+
+    VDPBF16PSZmk = 9078
+
+    VDPBF16PSZmkz = 9079
+
+    VDPBF16PSZr = 9080
+
+    VDPBF16PSZrk = 9081
+
+    VDPBF16PSZrkz = 9082
+
+    VDPPDrmi = 9083
+
+    VDPPDrri = 9084
+
+    VDPPHPSZ128m = 9085
+
+    VDPPHPSZ128mb = 9086
+
+    VDPPHPSZ128mbk = 9087
+
+    VDPPHPSZ128mbkz = 9088
+
+    VDPPHPSZ128mk = 9089
+
+    VDPPHPSZ128mkz = 9090
+
+    VDPPHPSZ128r = 9091
+
+    VDPPHPSZ128rk = 9092
+
+    VDPPHPSZ128rkz = 9093
+
+    VDPPHPSZ256m = 9094
+
+    VDPPHPSZ256mb = 9095
+
+    VDPPHPSZ256mbk = 9096
+
+    VDPPHPSZ256mbkz = 9097
+
+    VDPPHPSZ256mk = 9098
+
+    VDPPHPSZ256mkz = 9099
+
+    VDPPHPSZ256r = 9100
+
+    VDPPHPSZ256rk = 9101
+
+    VDPPHPSZ256rkz = 9102
+
+    VDPPHPSZm = 9103
+
+    VDPPHPSZmb = 9104
+
+    VDPPHPSZmbk = 9105
+
+    VDPPHPSZmbkz = 9106
+
+    VDPPHPSZmk = 9107
+
+    VDPPHPSZmkz = 9108
+
+    VDPPHPSZr = 9109
+
+    VDPPHPSZrk = 9110
+
+    VDPPHPSZrkz = 9111
+
+    VDPPSYrmi = 9112
+
+    VDPPSYrri = 9113
+
+    VDPPSrmi = 9114
+
+    VDPPSrri = 9115
+
+    VERRm = 9116
+
+    VERRr = 9117
+
+    VERWm = 9118
+
+    VERWr = 9119
+
+    VEXP2PDZm = 9120
+
+    VEXP2PDZmb = 9121
+
+    VEXP2PDZmbk = 9122
+
+    VEXP2PDZmbkz = 9123
+
+    VEXP2PDZmk = 9124
+
+    VEXP2PDZmkz = 9125
+
+    VEXP2PDZr = 9126
+
+    VEXP2PDZrb = 9127
+
+    VEXP2PDZrbk = 9128
+
+    VEXP2PDZrbkz = 9129
+
+    VEXP2PDZrk = 9130
+
+    VEXP2PDZrkz = 9131
+
+    VEXP2PSZm = 9132
+
+    VEXP2PSZmb = 9133
+
+    VEXP2PSZmbk = 9134
+
+    VEXP2PSZmbkz = 9135
+
+    VEXP2PSZmk = 9136
+
+    VEXP2PSZmkz = 9137
+
+    VEXP2PSZr = 9138
+
+    VEXP2PSZrb = 9139
+
+    VEXP2PSZrbk = 9140
+
+    VEXP2PSZrbkz = 9141
+
+    VEXP2PSZrk = 9142
+
+    VEXP2PSZrkz = 9143
+
+    VEXPANDPDZ128rm = 9144
+
+    VEXPANDPDZ128rmk = 9145
+
+    VEXPANDPDZ128rmkz = 9146
+
+    VEXPANDPDZ128rr = 9147
+
+    VEXPANDPDZ128rrk = 9148
+
+    VEXPANDPDZ128rrkz = 9149
+
+    VEXPANDPDZ256rm = 9150
+
+    VEXPANDPDZ256rmk = 9151
+
+    VEXPANDPDZ256rmkz = 9152
+
+    VEXPANDPDZ256rr = 9153
+
+    VEXPANDPDZ256rrk = 9154
+
+    VEXPANDPDZ256rrkz = 9155
+
+    VEXPANDPDZrm = 9156
+
+    VEXPANDPDZrmk = 9157
+
+    VEXPANDPDZrmkz = 9158
+
+    VEXPANDPDZrr = 9159
+
+    VEXPANDPDZrrk = 9160
+
+    VEXPANDPDZrrkz = 9161
+
+    VEXPANDPSZ128rm = 9162
+
+    VEXPANDPSZ128rmk = 9163
+
+    VEXPANDPSZ128rmkz = 9164
+
+    VEXPANDPSZ128rr = 9165
+
+    VEXPANDPSZ128rrk = 9166
+
+    VEXPANDPSZ128rrkz = 9167
+
+    VEXPANDPSZ256rm = 9168
+
+    VEXPANDPSZ256rmk = 9169
+
+    VEXPANDPSZ256rmkz = 9170
+
+    VEXPANDPSZ256rr = 9171
+
+    VEXPANDPSZ256rrk = 9172
+
+    VEXPANDPSZ256rrkz = 9173
+
+    VEXPANDPSZrm = 9174
+
+    VEXPANDPSZrmk = 9175
+
+    VEXPANDPSZrmkz = 9176
+
+    VEXPANDPSZrr = 9177
+
+    VEXPANDPSZrrk = 9178
+
+    VEXPANDPSZrrkz = 9179
+
+    VEXTRACTF128mri = 9180
+
+    VEXTRACTF128rri = 9181
+
+    VEXTRACTF32X4Z256mri = 9182
+
+    VEXTRACTF32X4Z256mrik = 9183
+
+    VEXTRACTF32X4Z256rri = 9184
+
+    VEXTRACTF32X4Z256rrik = 9185
+
+    VEXTRACTF32X4Z256rrikz = 9186
+
+    VEXTRACTF32X4Zmri = 9187
+
+    VEXTRACTF32X4Zmrik = 9188
+
+    VEXTRACTF32X4Zrri = 9189
+
+    VEXTRACTF32X4Zrrik = 9190
+
+    VEXTRACTF32X4Zrrikz = 9191
+
+    VEXTRACTF32X8Zmri = 9192
+
+    VEXTRACTF32X8Zmrik = 9193
+
+    VEXTRACTF32X8Zrri = 9194
+
+    VEXTRACTF32X8Zrrik = 9195
+
+    VEXTRACTF32X8Zrrikz = 9196
+
+    VEXTRACTF64X2Z256mri = 9197
+
+    VEXTRACTF64X2Z256mrik = 9198
+
+    VEXTRACTF64X2Z256rri = 9199
+
+    VEXTRACTF64X2Z256rrik = 9200
+
+    VEXTRACTF64X2Z256rrikz = 9201
+
+    VEXTRACTF64X2Zmri = 9202
+
+    VEXTRACTF64X2Zmrik = 9203
+
+    VEXTRACTF64X2Zrri = 9204
+
+    VEXTRACTF64X2Zrrik = 9205
+
+    VEXTRACTF64X2Zrrikz = 9206
+
+    VEXTRACTF64X4Zmri = 9207
+
+    VEXTRACTF64X4Zmrik = 9208
+
+    VEXTRACTF64X4Zrri = 9209
+
+    VEXTRACTF64X4Zrrik = 9210
+
+    VEXTRACTF64X4Zrrikz = 9211
+
+    VEXTRACTI128mri = 9212
+
+    VEXTRACTI128rri = 9213
+
+    VEXTRACTI32X4Z256mri = 9214
+
+    VEXTRACTI32X4Z256mrik = 9215
+
+    VEXTRACTI32X4Z256rri = 9216
+
+    VEXTRACTI32X4Z256rrik = 9217
+
+    VEXTRACTI32X4Z256rrikz = 9218
+
+    VEXTRACTI32X4Zmri = 9219
+
+    VEXTRACTI32X4Zmrik = 9220
+
+    VEXTRACTI32X4Zrri = 9221
+
+    VEXTRACTI32X4Zrrik = 9222
+
+    VEXTRACTI32X4Zrrikz = 9223
+
+    VEXTRACTI32X8Zmri = 9224
+
+    VEXTRACTI32X8Zmrik = 9225
+
+    VEXTRACTI32X8Zrri = 9226
+
+    VEXTRACTI32X8Zrrik = 9227
+
+    VEXTRACTI32X8Zrrikz = 9228
+
+    VEXTRACTI64X2Z256mri = 9229
+
+    VEXTRACTI64X2Z256mrik = 9230
+
+    VEXTRACTI64X2Z256rri = 9231
+
+    VEXTRACTI64X2Z256rrik = 9232
+
+    VEXTRACTI64X2Z256rrikz = 9233
+
+    VEXTRACTI64X2Zmri = 9234
+
+    VEXTRACTI64X2Zmrik = 9235
+
+    VEXTRACTI64X2Zrri = 9236
+
+    VEXTRACTI64X2Zrrik = 9237
+
+    VEXTRACTI64X2Zrrikz = 9238
+
+    VEXTRACTI64X4Zmri = 9239
+
+    VEXTRACTI64X4Zmrik = 9240
+
+    VEXTRACTI64X4Zrri = 9241
+
+    VEXTRACTI64X4Zrrik = 9242
+
+    VEXTRACTI64X4Zrrikz = 9243
+
+    VEXTRACTPSZmri = 9244
+
+    VEXTRACTPSZrri = 9245
+
+    VEXTRACTPSmri = 9246
+
+    VEXTRACTPSrri = 9247
+
+    VFCMADDCPHZ128m = 9248
+
+    VFCMADDCPHZ128mb = 9249
+
+    VFCMADDCPHZ128mbk = 9250
+
+    VFCMADDCPHZ128mbkz = 9251
+
+    VFCMADDCPHZ128mk = 9252
+
+    VFCMADDCPHZ128mkz = 9253
+
+    VFCMADDCPHZ128r = 9254
+
+    VFCMADDCPHZ128rk = 9255
+
+    VFCMADDCPHZ128rkz = 9256
+
+    VFCMADDCPHZ256m = 9257
+
+    VFCMADDCPHZ256mb = 9258
+
+    VFCMADDCPHZ256mbk = 9259
+
+    VFCMADDCPHZ256mbkz = 9260
+
+    VFCMADDCPHZ256mk = 9261
+
+    VFCMADDCPHZ256mkz = 9262
+
+    VFCMADDCPHZ256r = 9263
+
+    VFCMADDCPHZ256rk = 9264
+
+    VFCMADDCPHZ256rkz = 9265
+
+    VFCMADDCPHZm = 9266
+
+    VFCMADDCPHZmb = 9267
+
+    VFCMADDCPHZmbk = 9268
+
+    VFCMADDCPHZmbkz = 9269
+
+    VFCMADDCPHZmk = 9270
+
+    VFCMADDCPHZmkz = 9271
+
+    VFCMADDCPHZr = 9272
+
+    VFCMADDCPHZrb = 9273
+
+    VFCMADDCPHZrbk = 9274
+
+    VFCMADDCPHZrbkz = 9275
+
+    VFCMADDCPHZrk = 9276
+
+    VFCMADDCPHZrkz = 9277
+
+    VFCMADDCSHZm = 9278
+
+    VFCMADDCSHZmk = 9279
+
+    VFCMADDCSHZmkz = 9280
+
+    VFCMADDCSHZr = 9281
+
+    VFCMADDCSHZrb = 9282
+
+    VFCMADDCSHZrbk = 9283
+
+    VFCMADDCSHZrbkz = 9284
+
+    VFCMADDCSHZrk = 9285
+
+    VFCMADDCSHZrkz = 9286
+
+    VFCMULCPHZ128rm = 9287
+
+    VFCMULCPHZ128rmb = 9288
+
+    VFCMULCPHZ128rmbk = 9289
+
+    VFCMULCPHZ128rmbkz = 9290
+
+    VFCMULCPHZ128rmk = 9291
+
+    VFCMULCPHZ128rmkz = 9292
+
+    VFCMULCPHZ128rr = 9293
+
+    VFCMULCPHZ128rrk = 9294
+
+    VFCMULCPHZ128rrkz = 9295
+
+    VFCMULCPHZ256rm = 9296
+
+    VFCMULCPHZ256rmb = 9297
+
+    VFCMULCPHZ256rmbk = 9298
+
+    VFCMULCPHZ256rmbkz = 9299
+
+    VFCMULCPHZ256rmk = 9300
+
+    VFCMULCPHZ256rmkz = 9301
+
+    VFCMULCPHZ256rr = 9302
+
+    VFCMULCPHZ256rrk = 9303
+
+    VFCMULCPHZ256rrkz = 9304
+
+    VFCMULCPHZrm = 9305
+
+    VFCMULCPHZrmb = 9306
+
+    VFCMULCPHZrmbk = 9307
+
+    VFCMULCPHZrmbkz = 9308
+
+    VFCMULCPHZrmk = 9309
+
+    VFCMULCPHZrmkz = 9310
+
+    VFCMULCPHZrr = 9311
+
+    VFCMULCPHZrrb = 9312
+
+    VFCMULCPHZrrbk = 9313
+
+    VFCMULCPHZrrbkz = 9314
+
+    VFCMULCPHZrrk = 9315
+
+    VFCMULCPHZrrkz = 9316
+
+    VFCMULCSHZrm = 9317
+
+    VFCMULCSHZrmk = 9318
+
+    VFCMULCSHZrmkz = 9319
+
+    VFCMULCSHZrr = 9320
+
+    VFCMULCSHZrrb = 9321
+
+    VFCMULCSHZrrbk = 9322
+
+    VFCMULCSHZrrbkz = 9323
+
+    VFCMULCSHZrrk = 9324
+
+    VFCMULCSHZrrkz = 9325
+
+    VFIXUPIMMPDZ128rmbi = 9326
+
+    VFIXUPIMMPDZ128rmbik = 9327
+
+    VFIXUPIMMPDZ128rmbikz = 9328
+
+    VFIXUPIMMPDZ128rmi = 9329
+
+    VFIXUPIMMPDZ128rmik = 9330
+
+    VFIXUPIMMPDZ128rmikz = 9331
+
+    VFIXUPIMMPDZ128rri = 9332
+
+    VFIXUPIMMPDZ128rrik = 9333
+
+    VFIXUPIMMPDZ128rrikz = 9334
+
+    VFIXUPIMMPDZ256rmbi = 9335
+
+    VFIXUPIMMPDZ256rmbik = 9336
+
+    VFIXUPIMMPDZ256rmbikz = 9337
+
+    VFIXUPIMMPDZ256rmi = 9338
+
+    VFIXUPIMMPDZ256rmik = 9339
+
+    VFIXUPIMMPDZ256rmikz = 9340
+
+    VFIXUPIMMPDZ256rri = 9341
+
+    VFIXUPIMMPDZ256rrik = 9342
+
+    VFIXUPIMMPDZ256rrikz = 9343
+
+    VFIXUPIMMPDZrmbi = 9344
+
+    VFIXUPIMMPDZrmbik = 9345
+
+    VFIXUPIMMPDZrmbikz = 9346
+
+    VFIXUPIMMPDZrmi = 9347
+
+    VFIXUPIMMPDZrmik = 9348
+
+    VFIXUPIMMPDZrmikz = 9349
+
+    VFIXUPIMMPDZrri = 9350
+
+    VFIXUPIMMPDZrrib = 9351
+
+    VFIXUPIMMPDZrribk = 9352
+
+    VFIXUPIMMPDZrribkz = 9353
+
+    VFIXUPIMMPDZrrik = 9354
+
+    VFIXUPIMMPDZrrikz = 9355
+
+    VFIXUPIMMPSZ128rmbi = 9356
+
+    VFIXUPIMMPSZ128rmbik = 9357
+
+    VFIXUPIMMPSZ128rmbikz = 9358
+
+    VFIXUPIMMPSZ128rmi = 9359
+
+    VFIXUPIMMPSZ128rmik = 9360
+
+    VFIXUPIMMPSZ128rmikz = 9361
+
+    VFIXUPIMMPSZ128rri = 9362
+
+    VFIXUPIMMPSZ128rrik = 9363
+
+    VFIXUPIMMPSZ128rrikz = 9364
+
+    VFIXUPIMMPSZ256rmbi = 9365
+
+    VFIXUPIMMPSZ256rmbik = 9366
+
+    VFIXUPIMMPSZ256rmbikz = 9367
+
+    VFIXUPIMMPSZ256rmi = 9368
+
+    VFIXUPIMMPSZ256rmik = 9369
+
+    VFIXUPIMMPSZ256rmikz = 9370
+
+    VFIXUPIMMPSZ256rri = 9371
+
+    VFIXUPIMMPSZ256rrik = 9372
+
+    VFIXUPIMMPSZ256rrikz = 9373
+
+    VFIXUPIMMPSZrmbi = 9374
+
+    VFIXUPIMMPSZrmbik = 9375
+
+    VFIXUPIMMPSZrmbikz = 9376
+
+    VFIXUPIMMPSZrmi = 9377
+
+    VFIXUPIMMPSZrmik = 9378
+
+    VFIXUPIMMPSZrmikz = 9379
+
+    VFIXUPIMMPSZrri = 9380
+
+    VFIXUPIMMPSZrrib = 9381
+
+    VFIXUPIMMPSZrribk = 9382
+
+    VFIXUPIMMPSZrribkz = 9383
+
+    VFIXUPIMMPSZrrik = 9384
+
+    VFIXUPIMMPSZrrikz = 9385
+
+    VFIXUPIMMSDZrmi = 9386
+
+    VFIXUPIMMSDZrmik = 9387
+
+    VFIXUPIMMSDZrmikz = 9388
+
+    VFIXUPIMMSDZrri = 9389
+
+    VFIXUPIMMSDZrrib = 9390
+
+    VFIXUPIMMSDZrribk = 9391
+
+    VFIXUPIMMSDZrribkz = 9392
+
+    VFIXUPIMMSDZrrik = 9393
+
+    VFIXUPIMMSDZrrikz = 9394
+
+    VFIXUPIMMSSZrmi = 9395
+
+    VFIXUPIMMSSZrmik = 9396
+
+    VFIXUPIMMSSZrmikz = 9397
+
+    VFIXUPIMMSSZrri = 9398
+
+    VFIXUPIMMSSZrrib = 9399
+
+    VFIXUPIMMSSZrribk = 9400
+
+    VFIXUPIMMSSZrribkz = 9401
+
+    VFIXUPIMMSSZrrik = 9402
+
+    VFIXUPIMMSSZrrikz = 9403
+
+    VFMADD132BF16Z128m = 9404
+
+    VFMADD132BF16Z128mb = 9405
+
+    VFMADD132BF16Z128mbk = 9406
+
+    VFMADD132BF16Z128mbkz = 9407
+
+    VFMADD132BF16Z128mk = 9408
+
+    VFMADD132BF16Z128mkz = 9409
+
+    VFMADD132BF16Z128r = 9410
+
+    VFMADD132BF16Z128rk = 9411
+
+    VFMADD132BF16Z128rkz = 9412
+
+    VFMADD132BF16Z256m = 9413
+
+    VFMADD132BF16Z256mb = 9414
+
+    VFMADD132BF16Z256mbk = 9415
+
+    VFMADD132BF16Z256mbkz = 9416
+
+    VFMADD132BF16Z256mk = 9417
+
+    VFMADD132BF16Z256mkz = 9418
+
+    VFMADD132BF16Z256r = 9419
+
+    VFMADD132BF16Z256rk = 9420
+
+    VFMADD132BF16Z256rkz = 9421
+
+    VFMADD132BF16Zm = 9422
+
+    VFMADD132BF16Zmb = 9423
+
+    VFMADD132BF16Zmbk = 9424
+
+    VFMADD132BF16Zmbkz = 9425
+
+    VFMADD132BF16Zmk = 9426
+
+    VFMADD132BF16Zmkz = 9427
+
+    VFMADD132BF16Zr = 9428
+
+    VFMADD132BF16Zrk = 9429
+
+    VFMADD132BF16Zrkz = 9430
+
+    VFMADD132PDYm = 9431
+
+    VFMADD132PDYr = 9432
+
+    VFMADD132PDZ128m = 9433
+
+    VFMADD132PDZ128mb = 9434
+
+    VFMADD132PDZ128mbk = 9435
+
+    VFMADD132PDZ128mbkz = 9436
+
+    VFMADD132PDZ128mk = 9437
+
+    VFMADD132PDZ128mkz = 9438
+
+    VFMADD132PDZ128r = 9439
+
+    VFMADD132PDZ128rk = 9440
+
+    VFMADD132PDZ128rkz = 9441
+
+    VFMADD132PDZ256m = 9442
+
+    VFMADD132PDZ256mb = 9443
+
+    VFMADD132PDZ256mbk = 9444
+
+    VFMADD132PDZ256mbkz = 9445
+
+    VFMADD132PDZ256mk = 9446
+
+    VFMADD132PDZ256mkz = 9447
+
+    VFMADD132PDZ256r = 9448
+
+    VFMADD132PDZ256rk = 9449
+
+    VFMADD132PDZ256rkz = 9450
+
+    VFMADD132PDZm = 9451
+
+    VFMADD132PDZmb = 9452
+
+    VFMADD132PDZmbk = 9453
+
+    VFMADD132PDZmbkz = 9454
+
+    VFMADD132PDZmk = 9455
+
+    VFMADD132PDZmkz = 9456
+
+    VFMADD132PDZr = 9457
+
+    VFMADD132PDZrb = 9458
+
+    VFMADD132PDZrbk = 9459
+
+    VFMADD132PDZrbkz = 9460
+
+    VFMADD132PDZrk = 9461
+
+    VFMADD132PDZrkz = 9462
+
+    VFMADD132PDm = 9463
+
+    VFMADD132PDr = 9464
+
+    VFMADD132PHZ128m = 9465
+
+    VFMADD132PHZ128mb = 9466
+
+    VFMADD132PHZ128mbk = 9467
+
+    VFMADD132PHZ128mbkz = 9468
+
+    VFMADD132PHZ128mk = 9469
+
+    VFMADD132PHZ128mkz = 9470
+
+    VFMADD132PHZ128r = 9471
+
+    VFMADD132PHZ128rk = 9472
+
+    VFMADD132PHZ128rkz = 9473
+
+    VFMADD132PHZ256m = 9474
+
+    VFMADD132PHZ256mb = 9475
+
+    VFMADD132PHZ256mbk = 9476
+
+    VFMADD132PHZ256mbkz = 9477
+
+    VFMADD132PHZ256mk = 9478
+
+    VFMADD132PHZ256mkz = 9479
+
+    VFMADD132PHZ256r = 9480
+
+    VFMADD132PHZ256rk = 9481
+
+    VFMADD132PHZ256rkz = 9482
+
+    VFMADD132PHZm = 9483
+
+    VFMADD132PHZmb = 9484
+
+    VFMADD132PHZmbk = 9485
+
+    VFMADD132PHZmbkz = 9486
+
+    VFMADD132PHZmk = 9487
+
+    VFMADD132PHZmkz = 9488
+
+    VFMADD132PHZr = 9489
+
+    VFMADD132PHZrb = 9490
+
+    VFMADD132PHZrbk = 9491
+
+    VFMADD132PHZrbkz = 9492
+
+    VFMADD132PHZrk = 9493
+
+    VFMADD132PHZrkz = 9494
+
+    VFMADD132PSYm = 9495
+
+    VFMADD132PSYr = 9496
+
+    VFMADD132PSZ128m = 9497
+
+    VFMADD132PSZ128mb = 9498
+
+    VFMADD132PSZ128mbk = 9499
+
+    VFMADD132PSZ128mbkz = 9500
+
+    VFMADD132PSZ128mk = 9501
+
+    VFMADD132PSZ128mkz = 9502
+
+    VFMADD132PSZ128r = 9503
+
+    VFMADD132PSZ128rk = 9504
+
+    VFMADD132PSZ128rkz = 9505
+
+    VFMADD132PSZ256m = 9506
+
+    VFMADD132PSZ256mb = 9507
+
+    VFMADD132PSZ256mbk = 9508
+
+    VFMADD132PSZ256mbkz = 9509
+
+    VFMADD132PSZ256mk = 9510
+
+    VFMADD132PSZ256mkz = 9511
+
+    VFMADD132PSZ256r = 9512
+
+    VFMADD132PSZ256rk = 9513
+
+    VFMADD132PSZ256rkz = 9514
+
+    VFMADD132PSZm = 9515
+
+    VFMADD132PSZmb = 9516
+
+    VFMADD132PSZmbk = 9517
+
+    VFMADD132PSZmbkz = 9518
+
+    VFMADD132PSZmk = 9519
+
+    VFMADD132PSZmkz = 9520
+
+    VFMADD132PSZr = 9521
+
+    VFMADD132PSZrb = 9522
+
+    VFMADD132PSZrbk = 9523
+
+    VFMADD132PSZrbkz = 9524
+
+    VFMADD132PSZrk = 9525
+
+    VFMADD132PSZrkz = 9526
+
+    VFMADD132PSm = 9527
+
+    VFMADD132PSr = 9528
+
+    VFMADD132SDZm = 9529
+
+    VFMADD132SDZm_Int = 9530
+
+    VFMADD132SDZmk_Int = 9531
+
+    VFMADD132SDZmkz_Int = 9532
+
+    VFMADD132SDZr = 9533
+
+    VFMADD132SDZr_Int = 9534
+
+    VFMADD132SDZrb = 9535
+
+    VFMADD132SDZrb_Int = 9536
+
+    VFMADD132SDZrbk_Int = 9537
+
+    VFMADD132SDZrbkz_Int = 9538
+
+    VFMADD132SDZrk_Int = 9539
+
+    VFMADD132SDZrkz_Int = 9540
+
+    VFMADD132SDm = 9541
+
+    VFMADD132SDm_Int = 9542
+
+    VFMADD132SDr = 9543
+
+    VFMADD132SDr_Int = 9544
+
+    VFMADD132SHZm = 9545
+
+    VFMADD132SHZm_Int = 9546
+
+    VFMADD132SHZmk_Int = 9547
+
+    VFMADD132SHZmkz_Int = 9548
+
+    VFMADD132SHZr = 9549
+
+    VFMADD132SHZr_Int = 9550
+
+    VFMADD132SHZrb = 9551
+
+    VFMADD132SHZrb_Int = 9552
+
+    VFMADD132SHZrbk_Int = 9553
+
+    VFMADD132SHZrbkz_Int = 9554
+
+    VFMADD132SHZrk_Int = 9555
+
+    VFMADD132SHZrkz_Int = 9556
+
+    VFMADD132SSZm = 9557
+
+    VFMADD132SSZm_Int = 9558
+
+    VFMADD132SSZmk_Int = 9559
+
+    VFMADD132SSZmkz_Int = 9560
+
+    VFMADD132SSZr = 9561
+
+    VFMADD132SSZr_Int = 9562
+
+    VFMADD132SSZrb = 9563
+
+    VFMADD132SSZrb_Int = 9564
+
+    VFMADD132SSZrbk_Int = 9565
+
+    VFMADD132SSZrbkz_Int = 9566
+
+    VFMADD132SSZrk_Int = 9567
+
+    VFMADD132SSZrkz_Int = 9568
+
+    VFMADD132SSm = 9569
+
+    VFMADD132SSm_Int = 9570
+
+    VFMADD132SSr = 9571
+
+    VFMADD132SSr_Int = 9572
+
+    VFMADD213BF16Z128m = 9573
+
+    VFMADD213BF16Z128mb = 9574
+
+    VFMADD213BF16Z128mbk = 9575
+
+    VFMADD213BF16Z128mbkz = 9576
+
+    VFMADD213BF16Z128mk = 9577
+
+    VFMADD213BF16Z128mkz = 9578
+
+    VFMADD213BF16Z128r = 9579
+
+    VFMADD213BF16Z128rk = 9580
+
+    VFMADD213BF16Z128rkz = 9581
+
+    VFMADD213BF16Z256m = 9582
+
+    VFMADD213BF16Z256mb = 9583
+
+    VFMADD213BF16Z256mbk = 9584
+
+    VFMADD213BF16Z256mbkz = 9585
+
+    VFMADD213BF16Z256mk = 9586
+
+    VFMADD213BF16Z256mkz = 9587
+
+    VFMADD213BF16Z256r = 9588
+
+    VFMADD213BF16Z256rk = 9589
+
+    VFMADD213BF16Z256rkz = 9590
+
+    VFMADD213BF16Zm = 9591
+
+    VFMADD213BF16Zmb = 9592
+
+    VFMADD213BF16Zmbk = 9593
+
+    VFMADD213BF16Zmbkz = 9594
+
+    VFMADD213BF16Zmk = 9595
+
+    VFMADD213BF16Zmkz = 9596
+
+    VFMADD213BF16Zr = 9597
+
+    VFMADD213BF16Zrk = 9598
+
+    VFMADD213BF16Zrkz = 9599
+
+    VFMADD213PDYm = 9600
+
+    VFMADD213PDYr = 9601
+
+    VFMADD213PDZ128m = 9602
+
+    VFMADD213PDZ128mb = 9603
+
+    VFMADD213PDZ128mbk = 9604
+
+    VFMADD213PDZ128mbkz = 9605
+
+    VFMADD213PDZ128mk = 9606
+
+    VFMADD213PDZ128mkz = 9607
+
+    VFMADD213PDZ128r = 9608
+
+    VFMADD213PDZ128rk = 9609
+
+    VFMADD213PDZ128rkz = 9610
+
+    VFMADD213PDZ256m = 9611
+
+    VFMADD213PDZ256mb = 9612
+
+    VFMADD213PDZ256mbk = 9613
+
+    VFMADD213PDZ256mbkz = 9614
+
+    VFMADD213PDZ256mk = 9615
+
+    VFMADD213PDZ256mkz = 9616
+
+    VFMADD213PDZ256r = 9617
+
+    VFMADD213PDZ256rk = 9618
+
+    VFMADD213PDZ256rkz = 9619
+
+    VFMADD213PDZm = 9620
+
+    VFMADD213PDZmb = 9621
+
+    VFMADD213PDZmbk = 9622
+
+    VFMADD213PDZmbkz = 9623
+
+    VFMADD213PDZmk = 9624
+
+    VFMADD213PDZmkz = 9625
+
+    VFMADD213PDZr = 9626
+
+    VFMADD213PDZrb = 9627
+
+    VFMADD213PDZrbk = 9628
+
+    VFMADD213PDZrbkz = 9629
+
+    VFMADD213PDZrk = 9630
+
+    VFMADD213PDZrkz = 9631
+
+    VFMADD213PDm = 9632
+
+    VFMADD213PDr = 9633
+
+    VFMADD213PHZ128m = 9634
+
+    VFMADD213PHZ128mb = 9635
+
+    VFMADD213PHZ128mbk = 9636
+
+    VFMADD213PHZ128mbkz = 9637
+
+    VFMADD213PHZ128mk = 9638
+
+    VFMADD213PHZ128mkz = 9639
+
+    VFMADD213PHZ128r = 9640
+
+    VFMADD213PHZ128rk = 9641
+
+    VFMADD213PHZ128rkz = 9642
+
+    VFMADD213PHZ256m = 9643
+
+    VFMADD213PHZ256mb = 9644
+
+    VFMADD213PHZ256mbk = 9645
+
+    VFMADD213PHZ256mbkz = 9646
+
+    VFMADD213PHZ256mk = 9647
+
+    VFMADD213PHZ256mkz = 9648
+
+    VFMADD213PHZ256r = 9649
+
+    VFMADD213PHZ256rk = 9650
+
+    VFMADD213PHZ256rkz = 9651
+
+    VFMADD213PHZm = 9652
+
+    VFMADD213PHZmb = 9653
+
+    VFMADD213PHZmbk = 9654
+
+    VFMADD213PHZmbkz = 9655
+
+    VFMADD213PHZmk = 9656
+
+    VFMADD213PHZmkz = 9657
+
+    VFMADD213PHZr = 9658
+
+    VFMADD213PHZrb = 9659
+
+    VFMADD213PHZrbk = 9660
+
+    VFMADD213PHZrbkz = 9661
+
+    VFMADD213PHZrk = 9662
+
+    VFMADD213PHZrkz = 9663
+
+    VFMADD213PSYm = 9664
+
+    VFMADD213PSYr = 9665
+
+    VFMADD213PSZ128m = 9666
+
+    VFMADD213PSZ128mb = 9667
+
+    VFMADD213PSZ128mbk = 9668
+
+    VFMADD213PSZ128mbkz = 9669
+
+    VFMADD213PSZ128mk = 9670
+
+    VFMADD213PSZ128mkz = 9671
+
+    VFMADD213PSZ128r = 9672
+
+    VFMADD213PSZ128rk = 9673
+
+    VFMADD213PSZ128rkz = 9674
+
+    VFMADD213PSZ256m = 9675
+
+    VFMADD213PSZ256mb = 9676
+
+    VFMADD213PSZ256mbk = 9677
+
+    VFMADD213PSZ256mbkz = 9678
+
+    VFMADD213PSZ256mk = 9679
+
+    VFMADD213PSZ256mkz = 9680
+
+    VFMADD213PSZ256r = 9681
+
+    VFMADD213PSZ256rk = 9682
+
+    VFMADD213PSZ256rkz = 9683
+
+    VFMADD213PSZm = 9684
+
+    VFMADD213PSZmb = 9685
+
+    VFMADD213PSZmbk = 9686
+
+    VFMADD213PSZmbkz = 9687
+
+    VFMADD213PSZmk = 9688
+
+    VFMADD213PSZmkz = 9689
+
+    VFMADD213PSZr = 9690
+
+    VFMADD213PSZrb = 9691
+
+    VFMADD213PSZrbk = 9692
+
+    VFMADD213PSZrbkz = 9693
+
+    VFMADD213PSZrk = 9694
+
+    VFMADD213PSZrkz = 9695
+
+    VFMADD213PSm = 9696
+
+    VFMADD213PSr = 9697
+
+    VFMADD213SDZm = 9698
+
+    VFMADD213SDZm_Int = 9699
+
+    VFMADD213SDZmk_Int = 9700
+
+    VFMADD213SDZmkz_Int = 9701
+
+    VFMADD213SDZr = 9702
+
+    VFMADD213SDZr_Int = 9703
+
+    VFMADD213SDZrb = 9704
+
+    VFMADD213SDZrb_Int = 9705
+
+    VFMADD213SDZrbk_Int = 9706
+
+    VFMADD213SDZrbkz_Int = 9707
+
+    VFMADD213SDZrk_Int = 9708
+
+    VFMADD213SDZrkz_Int = 9709
+
+    VFMADD213SDm = 9710
+
+    VFMADD213SDm_Int = 9711
+
+    VFMADD213SDr = 9712
+
+    VFMADD213SDr_Int = 9713
+
+    VFMADD213SHZm = 9714
+
+    VFMADD213SHZm_Int = 9715
+
+    VFMADD213SHZmk_Int = 9716
+
+    VFMADD213SHZmkz_Int = 9717
+
+    VFMADD213SHZr = 9718
+
+    VFMADD213SHZr_Int = 9719
+
+    VFMADD213SHZrb = 9720
+
+    VFMADD213SHZrb_Int = 9721
+
+    VFMADD213SHZrbk_Int = 9722
+
+    VFMADD213SHZrbkz_Int = 9723
+
+    VFMADD213SHZrk_Int = 9724
+
+    VFMADD213SHZrkz_Int = 9725
+
+    VFMADD213SSZm = 9726
+
+    VFMADD213SSZm_Int = 9727
+
+    VFMADD213SSZmk_Int = 9728
+
+    VFMADD213SSZmkz_Int = 9729
+
+    VFMADD213SSZr = 9730
+
+    VFMADD213SSZr_Int = 9731
+
+    VFMADD213SSZrb = 9732
+
+    VFMADD213SSZrb_Int = 9733
+
+    VFMADD213SSZrbk_Int = 9734
+
+    VFMADD213SSZrbkz_Int = 9735
+
+    VFMADD213SSZrk_Int = 9736
+
+    VFMADD213SSZrkz_Int = 9737
+
+    VFMADD213SSm = 9738
+
+    VFMADD213SSm_Int = 9739
+
+    VFMADD213SSr = 9740
+
+    VFMADD213SSr_Int = 9741
+
+    VFMADD231BF16Z128m = 9742
+
+    VFMADD231BF16Z128mb = 9743
+
+    VFMADD231BF16Z128mbk = 9744
+
+    VFMADD231BF16Z128mbkz = 9745
+
+    VFMADD231BF16Z128mk = 9746
+
+    VFMADD231BF16Z128mkz = 9747
+
+    VFMADD231BF16Z128r = 9748
+
+    VFMADD231BF16Z128rk = 9749
+
+    VFMADD231BF16Z128rkz = 9750
+
+    VFMADD231BF16Z256m = 9751
+
+    VFMADD231BF16Z256mb = 9752
+
+    VFMADD231BF16Z256mbk = 9753
+
+    VFMADD231BF16Z256mbkz = 9754
+
+    VFMADD231BF16Z256mk = 9755
+
+    VFMADD231BF16Z256mkz = 9756
+
+    VFMADD231BF16Z256r = 9757
+
+    VFMADD231BF16Z256rk = 9758
+
+    VFMADD231BF16Z256rkz = 9759
+
+    VFMADD231BF16Zm = 9760
+
+    VFMADD231BF16Zmb = 9761
+
+    VFMADD231BF16Zmbk = 9762
+
+    VFMADD231BF16Zmbkz = 9763
+
+    VFMADD231BF16Zmk = 9764
+
+    VFMADD231BF16Zmkz = 9765
+
+    VFMADD231BF16Zr = 9766
+
+    VFMADD231BF16Zrk = 9767
+
+    VFMADD231BF16Zrkz = 9768
+
+    VFMADD231PDYm = 9769
+
+    VFMADD231PDYr = 9770
+
+    VFMADD231PDZ128m = 9771
+
+    VFMADD231PDZ128mb = 9772
+
+    VFMADD231PDZ128mbk = 9773
+
+    VFMADD231PDZ128mbkz = 9774
+
+    VFMADD231PDZ128mk = 9775
+
+    VFMADD231PDZ128mkz = 9776
+
+    VFMADD231PDZ128r = 9777
+
+    VFMADD231PDZ128rk = 9778
+
+    VFMADD231PDZ128rkz = 9779
+
+    VFMADD231PDZ256m = 9780
+
+    VFMADD231PDZ256mb = 9781
+
+    VFMADD231PDZ256mbk = 9782
+
+    VFMADD231PDZ256mbkz = 9783
+
+    VFMADD231PDZ256mk = 9784
+
+    VFMADD231PDZ256mkz = 9785
+
+    VFMADD231PDZ256r = 9786
+
+    VFMADD231PDZ256rk = 9787
+
+    VFMADD231PDZ256rkz = 9788
+
+    VFMADD231PDZm = 9789
+
+    VFMADD231PDZmb = 9790
+
+    VFMADD231PDZmbk = 9791
+
+    VFMADD231PDZmbkz = 9792
+
+    VFMADD231PDZmk = 9793
+
+    VFMADD231PDZmkz = 9794
+
+    VFMADD231PDZr = 9795
+
+    VFMADD231PDZrb = 9796
+
+    VFMADD231PDZrbk = 9797
+
+    VFMADD231PDZrbkz = 9798
+
+    VFMADD231PDZrk = 9799
+
+    VFMADD231PDZrkz = 9800
+
+    VFMADD231PDm = 9801
+
+    VFMADD231PDr = 9802
+
+    VFMADD231PHZ128m = 9803
+
+    VFMADD231PHZ128mb = 9804
+
+    VFMADD231PHZ128mbk = 9805
+
+    VFMADD231PHZ128mbkz = 9806
+
+    VFMADD231PHZ128mk = 9807
+
+    VFMADD231PHZ128mkz = 9808
+
+    VFMADD231PHZ128r = 9809
+
+    VFMADD231PHZ128rk = 9810
+
+    VFMADD231PHZ128rkz = 9811
+
+    VFMADD231PHZ256m = 9812
+
+    VFMADD231PHZ256mb = 9813
+
+    VFMADD231PHZ256mbk = 9814
+
+    VFMADD231PHZ256mbkz = 9815
+
+    VFMADD231PHZ256mk = 9816
+
+    VFMADD231PHZ256mkz = 9817
+
+    VFMADD231PHZ256r = 9818
+
+    VFMADD231PHZ256rk = 9819
+
+    VFMADD231PHZ256rkz = 9820
+
+    VFMADD231PHZm = 9821
+
+    VFMADD231PHZmb = 9822
+
+    VFMADD231PHZmbk = 9823
+
+    VFMADD231PHZmbkz = 9824
+
+    VFMADD231PHZmk = 9825
+
+    VFMADD231PHZmkz = 9826
+
+    VFMADD231PHZr = 9827
+
+    VFMADD231PHZrb = 9828
+
+    VFMADD231PHZrbk = 9829
+
+    VFMADD231PHZrbkz = 9830
+
+    VFMADD231PHZrk = 9831
+
+    VFMADD231PHZrkz = 9832
+
+    VFMADD231PSYm = 9833
+
+    VFMADD231PSYr = 9834
+
+    VFMADD231PSZ128m = 9835
+
+    VFMADD231PSZ128mb = 9836
+
+    VFMADD231PSZ128mbk = 9837
+
+    VFMADD231PSZ128mbkz = 9838
+
+    VFMADD231PSZ128mk = 9839
+
+    VFMADD231PSZ128mkz = 9840
+
+    VFMADD231PSZ128r = 9841
+
+    VFMADD231PSZ128rk = 9842
+
+    VFMADD231PSZ128rkz = 9843
+
+    VFMADD231PSZ256m = 9844
+
+    VFMADD231PSZ256mb = 9845
+
+    VFMADD231PSZ256mbk = 9846
+
+    VFMADD231PSZ256mbkz = 9847
+
+    VFMADD231PSZ256mk = 9848
+
+    VFMADD231PSZ256mkz = 9849
+
+    VFMADD231PSZ256r = 9850
+
+    VFMADD231PSZ256rk = 9851
+
+    VFMADD231PSZ256rkz = 9852
+
+    VFMADD231PSZm = 9853
+
+    VFMADD231PSZmb = 9854
+
+    VFMADD231PSZmbk = 9855
+
+    VFMADD231PSZmbkz = 9856
+
+    VFMADD231PSZmk = 9857
+
+    VFMADD231PSZmkz = 9858
+
+    VFMADD231PSZr = 9859
+
+    VFMADD231PSZrb = 9860
+
+    VFMADD231PSZrbk = 9861
+
+    VFMADD231PSZrbkz = 9862
+
+    VFMADD231PSZrk = 9863
+
+    VFMADD231PSZrkz = 9864
+
+    VFMADD231PSm = 9865
+
+    VFMADD231PSr = 9866
+
+    VFMADD231SDZm = 9867
+
+    VFMADD231SDZm_Int = 9868
+
+    VFMADD231SDZmk_Int = 9869
+
+    VFMADD231SDZmkz_Int = 9870
+
+    VFMADD231SDZr = 9871
+
+    VFMADD231SDZr_Int = 9872
+
+    VFMADD231SDZrb = 9873
+
+    VFMADD231SDZrb_Int = 9874
+
+    VFMADD231SDZrbk_Int = 9875
+
+    VFMADD231SDZrbkz_Int = 9876
+
+    VFMADD231SDZrk_Int = 9877
+
+    VFMADD231SDZrkz_Int = 9878
+
+    VFMADD231SDm = 9879
+
+    VFMADD231SDm_Int = 9880
+
+    VFMADD231SDr = 9881
+
+    VFMADD231SDr_Int = 9882
+
+    VFMADD231SHZm = 9883
+
+    VFMADD231SHZm_Int = 9884
+
+    VFMADD231SHZmk_Int = 9885
+
+    VFMADD231SHZmkz_Int = 9886
+
+    VFMADD231SHZr = 9887
+
+    VFMADD231SHZr_Int = 9888
+
+    VFMADD231SHZrb = 9889
+
+    VFMADD231SHZrb_Int = 9890
+
+    VFMADD231SHZrbk_Int = 9891
+
+    VFMADD231SHZrbkz_Int = 9892
+
+    VFMADD231SHZrk_Int = 9893
+
+    VFMADD231SHZrkz_Int = 9894
+
+    VFMADD231SSZm = 9895
+
+    VFMADD231SSZm_Int = 9896
+
+    VFMADD231SSZmk_Int = 9897
+
+    VFMADD231SSZmkz_Int = 9898
+
+    VFMADD231SSZr = 9899
+
+    VFMADD231SSZr_Int = 9900
+
+    VFMADD231SSZrb = 9901
+
+    VFMADD231SSZrb_Int = 9902
+
+    VFMADD231SSZrbk_Int = 9903
+
+    VFMADD231SSZrbkz_Int = 9904
+
+    VFMADD231SSZrk_Int = 9905
+
+    VFMADD231SSZrkz_Int = 9906
+
+    VFMADD231SSm = 9907
+
+    VFMADD231SSm_Int = 9908
+
+    VFMADD231SSr = 9909
+
+    VFMADD231SSr_Int = 9910
+
+    VFMADDCPHZ128m = 9911
+
+    VFMADDCPHZ128mb = 9912
+
+    VFMADDCPHZ128mbk = 9913
+
+    VFMADDCPHZ128mbkz = 9914
+
+    VFMADDCPHZ128mk = 9915
+
+    VFMADDCPHZ128mkz = 9916
+
+    VFMADDCPHZ128r = 9917
+
+    VFMADDCPHZ128rk = 9918
+
+    VFMADDCPHZ128rkz = 9919
+
+    VFMADDCPHZ256m = 9920
+
+    VFMADDCPHZ256mb = 9921
+
+    VFMADDCPHZ256mbk = 9922
+
+    VFMADDCPHZ256mbkz = 9923
+
+    VFMADDCPHZ256mk = 9924
+
+    VFMADDCPHZ256mkz = 9925
+
+    VFMADDCPHZ256r = 9926
+
+    VFMADDCPHZ256rk = 9927
+
+    VFMADDCPHZ256rkz = 9928
+
+    VFMADDCPHZm = 9929
+
+    VFMADDCPHZmb = 9930
+
+    VFMADDCPHZmbk = 9931
+
+    VFMADDCPHZmbkz = 9932
+
+    VFMADDCPHZmk = 9933
+
+    VFMADDCPHZmkz = 9934
+
+    VFMADDCPHZr = 9935
+
+    VFMADDCPHZrb = 9936
+
+    VFMADDCPHZrbk = 9937
+
+    VFMADDCPHZrbkz = 9938
+
+    VFMADDCPHZrk = 9939
+
+    VFMADDCPHZrkz = 9940
+
+    VFMADDCSHZm = 9941
+
+    VFMADDCSHZmk = 9942
+
+    VFMADDCSHZmkz = 9943
+
+    VFMADDCSHZr = 9944
+
+    VFMADDCSHZrb = 9945
+
+    VFMADDCSHZrbk = 9946
+
+    VFMADDCSHZrbkz = 9947
+
+    VFMADDCSHZrk = 9948
+
+    VFMADDCSHZrkz = 9949
+
+    VFMADDPD4Ymr = 9950
+
+    VFMADDPD4Yrm = 9951
+
+    VFMADDPD4Yrr = 9952
+
+    VFMADDPD4Yrr_REV = 9953
+
+    VFMADDPD4mr = 9954
+
+    VFMADDPD4rm = 9955
+
+    VFMADDPD4rr = 9956
+
+    VFMADDPD4rr_REV = 9957
+
+    VFMADDPS4Ymr = 9958
+
+    VFMADDPS4Yrm = 9959
+
+    VFMADDPS4Yrr = 9960
+
+    VFMADDPS4Yrr_REV = 9961
+
+    VFMADDPS4mr = 9962
+
+    VFMADDPS4rm = 9963
+
+    VFMADDPS4rr = 9964
+
+    VFMADDPS4rr_REV = 9965
+
+    VFMADDSD4mr = 9966
+
+    VFMADDSD4mr_Int = 9967
+
+    VFMADDSD4rm = 9968
+
+    VFMADDSD4rm_Int = 9969
+
+    VFMADDSD4rr = 9970
+
+    VFMADDSD4rr_Int = 9971
+
+    VFMADDSD4rr_Int_REV = 9972
+
+    VFMADDSD4rr_REV = 9973
+
+    VFMADDSS4mr = 9974
+
+    VFMADDSS4mr_Int = 9975
+
+    VFMADDSS4rm = 9976
+
+    VFMADDSS4rm_Int = 9977
+
+    VFMADDSS4rr = 9978
+
+    VFMADDSS4rr_Int = 9979
+
+    VFMADDSS4rr_Int_REV = 9980
+
+    VFMADDSS4rr_REV = 9981
+
+    VFMADDSUB132PDYm = 9982
+
+    VFMADDSUB132PDYr = 9983
+
+    VFMADDSUB132PDZ128m = 9984
+
+    VFMADDSUB132PDZ128mb = 9985
+
+    VFMADDSUB132PDZ128mbk = 9986
+
+    VFMADDSUB132PDZ128mbkz = 9987
+
+    VFMADDSUB132PDZ128mk = 9988
+
+    VFMADDSUB132PDZ128mkz = 9989
+
+    VFMADDSUB132PDZ128r = 9990
+
+    VFMADDSUB132PDZ128rk = 9991
+
+    VFMADDSUB132PDZ128rkz = 9992
+
+    VFMADDSUB132PDZ256m = 9993
+
+    VFMADDSUB132PDZ256mb = 9994
+
+    VFMADDSUB132PDZ256mbk = 9995
+
+    VFMADDSUB132PDZ256mbkz = 9996
+
+    VFMADDSUB132PDZ256mk = 9997
+
+    VFMADDSUB132PDZ256mkz = 9998
+
+    VFMADDSUB132PDZ256r = 9999
+
+    VFMADDSUB132PDZ256rk = 10000
+
+    VFMADDSUB132PDZ256rkz = 10001
+
+    VFMADDSUB132PDZm = 10002
+
+    VFMADDSUB132PDZmb = 10003
+
+    VFMADDSUB132PDZmbk = 10004
+
+    VFMADDSUB132PDZmbkz = 10005
+
+    VFMADDSUB132PDZmk = 10006
+
+    VFMADDSUB132PDZmkz = 10007
+
+    VFMADDSUB132PDZr = 10008
+
+    VFMADDSUB132PDZrb = 10009
+
+    VFMADDSUB132PDZrbk = 10010
+
+    VFMADDSUB132PDZrbkz = 10011
+
+    VFMADDSUB132PDZrk = 10012
+
+    VFMADDSUB132PDZrkz = 10013
+
+    VFMADDSUB132PDm = 10014
+
+    VFMADDSUB132PDr = 10015
+
+    VFMADDSUB132PHZ128m = 10016
+
+    VFMADDSUB132PHZ128mb = 10017
+
+    VFMADDSUB132PHZ128mbk = 10018
+
+    VFMADDSUB132PHZ128mbkz = 10019
+
+    VFMADDSUB132PHZ128mk = 10020
+
+    VFMADDSUB132PHZ128mkz = 10021
+
+    VFMADDSUB132PHZ128r = 10022
+
+    VFMADDSUB132PHZ128rk = 10023
+
+    VFMADDSUB132PHZ128rkz = 10024
+
+    VFMADDSUB132PHZ256m = 10025
+
+    VFMADDSUB132PHZ256mb = 10026
+
+    VFMADDSUB132PHZ256mbk = 10027
+
+    VFMADDSUB132PHZ256mbkz = 10028
+
+    VFMADDSUB132PHZ256mk = 10029
+
+    VFMADDSUB132PHZ256mkz = 10030
+
+    VFMADDSUB132PHZ256r = 10031
+
+    VFMADDSUB132PHZ256rk = 10032
+
+    VFMADDSUB132PHZ256rkz = 10033
+
+    VFMADDSUB132PHZm = 10034
+
+    VFMADDSUB132PHZmb = 10035
+
+    VFMADDSUB132PHZmbk = 10036
+
+    VFMADDSUB132PHZmbkz = 10037
+
+    VFMADDSUB132PHZmk = 10038
+
+    VFMADDSUB132PHZmkz = 10039
+
+    VFMADDSUB132PHZr = 10040
+
+    VFMADDSUB132PHZrb = 10041
+
+    VFMADDSUB132PHZrbk = 10042
+
+    VFMADDSUB132PHZrbkz = 10043
+
+    VFMADDSUB132PHZrk = 10044
+
+    VFMADDSUB132PHZrkz = 10045
+
+    VFMADDSUB132PSYm = 10046
+
+    VFMADDSUB132PSYr = 10047
+
+    VFMADDSUB132PSZ128m = 10048
+
+    VFMADDSUB132PSZ128mb = 10049
+
+    VFMADDSUB132PSZ128mbk = 10050
+
+    VFMADDSUB132PSZ128mbkz = 10051
+
+    VFMADDSUB132PSZ128mk = 10052
+
+    VFMADDSUB132PSZ128mkz = 10053
+
+    VFMADDSUB132PSZ128r = 10054
+
+    VFMADDSUB132PSZ128rk = 10055
+
+    VFMADDSUB132PSZ128rkz = 10056
+
+    VFMADDSUB132PSZ256m = 10057
+
+    VFMADDSUB132PSZ256mb = 10058
+
+    VFMADDSUB132PSZ256mbk = 10059
+
+    VFMADDSUB132PSZ256mbkz = 10060
+
+    VFMADDSUB132PSZ256mk = 10061
+
+    VFMADDSUB132PSZ256mkz = 10062
+
+    VFMADDSUB132PSZ256r = 10063
+
+    VFMADDSUB132PSZ256rk = 10064
+
+    VFMADDSUB132PSZ256rkz = 10065
+
+    VFMADDSUB132PSZm = 10066
+
+    VFMADDSUB132PSZmb = 10067
+
+    VFMADDSUB132PSZmbk = 10068
+
+    VFMADDSUB132PSZmbkz = 10069
+
+    VFMADDSUB132PSZmk = 10070
+
+    VFMADDSUB132PSZmkz = 10071
+
+    VFMADDSUB132PSZr = 10072
+
+    VFMADDSUB132PSZrb = 10073
+
+    VFMADDSUB132PSZrbk = 10074
+
+    VFMADDSUB132PSZrbkz = 10075
+
+    VFMADDSUB132PSZrk = 10076
+
+    VFMADDSUB132PSZrkz = 10077
+
+    VFMADDSUB132PSm = 10078
+
+    VFMADDSUB132PSr = 10079
+
+    VFMADDSUB213PDYm = 10080
+
+    VFMADDSUB213PDYr = 10081
+
+    VFMADDSUB213PDZ128m = 10082
+
+    VFMADDSUB213PDZ128mb = 10083
+
+    VFMADDSUB213PDZ128mbk = 10084
+
+    VFMADDSUB213PDZ128mbkz = 10085
+
+    VFMADDSUB213PDZ128mk = 10086
+
+    VFMADDSUB213PDZ128mkz = 10087
+
+    VFMADDSUB213PDZ128r = 10088
+
+    VFMADDSUB213PDZ128rk = 10089
+
+    VFMADDSUB213PDZ128rkz = 10090
+
+    VFMADDSUB213PDZ256m = 10091
+
+    VFMADDSUB213PDZ256mb = 10092
+
+    VFMADDSUB213PDZ256mbk = 10093
+
+    VFMADDSUB213PDZ256mbkz = 10094
+
+    VFMADDSUB213PDZ256mk = 10095
+
+    VFMADDSUB213PDZ256mkz = 10096
+
+    VFMADDSUB213PDZ256r = 10097
+
+    VFMADDSUB213PDZ256rk = 10098
+
+    VFMADDSUB213PDZ256rkz = 10099
+
+    VFMADDSUB213PDZm = 10100
+
+    VFMADDSUB213PDZmb = 10101
+
+    VFMADDSUB213PDZmbk = 10102
+
+    VFMADDSUB213PDZmbkz = 10103
+
+    VFMADDSUB213PDZmk = 10104
+
+    VFMADDSUB213PDZmkz = 10105
+
+    VFMADDSUB213PDZr = 10106
+
+    VFMADDSUB213PDZrb = 10107
+
+    VFMADDSUB213PDZrbk = 10108
+
+    VFMADDSUB213PDZrbkz = 10109
+
+    VFMADDSUB213PDZrk = 10110
+
+    VFMADDSUB213PDZrkz = 10111
+
+    VFMADDSUB213PDm = 10112
+
+    VFMADDSUB213PDr = 10113
+
+    VFMADDSUB213PHZ128m = 10114
+
+    VFMADDSUB213PHZ128mb = 10115
+
+    VFMADDSUB213PHZ128mbk = 10116
+
+    VFMADDSUB213PHZ128mbkz = 10117
+
+    VFMADDSUB213PHZ128mk = 10118
+
+    VFMADDSUB213PHZ128mkz = 10119
+
+    VFMADDSUB213PHZ128r = 10120
+
+    VFMADDSUB213PHZ128rk = 10121
+
+    VFMADDSUB213PHZ128rkz = 10122
+
+    VFMADDSUB213PHZ256m = 10123
+
+    VFMADDSUB213PHZ256mb = 10124
+
+    VFMADDSUB213PHZ256mbk = 10125
+
+    VFMADDSUB213PHZ256mbkz = 10126
+
+    VFMADDSUB213PHZ256mk = 10127
+
+    VFMADDSUB213PHZ256mkz = 10128
+
+    VFMADDSUB213PHZ256r = 10129
+
+    VFMADDSUB213PHZ256rk = 10130
+
+    VFMADDSUB213PHZ256rkz = 10131
+
+    VFMADDSUB213PHZm = 10132
+
+    VFMADDSUB213PHZmb = 10133
+
+    VFMADDSUB213PHZmbk = 10134
+
+    VFMADDSUB213PHZmbkz = 10135
+
+    VFMADDSUB213PHZmk = 10136
+
+    VFMADDSUB213PHZmkz = 10137
+
+    VFMADDSUB213PHZr = 10138
+
+    VFMADDSUB213PHZrb = 10139
+
+    VFMADDSUB213PHZrbk = 10140
+
+    VFMADDSUB213PHZrbkz = 10141
+
+    VFMADDSUB213PHZrk = 10142
+
+    VFMADDSUB213PHZrkz = 10143
+
+    VFMADDSUB213PSYm = 10144
+
+    VFMADDSUB213PSYr = 10145
+
+    VFMADDSUB213PSZ128m = 10146
+
+    VFMADDSUB213PSZ128mb = 10147
+
+    VFMADDSUB213PSZ128mbk = 10148
+
+    VFMADDSUB213PSZ128mbkz = 10149
+
+    VFMADDSUB213PSZ128mk = 10150
+
+    VFMADDSUB213PSZ128mkz = 10151
+
+    VFMADDSUB213PSZ128r = 10152
+
+    VFMADDSUB213PSZ128rk = 10153
+
+    VFMADDSUB213PSZ128rkz = 10154
+
+    VFMADDSUB213PSZ256m = 10155
+
+    VFMADDSUB213PSZ256mb = 10156
+
+    VFMADDSUB213PSZ256mbk = 10157
+
+    VFMADDSUB213PSZ256mbkz = 10158
+
+    VFMADDSUB213PSZ256mk = 10159
+
+    VFMADDSUB213PSZ256mkz = 10160
+
+    VFMADDSUB213PSZ256r = 10161
+
+    VFMADDSUB213PSZ256rk = 10162
+
+    VFMADDSUB213PSZ256rkz = 10163
+
+    VFMADDSUB213PSZm = 10164
+
+    VFMADDSUB213PSZmb = 10165
+
+    VFMADDSUB213PSZmbk = 10166
+
+    VFMADDSUB213PSZmbkz = 10167
+
+    VFMADDSUB213PSZmk = 10168
+
+    VFMADDSUB213PSZmkz = 10169
+
+    VFMADDSUB213PSZr = 10170
+
+    VFMADDSUB213PSZrb = 10171
+
+    VFMADDSUB213PSZrbk = 10172
+
+    VFMADDSUB213PSZrbkz = 10173
+
+    VFMADDSUB213PSZrk = 10174
+
+    VFMADDSUB213PSZrkz = 10175
+
+    VFMADDSUB213PSm = 10176
+
+    VFMADDSUB213PSr = 10177
+
+    VFMADDSUB231PDYm = 10178
+
+    VFMADDSUB231PDYr = 10179
+
+    VFMADDSUB231PDZ128m = 10180
+
+    VFMADDSUB231PDZ128mb = 10181
+
+    VFMADDSUB231PDZ128mbk = 10182
+
+    VFMADDSUB231PDZ128mbkz = 10183
+
+    VFMADDSUB231PDZ128mk = 10184
+
+    VFMADDSUB231PDZ128mkz = 10185
+
+    VFMADDSUB231PDZ128r = 10186
+
+    VFMADDSUB231PDZ128rk = 10187
+
+    VFMADDSUB231PDZ128rkz = 10188
+
+    VFMADDSUB231PDZ256m = 10189
+
+    VFMADDSUB231PDZ256mb = 10190
+
+    VFMADDSUB231PDZ256mbk = 10191
+
+    VFMADDSUB231PDZ256mbkz = 10192
+
+    VFMADDSUB231PDZ256mk = 10193
+
+    VFMADDSUB231PDZ256mkz = 10194
+
+    VFMADDSUB231PDZ256r = 10195
+
+    VFMADDSUB231PDZ256rk = 10196
+
+    VFMADDSUB231PDZ256rkz = 10197
+
+    VFMADDSUB231PDZm = 10198
+
+    VFMADDSUB231PDZmb = 10199
+
+    VFMADDSUB231PDZmbk = 10200
+
+    VFMADDSUB231PDZmbkz = 10201
+
+    VFMADDSUB231PDZmk = 10202
+
+    VFMADDSUB231PDZmkz = 10203
+
+    VFMADDSUB231PDZr = 10204
+
+    VFMADDSUB231PDZrb = 10205
+
+    VFMADDSUB231PDZrbk = 10206
+
+    VFMADDSUB231PDZrbkz = 10207
+
+    VFMADDSUB231PDZrk = 10208
+
+    VFMADDSUB231PDZrkz = 10209
+
+    VFMADDSUB231PDm = 10210
+
+    VFMADDSUB231PDr = 10211
+
+    VFMADDSUB231PHZ128m = 10212
+
+    VFMADDSUB231PHZ128mb = 10213
+
+    VFMADDSUB231PHZ128mbk = 10214
+
+    VFMADDSUB231PHZ128mbkz = 10215
+
+    VFMADDSUB231PHZ128mk = 10216
+
+    VFMADDSUB231PHZ128mkz = 10217
+
+    VFMADDSUB231PHZ128r = 10218
+
+    VFMADDSUB231PHZ128rk = 10219
+
+    VFMADDSUB231PHZ128rkz = 10220
+
+    VFMADDSUB231PHZ256m = 10221
+
+    VFMADDSUB231PHZ256mb = 10222
+
+    VFMADDSUB231PHZ256mbk = 10223
+
+    VFMADDSUB231PHZ256mbkz = 10224
+
+    VFMADDSUB231PHZ256mk = 10225
+
+    VFMADDSUB231PHZ256mkz = 10226
+
+    VFMADDSUB231PHZ256r = 10227
+
+    VFMADDSUB231PHZ256rk = 10228
+
+    VFMADDSUB231PHZ256rkz = 10229
+
+    VFMADDSUB231PHZm = 10230
+
+    VFMADDSUB231PHZmb = 10231
+
+    VFMADDSUB231PHZmbk = 10232
+
+    VFMADDSUB231PHZmbkz = 10233
+
+    VFMADDSUB231PHZmk = 10234
+
+    VFMADDSUB231PHZmkz = 10235
+
+    VFMADDSUB231PHZr = 10236
+
+    VFMADDSUB231PHZrb = 10237
+
+    VFMADDSUB231PHZrbk = 10238
+
+    VFMADDSUB231PHZrbkz = 10239
+
+    VFMADDSUB231PHZrk = 10240
+
+    VFMADDSUB231PHZrkz = 10241
+
+    VFMADDSUB231PSYm = 10242
+
+    VFMADDSUB231PSYr = 10243
+
+    VFMADDSUB231PSZ128m = 10244
+
+    VFMADDSUB231PSZ128mb = 10245
+
+    VFMADDSUB231PSZ128mbk = 10246
+
+    VFMADDSUB231PSZ128mbkz = 10247
+
+    VFMADDSUB231PSZ128mk = 10248
+
+    VFMADDSUB231PSZ128mkz = 10249
+
+    VFMADDSUB231PSZ128r = 10250
+
+    VFMADDSUB231PSZ128rk = 10251
+
+    VFMADDSUB231PSZ128rkz = 10252
+
+    VFMADDSUB231PSZ256m = 10253
+
+    VFMADDSUB231PSZ256mb = 10254
+
+    VFMADDSUB231PSZ256mbk = 10255
+
+    VFMADDSUB231PSZ256mbkz = 10256
+
+    VFMADDSUB231PSZ256mk = 10257
+
+    VFMADDSUB231PSZ256mkz = 10258
+
+    VFMADDSUB231PSZ256r = 10259
+
+    VFMADDSUB231PSZ256rk = 10260
+
+    VFMADDSUB231PSZ256rkz = 10261
+
+    VFMADDSUB231PSZm = 10262
+
+    VFMADDSUB231PSZmb = 10263
+
+    VFMADDSUB231PSZmbk = 10264
+
+    VFMADDSUB231PSZmbkz = 10265
+
+    VFMADDSUB231PSZmk = 10266
+
+    VFMADDSUB231PSZmkz = 10267
+
+    VFMADDSUB231PSZr = 10268
+
+    VFMADDSUB231PSZrb = 10269
+
+    VFMADDSUB231PSZrbk = 10270
+
+    VFMADDSUB231PSZrbkz = 10271
+
+    VFMADDSUB231PSZrk = 10272
+
+    VFMADDSUB231PSZrkz = 10273
+
+    VFMADDSUB231PSm = 10274
+
+    VFMADDSUB231PSr = 10275
+
+    VFMADDSUBPD4Ymr = 10276
+
+    VFMADDSUBPD4Yrm = 10277
+
+    VFMADDSUBPD4Yrr = 10278
+
+    VFMADDSUBPD4Yrr_REV = 10279
+
+    VFMADDSUBPD4mr = 10280
+
+    VFMADDSUBPD4rm = 10281
+
+    VFMADDSUBPD4rr = 10282
+
+    VFMADDSUBPD4rr_REV = 10283
+
+    VFMADDSUBPS4Ymr = 10284
+
+    VFMADDSUBPS4Yrm = 10285
+
+    VFMADDSUBPS4Yrr = 10286
+
+    VFMADDSUBPS4Yrr_REV = 10287
+
+    VFMADDSUBPS4mr = 10288
+
+    VFMADDSUBPS4rm = 10289
+
+    VFMADDSUBPS4rr = 10290
+
+    VFMADDSUBPS4rr_REV = 10291
+
+    VFMSUB132BF16Z128m = 10292
+
+    VFMSUB132BF16Z128mb = 10293
+
+    VFMSUB132BF16Z128mbk = 10294
+
+    VFMSUB132BF16Z128mbkz = 10295
+
+    VFMSUB132BF16Z128mk = 10296
+
+    VFMSUB132BF16Z128mkz = 10297
+
+    VFMSUB132BF16Z128r = 10298
+
+    VFMSUB132BF16Z128rk = 10299
+
+    VFMSUB132BF16Z128rkz = 10300
+
+    VFMSUB132BF16Z256m = 10301
+
+    VFMSUB132BF16Z256mb = 10302
+
+    VFMSUB132BF16Z256mbk = 10303
+
+    VFMSUB132BF16Z256mbkz = 10304
+
+    VFMSUB132BF16Z256mk = 10305
+
+    VFMSUB132BF16Z256mkz = 10306
+
+    VFMSUB132BF16Z256r = 10307
+
+    VFMSUB132BF16Z256rk = 10308
+
+    VFMSUB132BF16Z256rkz = 10309
+
+    VFMSUB132BF16Zm = 10310
+
+    VFMSUB132BF16Zmb = 10311
+
+    VFMSUB132BF16Zmbk = 10312
+
+    VFMSUB132BF16Zmbkz = 10313
+
+    VFMSUB132BF16Zmk = 10314
+
+    VFMSUB132BF16Zmkz = 10315
+
+    VFMSUB132BF16Zr = 10316
+
+    VFMSUB132BF16Zrk = 10317
+
+    VFMSUB132BF16Zrkz = 10318
+
+    VFMSUB132PDYm = 10319
+
+    VFMSUB132PDYr = 10320
+
+    VFMSUB132PDZ128m = 10321
+
+    VFMSUB132PDZ128mb = 10322
+
+    VFMSUB132PDZ128mbk = 10323
+
+    VFMSUB132PDZ128mbkz = 10324
+
+    VFMSUB132PDZ128mk = 10325
+
+    VFMSUB132PDZ128mkz = 10326
+
+    VFMSUB132PDZ128r = 10327
+
+    VFMSUB132PDZ128rk = 10328
+
+    VFMSUB132PDZ128rkz = 10329
+
+    VFMSUB132PDZ256m = 10330
+
+    VFMSUB132PDZ256mb = 10331
+
+    VFMSUB132PDZ256mbk = 10332
+
+    VFMSUB132PDZ256mbkz = 10333
+
+    VFMSUB132PDZ256mk = 10334
+
+    VFMSUB132PDZ256mkz = 10335
+
+    VFMSUB132PDZ256r = 10336
+
+    VFMSUB132PDZ256rk = 10337
+
+    VFMSUB132PDZ256rkz = 10338
+
+    VFMSUB132PDZm = 10339
+
+    VFMSUB132PDZmb = 10340
+
+    VFMSUB132PDZmbk = 10341
+
+    VFMSUB132PDZmbkz = 10342
+
+    VFMSUB132PDZmk = 10343
+
+    VFMSUB132PDZmkz = 10344
+
+    VFMSUB132PDZr = 10345
+
+    VFMSUB132PDZrb = 10346
+
+    VFMSUB132PDZrbk = 10347
+
+    VFMSUB132PDZrbkz = 10348
+
+    VFMSUB132PDZrk = 10349
+
+    VFMSUB132PDZrkz = 10350
+
+    VFMSUB132PDm = 10351
+
+    VFMSUB132PDr = 10352
+
+    VFMSUB132PHZ128m = 10353
+
+    VFMSUB132PHZ128mb = 10354
+
+    VFMSUB132PHZ128mbk = 10355
+
+    VFMSUB132PHZ128mbkz = 10356
+
+    VFMSUB132PHZ128mk = 10357
+
+    VFMSUB132PHZ128mkz = 10358
+
+    VFMSUB132PHZ128r = 10359
+
+    VFMSUB132PHZ128rk = 10360
+
+    VFMSUB132PHZ128rkz = 10361
+
+    VFMSUB132PHZ256m = 10362
+
+    VFMSUB132PHZ256mb = 10363
+
+    VFMSUB132PHZ256mbk = 10364
+
+    VFMSUB132PHZ256mbkz = 10365
+
+    VFMSUB132PHZ256mk = 10366
+
+    VFMSUB132PHZ256mkz = 10367
+
+    VFMSUB132PHZ256r = 10368
+
+    VFMSUB132PHZ256rk = 10369
+
+    VFMSUB132PHZ256rkz = 10370
+
+    VFMSUB132PHZm = 10371
+
+    VFMSUB132PHZmb = 10372
+
+    VFMSUB132PHZmbk = 10373
+
+    VFMSUB132PHZmbkz = 10374
+
+    VFMSUB132PHZmk = 10375
+
+    VFMSUB132PHZmkz = 10376
+
+    VFMSUB132PHZr = 10377
+
+    VFMSUB132PHZrb = 10378
+
+    VFMSUB132PHZrbk = 10379
+
+    VFMSUB132PHZrbkz = 10380
+
+    VFMSUB132PHZrk = 10381
+
+    VFMSUB132PHZrkz = 10382
+
+    VFMSUB132PSYm = 10383
+
+    VFMSUB132PSYr = 10384
+
+    VFMSUB132PSZ128m = 10385
+
+    VFMSUB132PSZ128mb = 10386
+
+    VFMSUB132PSZ128mbk = 10387
+
+    VFMSUB132PSZ128mbkz = 10388
+
+    VFMSUB132PSZ128mk = 10389
+
+    VFMSUB132PSZ128mkz = 10390
+
+    VFMSUB132PSZ128r = 10391
+
+    VFMSUB132PSZ128rk = 10392
+
+    VFMSUB132PSZ128rkz = 10393
+
+    VFMSUB132PSZ256m = 10394
+
+    VFMSUB132PSZ256mb = 10395
+
+    VFMSUB132PSZ256mbk = 10396
+
+    VFMSUB132PSZ256mbkz = 10397
+
+    VFMSUB132PSZ256mk = 10398
+
+    VFMSUB132PSZ256mkz = 10399
+
+    VFMSUB132PSZ256r = 10400
+
+    VFMSUB132PSZ256rk = 10401
+
+    VFMSUB132PSZ256rkz = 10402
+
+    VFMSUB132PSZm = 10403
+
+    VFMSUB132PSZmb = 10404
+
+    VFMSUB132PSZmbk = 10405
+
+    VFMSUB132PSZmbkz = 10406
+
+    VFMSUB132PSZmk = 10407
+
+    VFMSUB132PSZmkz = 10408
+
+    VFMSUB132PSZr = 10409
+
+    VFMSUB132PSZrb = 10410
+
+    VFMSUB132PSZrbk = 10411
+
+    VFMSUB132PSZrbkz = 10412
+
+    VFMSUB132PSZrk = 10413
+
+    VFMSUB132PSZrkz = 10414
+
+    VFMSUB132PSm = 10415
+
+    VFMSUB132PSr = 10416
+
+    VFMSUB132SDZm = 10417
+
+    VFMSUB132SDZm_Int = 10418
+
+    VFMSUB132SDZmk_Int = 10419
+
+    VFMSUB132SDZmkz_Int = 10420
+
+    VFMSUB132SDZr = 10421
+
+    VFMSUB132SDZr_Int = 10422
+
+    VFMSUB132SDZrb = 10423
+
+    VFMSUB132SDZrb_Int = 10424
+
+    VFMSUB132SDZrbk_Int = 10425
+
+    VFMSUB132SDZrbkz_Int = 10426
+
+    VFMSUB132SDZrk_Int = 10427
+
+    VFMSUB132SDZrkz_Int = 10428
+
+    VFMSUB132SDm = 10429
+
+    VFMSUB132SDm_Int = 10430
+
+    VFMSUB132SDr = 10431
+
+    VFMSUB132SDr_Int = 10432
+
+    VFMSUB132SHZm = 10433
+
+    VFMSUB132SHZm_Int = 10434
+
+    VFMSUB132SHZmk_Int = 10435
+
+    VFMSUB132SHZmkz_Int = 10436
+
+    VFMSUB132SHZr = 10437
+
+    VFMSUB132SHZr_Int = 10438
+
+    VFMSUB132SHZrb = 10439
+
+    VFMSUB132SHZrb_Int = 10440
+
+    VFMSUB132SHZrbk_Int = 10441
+
+    VFMSUB132SHZrbkz_Int = 10442
+
+    VFMSUB132SHZrk_Int = 10443
+
+    VFMSUB132SHZrkz_Int = 10444
+
+    VFMSUB132SSZm = 10445
+
+    VFMSUB132SSZm_Int = 10446
+
+    VFMSUB132SSZmk_Int = 10447
+
+    VFMSUB132SSZmkz_Int = 10448
+
+    VFMSUB132SSZr = 10449
+
+    VFMSUB132SSZr_Int = 10450
+
+    VFMSUB132SSZrb = 10451
+
+    VFMSUB132SSZrb_Int = 10452
+
+    VFMSUB132SSZrbk_Int = 10453
+
+    VFMSUB132SSZrbkz_Int = 10454
+
+    VFMSUB132SSZrk_Int = 10455
+
+    VFMSUB132SSZrkz_Int = 10456
+
+    VFMSUB132SSm = 10457
+
+    VFMSUB132SSm_Int = 10458
+
+    VFMSUB132SSr = 10459
+
+    VFMSUB132SSr_Int = 10460
+
+    VFMSUB213BF16Z128m = 10461
+
+    VFMSUB213BF16Z128mb = 10462
+
+    VFMSUB213BF16Z128mbk = 10463
+
+    VFMSUB213BF16Z128mbkz = 10464
+
+    VFMSUB213BF16Z128mk = 10465
+
+    VFMSUB213BF16Z128mkz = 10466
+
+    VFMSUB213BF16Z128r = 10467
+
+    VFMSUB213BF16Z128rk = 10468
+
+    VFMSUB213BF16Z128rkz = 10469
+
+    VFMSUB213BF16Z256m = 10470
+
+    VFMSUB213BF16Z256mb = 10471
+
+    VFMSUB213BF16Z256mbk = 10472
+
+    VFMSUB213BF16Z256mbkz = 10473
+
+    VFMSUB213BF16Z256mk = 10474
+
+    VFMSUB213BF16Z256mkz = 10475
+
+    VFMSUB213BF16Z256r = 10476
+
+    VFMSUB213BF16Z256rk = 10477
+
+    VFMSUB213BF16Z256rkz = 10478
+
+    VFMSUB213BF16Zm = 10479
+
+    VFMSUB213BF16Zmb = 10480
+
+    VFMSUB213BF16Zmbk = 10481
+
+    VFMSUB213BF16Zmbkz = 10482
+
+    VFMSUB213BF16Zmk = 10483
+
+    VFMSUB213BF16Zmkz = 10484
+
+    VFMSUB213BF16Zr = 10485
+
+    VFMSUB213BF16Zrk = 10486
+
+    VFMSUB213BF16Zrkz = 10487
+
+    VFMSUB213PDYm = 10488
+
+    VFMSUB213PDYr = 10489
+
+    VFMSUB213PDZ128m = 10490
+
+    VFMSUB213PDZ128mb = 10491
+
+    VFMSUB213PDZ128mbk = 10492
+
+    VFMSUB213PDZ128mbkz = 10493
+
+    VFMSUB213PDZ128mk = 10494
+
+    VFMSUB213PDZ128mkz = 10495
+
+    VFMSUB213PDZ128r = 10496
+
+    VFMSUB213PDZ128rk = 10497
+
+    VFMSUB213PDZ128rkz = 10498
+
+    VFMSUB213PDZ256m = 10499
+
+    VFMSUB213PDZ256mb = 10500
+
+    VFMSUB213PDZ256mbk = 10501
+
+    VFMSUB213PDZ256mbkz = 10502
+
+    VFMSUB213PDZ256mk = 10503
+
+    VFMSUB213PDZ256mkz = 10504
+
+    VFMSUB213PDZ256r = 10505
+
+    VFMSUB213PDZ256rk = 10506
+
+    VFMSUB213PDZ256rkz = 10507
+
+    VFMSUB213PDZm = 10508
+
+    VFMSUB213PDZmb = 10509
+
+    VFMSUB213PDZmbk = 10510
+
+    VFMSUB213PDZmbkz = 10511
+
+    VFMSUB213PDZmk = 10512
+
+    VFMSUB213PDZmkz = 10513
+
+    VFMSUB213PDZr = 10514
+
+    VFMSUB213PDZrb = 10515
+
+    VFMSUB213PDZrbk = 10516
+
+    VFMSUB213PDZrbkz = 10517
+
+    VFMSUB213PDZrk = 10518
+
+    VFMSUB213PDZrkz = 10519
+
+    VFMSUB213PDm = 10520
+
+    VFMSUB213PDr = 10521
+
+    VFMSUB213PHZ128m = 10522
+
+    VFMSUB213PHZ128mb = 10523
+
+    VFMSUB213PHZ128mbk = 10524
+
+    VFMSUB213PHZ128mbkz = 10525
+
+    VFMSUB213PHZ128mk = 10526
+
+    VFMSUB213PHZ128mkz = 10527
+
+    VFMSUB213PHZ128r = 10528
+
+    VFMSUB213PHZ128rk = 10529
+
+    VFMSUB213PHZ128rkz = 10530
+
+    VFMSUB213PHZ256m = 10531
+
+    VFMSUB213PHZ256mb = 10532
+
+    VFMSUB213PHZ256mbk = 10533
+
+    VFMSUB213PHZ256mbkz = 10534
+
+    VFMSUB213PHZ256mk = 10535
+
+    VFMSUB213PHZ256mkz = 10536
+
+    VFMSUB213PHZ256r = 10537
+
+    VFMSUB213PHZ256rk = 10538
+
+    VFMSUB213PHZ256rkz = 10539
+
+    VFMSUB213PHZm = 10540
+
+    VFMSUB213PHZmb = 10541
+
+    VFMSUB213PHZmbk = 10542
+
+    VFMSUB213PHZmbkz = 10543
+
+    VFMSUB213PHZmk = 10544
+
+    VFMSUB213PHZmkz = 10545
+
+    VFMSUB213PHZr = 10546
+
+    VFMSUB213PHZrb = 10547
+
+    VFMSUB213PHZrbk = 10548
+
+    VFMSUB213PHZrbkz = 10549
+
+    VFMSUB213PHZrk = 10550
+
+    VFMSUB213PHZrkz = 10551
+
+    VFMSUB213PSYm = 10552
+
+    VFMSUB213PSYr = 10553
+
+    VFMSUB213PSZ128m = 10554
+
+    VFMSUB213PSZ128mb = 10555
+
+    VFMSUB213PSZ128mbk = 10556
+
+    VFMSUB213PSZ128mbkz = 10557
+
+    VFMSUB213PSZ128mk = 10558
+
+    VFMSUB213PSZ128mkz = 10559
+
+    VFMSUB213PSZ128r = 10560
+
+    VFMSUB213PSZ128rk = 10561
+
+    VFMSUB213PSZ128rkz = 10562
+
+    VFMSUB213PSZ256m = 10563
+
+    VFMSUB213PSZ256mb = 10564
+
+    VFMSUB213PSZ256mbk = 10565
+
+    VFMSUB213PSZ256mbkz = 10566
+
+    VFMSUB213PSZ256mk = 10567
+
+    VFMSUB213PSZ256mkz = 10568
+
+    VFMSUB213PSZ256r = 10569
+
+    VFMSUB213PSZ256rk = 10570
+
+    VFMSUB213PSZ256rkz = 10571
+
+    VFMSUB213PSZm = 10572
+
+    VFMSUB213PSZmb = 10573
+
+    VFMSUB213PSZmbk = 10574
+
+    VFMSUB213PSZmbkz = 10575
+
+    VFMSUB213PSZmk = 10576
+
+    VFMSUB213PSZmkz = 10577
+
+    VFMSUB213PSZr = 10578
+
+    VFMSUB213PSZrb = 10579
+
+    VFMSUB213PSZrbk = 10580
+
+    VFMSUB213PSZrbkz = 10581
+
+    VFMSUB213PSZrk = 10582
+
+    VFMSUB213PSZrkz = 10583
+
+    VFMSUB213PSm = 10584
+
+    VFMSUB213PSr = 10585
+
+    VFMSUB213SDZm = 10586
+
+    VFMSUB213SDZm_Int = 10587
+
+    VFMSUB213SDZmk_Int = 10588
+
+    VFMSUB213SDZmkz_Int = 10589
+
+    VFMSUB213SDZr = 10590
+
+    VFMSUB213SDZr_Int = 10591
+
+    VFMSUB213SDZrb = 10592
+
+    VFMSUB213SDZrb_Int = 10593
+
+    VFMSUB213SDZrbk_Int = 10594
+
+    VFMSUB213SDZrbkz_Int = 10595
+
+    VFMSUB213SDZrk_Int = 10596
+
+    VFMSUB213SDZrkz_Int = 10597
+
+    VFMSUB213SDm = 10598
+
+    VFMSUB213SDm_Int = 10599
+
+    VFMSUB213SDr = 10600
+
+    VFMSUB213SDr_Int = 10601
+
+    VFMSUB213SHZm = 10602
+
+    VFMSUB213SHZm_Int = 10603
+
+    VFMSUB213SHZmk_Int = 10604
+
+    VFMSUB213SHZmkz_Int = 10605
+
+    VFMSUB213SHZr = 10606
+
+    VFMSUB213SHZr_Int = 10607
+
+    VFMSUB213SHZrb = 10608
+
+    VFMSUB213SHZrb_Int = 10609
+
+    VFMSUB213SHZrbk_Int = 10610
+
+    VFMSUB213SHZrbkz_Int = 10611
+
+    VFMSUB213SHZrk_Int = 10612
+
+    VFMSUB213SHZrkz_Int = 10613
+
+    VFMSUB213SSZm = 10614
+
+    VFMSUB213SSZm_Int = 10615
+
+    VFMSUB213SSZmk_Int = 10616
+
+    VFMSUB213SSZmkz_Int = 10617
+
+    VFMSUB213SSZr = 10618
+
+    VFMSUB213SSZr_Int = 10619
+
+    VFMSUB213SSZrb = 10620
+
+    VFMSUB213SSZrb_Int = 10621
+
+    VFMSUB213SSZrbk_Int = 10622
+
+    VFMSUB213SSZrbkz_Int = 10623
+
+    VFMSUB213SSZrk_Int = 10624
+
+    VFMSUB213SSZrkz_Int = 10625
+
+    VFMSUB213SSm = 10626
+
+    VFMSUB213SSm_Int = 10627
+
+    VFMSUB213SSr = 10628
+
+    VFMSUB213SSr_Int = 10629
+
+    VFMSUB231BF16Z128m = 10630
+
+    VFMSUB231BF16Z128mb = 10631
+
+    VFMSUB231BF16Z128mbk = 10632
+
+    VFMSUB231BF16Z128mbkz = 10633
+
+    VFMSUB231BF16Z128mk = 10634
+
+    VFMSUB231BF16Z128mkz = 10635
+
+    VFMSUB231BF16Z128r = 10636
+
+    VFMSUB231BF16Z128rk = 10637
+
+    VFMSUB231BF16Z128rkz = 10638
+
+    VFMSUB231BF16Z256m = 10639
+
+    VFMSUB231BF16Z256mb = 10640
+
+    VFMSUB231BF16Z256mbk = 10641
+
+    VFMSUB231BF16Z256mbkz = 10642
+
+    VFMSUB231BF16Z256mk = 10643
+
+    VFMSUB231BF16Z256mkz = 10644
+
+    VFMSUB231BF16Z256r = 10645
+
+    VFMSUB231BF16Z256rk = 10646
+
+    VFMSUB231BF16Z256rkz = 10647
+
+    VFMSUB231BF16Zm = 10648
+
+    VFMSUB231BF16Zmb = 10649
+
+    VFMSUB231BF16Zmbk = 10650
+
+    VFMSUB231BF16Zmbkz = 10651
+
+    VFMSUB231BF16Zmk = 10652
+
+    VFMSUB231BF16Zmkz = 10653
+
+    VFMSUB231BF16Zr = 10654
+
+    VFMSUB231BF16Zrk = 10655
+
+    VFMSUB231BF16Zrkz = 10656
+
+    VFMSUB231PDYm = 10657
+
+    VFMSUB231PDYr = 10658
+
+    VFMSUB231PDZ128m = 10659
+
+    VFMSUB231PDZ128mb = 10660
+
+    VFMSUB231PDZ128mbk = 10661
+
+    VFMSUB231PDZ128mbkz = 10662
+
+    VFMSUB231PDZ128mk = 10663
+
+    VFMSUB231PDZ128mkz = 10664
+
+    VFMSUB231PDZ128r = 10665
+
+    VFMSUB231PDZ128rk = 10666
+
+    VFMSUB231PDZ128rkz = 10667
+
+    VFMSUB231PDZ256m = 10668
+
+    VFMSUB231PDZ256mb = 10669
+
+    VFMSUB231PDZ256mbk = 10670
+
+    VFMSUB231PDZ256mbkz = 10671
+
+    VFMSUB231PDZ256mk = 10672
+
+    VFMSUB231PDZ256mkz = 10673
+
+    VFMSUB231PDZ256r = 10674
+
+    VFMSUB231PDZ256rk = 10675
+
+    VFMSUB231PDZ256rkz = 10676
+
+    VFMSUB231PDZm = 10677
+
+    VFMSUB231PDZmb = 10678
+
+    VFMSUB231PDZmbk = 10679
+
+    VFMSUB231PDZmbkz = 10680
+
+    VFMSUB231PDZmk = 10681
+
+    VFMSUB231PDZmkz = 10682
+
+    VFMSUB231PDZr = 10683
+
+    VFMSUB231PDZrb = 10684
+
+    VFMSUB231PDZrbk = 10685
+
+    VFMSUB231PDZrbkz = 10686
+
+    VFMSUB231PDZrk = 10687
+
+    VFMSUB231PDZrkz = 10688
+
+    VFMSUB231PDm = 10689
+
+    VFMSUB231PDr = 10690
+
+    VFMSUB231PHZ128m = 10691
+
+    VFMSUB231PHZ128mb = 10692
+
+    VFMSUB231PHZ128mbk = 10693
+
+    VFMSUB231PHZ128mbkz = 10694
+
+    VFMSUB231PHZ128mk = 10695
+
+    VFMSUB231PHZ128mkz = 10696
+
+    VFMSUB231PHZ128r = 10697
+
+    VFMSUB231PHZ128rk = 10698
+
+    VFMSUB231PHZ128rkz = 10699
+
+    VFMSUB231PHZ256m = 10700
+
+    VFMSUB231PHZ256mb = 10701
+
+    VFMSUB231PHZ256mbk = 10702
+
+    VFMSUB231PHZ256mbkz = 10703
+
+    VFMSUB231PHZ256mk = 10704
+
+    VFMSUB231PHZ256mkz = 10705
+
+    VFMSUB231PHZ256r = 10706
+
+    VFMSUB231PHZ256rk = 10707
+
+    VFMSUB231PHZ256rkz = 10708
+
+    VFMSUB231PHZm = 10709
+
+    VFMSUB231PHZmb = 10710
+
+    VFMSUB231PHZmbk = 10711
+
+    VFMSUB231PHZmbkz = 10712
+
+    VFMSUB231PHZmk = 10713
+
+    VFMSUB231PHZmkz = 10714
+
+    VFMSUB231PHZr = 10715
+
+    VFMSUB231PHZrb = 10716
+
+    VFMSUB231PHZrbk = 10717
+
+    VFMSUB231PHZrbkz = 10718
+
+    VFMSUB231PHZrk = 10719
+
+    VFMSUB231PHZrkz = 10720
+
+    VFMSUB231PSYm = 10721
+
+    VFMSUB231PSYr = 10722
+
+    VFMSUB231PSZ128m = 10723
+
+    VFMSUB231PSZ128mb = 10724
+
+    VFMSUB231PSZ128mbk = 10725
+
+    VFMSUB231PSZ128mbkz = 10726
+
+    VFMSUB231PSZ128mk = 10727
+
+    VFMSUB231PSZ128mkz = 10728
+
+    VFMSUB231PSZ128r = 10729
+
+    VFMSUB231PSZ128rk = 10730
+
+    VFMSUB231PSZ128rkz = 10731
+
+    VFMSUB231PSZ256m = 10732
+
+    VFMSUB231PSZ256mb = 10733
+
+    VFMSUB231PSZ256mbk = 10734
+
+    VFMSUB231PSZ256mbkz = 10735
+
+    VFMSUB231PSZ256mk = 10736
+
+    VFMSUB231PSZ256mkz = 10737
+
+    VFMSUB231PSZ256r = 10738
+
+    VFMSUB231PSZ256rk = 10739
+
+    VFMSUB231PSZ256rkz = 10740
+
+    VFMSUB231PSZm = 10741
+
+    VFMSUB231PSZmb = 10742
+
+    VFMSUB231PSZmbk = 10743
+
+    VFMSUB231PSZmbkz = 10744
+
+    VFMSUB231PSZmk = 10745
+
+    VFMSUB231PSZmkz = 10746
+
+    VFMSUB231PSZr = 10747
+
+    VFMSUB231PSZrb = 10748
+
+    VFMSUB231PSZrbk = 10749
+
+    VFMSUB231PSZrbkz = 10750
+
+    VFMSUB231PSZrk = 10751
+
+    VFMSUB231PSZrkz = 10752
+
+    VFMSUB231PSm = 10753
+
+    VFMSUB231PSr = 10754
+
+    VFMSUB231SDZm = 10755
+
+    VFMSUB231SDZm_Int = 10756
+
+    VFMSUB231SDZmk_Int = 10757
+
+    VFMSUB231SDZmkz_Int = 10758
+
+    VFMSUB231SDZr = 10759
+
+    VFMSUB231SDZr_Int = 10760
+
+    VFMSUB231SDZrb = 10761
+
+    VFMSUB231SDZrb_Int = 10762
+
+    VFMSUB231SDZrbk_Int = 10763
+
+    VFMSUB231SDZrbkz_Int = 10764
+
+    VFMSUB231SDZrk_Int = 10765
+
+    VFMSUB231SDZrkz_Int = 10766
+
+    VFMSUB231SDm = 10767
+
+    VFMSUB231SDm_Int = 10768
+
+    VFMSUB231SDr = 10769
+
+    VFMSUB231SDr_Int = 10770
+
+    VFMSUB231SHZm = 10771
+
+    VFMSUB231SHZm_Int = 10772
+
+    VFMSUB231SHZmk_Int = 10773
+
+    VFMSUB231SHZmkz_Int = 10774
+
+    VFMSUB231SHZr = 10775
+
+    VFMSUB231SHZr_Int = 10776
+
+    VFMSUB231SHZrb = 10777
+
+    VFMSUB231SHZrb_Int = 10778
+
+    VFMSUB231SHZrbk_Int = 10779
+
+    VFMSUB231SHZrbkz_Int = 10780
+
+    VFMSUB231SHZrk_Int = 10781
+
+    VFMSUB231SHZrkz_Int = 10782
+
+    VFMSUB231SSZm = 10783
+
+    VFMSUB231SSZm_Int = 10784
+
+    VFMSUB231SSZmk_Int = 10785
+
+    VFMSUB231SSZmkz_Int = 10786
+
+    VFMSUB231SSZr = 10787
+
+    VFMSUB231SSZr_Int = 10788
+
+    VFMSUB231SSZrb = 10789
+
+    VFMSUB231SSZrb_Int = 10790
+
+    VFMSUB231SSZrbk_Int = 10791
+
+    VFMSUB231SSZrbkz_Int = 10792
+
+    VFMSUB231SSZrk_Int = 10793
+
+    VFMSUB231SSZrkz_Int = 10794
+
+    VFMSUB231SSm = 10795
+
+    VFMSUB231SSm_Int = 10796
+
+    VFMSUB231SSr = 10797
+
+    VFMSUB231SSr_Int = 10798
+
+    VFMSUBADD132PDYm = 10799
+
+    VFMSUBADD132PDYr = 10800
+
+    VFMSUBADD132PDZ128m = 10801
+
+    VFMSUBADD132PDZ128mb = 10802
+
+    VFMSUBADD132PDZ128mbk = 10803
+
+    VFMSUBADD132PDZ128mbkz = 10804
+
+    VFMSUBADD132PDZ128mk = 10805
+
+    VFMSUBADD132PDZ128mkz = 10806
+
+    VFMSUBADD132PDZ128r = 10807
+
+    VFMSUBADD132PDZ128rk = 10808
+
+    VFMSUBADD132PDZ128rkz = 10809
+
+    VFMSUBADD132PDZ256m = 10810
+
+    VFMSUBADD132PDZ256mb = 10811
+
+    VFMSUBADD132PDZ256mbk = 10812
+
+    VFMSUBADD132PDZ256mbkz = 10813
+
+    VFMSUBADD132PDZ256mk = 10814
+
+    VFMSUBADD132PDZ256mkz = 10815
+
+    VFMSUBADD132PDZ256r = 10816
+
+    VFMSUBADD132PDZ256rk = 10817
+
+    VFMSUBADD132PDZ256rkz = 10818
+
+    VFMSUBADD132PDZm = 10819
+
+    VFMSUBADD132PDZmb = 10820
+
+    VFMSUBADD132PDZmbk = 10821
+
+    VFMSUBADD132PDZmbkz = 10822
+
+    VFMSUBADD132PDZmk = 10823
+
+    VFMSUBADD132PDZmkz = 10824
+
+    VFMSUBADD132PDZr = 10825
+
+    VFMSUBADD132PDZrb = 10826
+
+    VFMSUBADD132PDZrbk = 10827
+
+    VFMSUBADD132PDZrbkz = 10828
+
+    VFMSUBADD132PDZrk = 10829
+
+    VFMSUBADD132PDZrkz = 10830
+
+    VFMSUBADD132PDm = 10831
+
+    VFMSUBADD132PDr = 10832
+
+    VFMSUBADD132PHZ128m = 10833
+
+    VFMSUBADD132PHZ128mb = 10834
+
+    VFMSUBADD132PHZ128mbk = 10835
+
+    VFMSUBADD132PHZ128mbkz = 10836
+
+    VFMSUBADD132PHZ128mk = 10837
+
+    VFMSUBADD132PHZ128mkz = 10838
+
+    VFMSUBADD132PHZ128r = 10839
+
+    VFMSUBADD132PHZ128rk = 10840
+
+    VFMSUBADD132PHZ128rkz = 10841
+
+    VFMSUBADD132PHZ256m = 10842
+
+    VFMSUBADD132PHZ256mb = 10843
+
+    VFMSUBADD132PHZ256mbk = 10844
+
+    VFMSUBADD132PHZ256mbkz = 10845
+
+    VFMSUBADD132PHZ256mk = 10846
+
+    VFMSUBADD132PHZ256mkz = 10847
+
+    VFMSUBADD132PHZ256r = 10848
+
+    VFMSUBADD132PHZ256rk = 10849
+
+    VFMSUBADD132PHZ256rkz = 10850
+
+    VFMSUBADD132PHZm = 10851
+
+    VFMSUBADD132PHZmb = 10852
+
+    VFMSUBADD132PHZmbk = 10853
+
+    VFMSUBADD132PHZmbkz = 10854
+
+    VFMSUBADD132PHZmk = 10855
+
+    VFMSUBADD132PHZmkz = 10856
+
+    VFMSUBADD132PHZr = 10857
+
+    VFMSUBADD132PHZrb = 10858
+
+    VFMSUBADD132PHZrbk = 10859
+
+    VFMSUBADD132PHZrbkz = 10860
+
+    VFMSUBADD132PHZrk = 10861
+
+    VFMSUBADD132PHZrkz = 10862
+
+    VFMSUBADD132PSYm = 10863
+
+    VFMSUBADD132PSYr = 10864
+
+    VFMSUBADD132PSZ128m = 10865
+
+    VFMSUBADD132PSZ128mb = 10866
+
+    VFMSUBADD132PSZ128mbk = 10867
+
+    VFMSUBADD132PSZ128mbkz = 10868
+
+    VFMSUBADD132PSZ128mk = 10869
+
+    VFMSUBADD132PSZ128mkz = 10870
+
+    VFMSUBADD132PSZ128r = 10871
+
+    VFMSUBADD132PSZ128rk = 10872
+
+    VFMSUBADD132PSZ128rkz = 10873
+
+    VFMSUBADD132PSZ256m = 10874
+
+    VFMSUBADD132PSZ256mb = 10875
+
+    VFMSUBADD132PSZ256mbk = 10876
+
+    VFMSUBADD132PSZ256mbkz = 10877
+
+    VFMSUBADD132PSZ256mk = 10878
+
+    VFMSUBADD132PSZ256mkz = 10879
+
+    VFMSUBADD132PSZ256r = 10880
+
+    VFMSUBADD132PSZ256rk = 10881
+
+    VFMSUBADD132PSZ256rkz = 10882
+
+    VFMSUBADD132PSZm = 10883
+
+    VFMSUBADD132PSZmb = 10884
+
+    VFMSUBADD132PSZmbk = 10885
+
+    VFMSUBADD132PSZmbkz = 10886
+
+    VFMSUBADD132PSZmk = 10887
+
+    VFMSUBADD132PSZmkz = 10888
+
+    VFMSUBADD132PSZr = 10889
+
+    VFMSUBADD132PSZrb = 10890
+
+    VFMSUBADD132PSZrbk = 10891
+
+    VFMSUBADD132PSZrbkz = 10892
+
+    VFMSUBADD132PSZrk = 10893
+
+    VFMSUBADD132PSZrkz = 10894
+
+    VFMSUBADD132PSm = 10895
+
+    VFMSUBADD132PSr = 10896
+
+    VFMSUBADD213PDYm = 10897
+
+    VFMSUBADD213PDYr = 10898
+
+    VFMSUBADD213PDZ128m = 10899
+
+    VFMSUBADD213PDZ128mb = 10900
+
+    VFMSUBADD213PDZ128mbk = 10901
+
+    VFMSUBADD213PDZ128mbkz = 10902
+
+    VFMSUBADD213PDZ128mk = 10903
+
+    VFMSUBADD213PDZ128mkz = 10904
+
+    VFMSUBADD213PDZ128r = 10905
+
+    VFMSUBADD213PDZ128rk = 10906
+
+    VFMSUBADD213PDZ128rkz = 10907
+
+    VFMSUBADD213PDZ256m = 10908
+
+    VFMSUBADD213PDZ256mb = 10909
+
+    VFMSUBADD213PDZ256mbk = 10910
+
+    VFMSUBADD213PDZ256mbkz = 10911
+
+    VFMSUBADD213PDZ256mk = 10912
+
+    VFMSUBADD213PDZ256mkz = 10913
+
+    VFMSUBADD213PDZ256r = 10914
+
+    VFMSUBADD213PDZ256rk = 10915
+
+    VFMSUBADD213PDZ256rkz = 10916
+
+    VFMSUBADD213PDZm = 10917
+
+    VFMSUBADD213PDZmb = 10918
+
+    VFMSUBADD213PDZmbk = 10919
+
+    VFMSUBADD213PDZmbkz = 10920
+
+    VFMSUBADD213PDZmk = 10921
+
+    VFMSUBADD213PDZmkz = 10922
+
+    VFMSUBADD213PDZr = 10923
+
+    VFMSUBADD213PDZrb = 10924
+
+    VFMSUBADD213PDZrbk = 10925
+
+    VFMSUBADD213PDZrbkz = 10926
+
+    VFMSUBADD213PDZrk = 10927
+
+    VFMSUBADD213PDZrkz = 10928
+
+    VFMSUBADD213PDm = 10929
+
+    VFMSUBADD213PDr = 10930
+
+    VFMSUBADD213PHZ128m = 10931
+
+    VFMSUBADD213PHZ128mb = 10932
+
+    VFMSUBADD213PHZ128mbk = 10933
+
+    VFMSUBADD213PHZ128mbkz = 10934
+
+    VFMSUBADD213PHZ128mk = 10935
+
+    VFMSUBADD213PHZ128mkz = 10936
+
+    VFMSUBADD213PHZ128r = 10937
+
+    VFMSUBADD213PHZ128rk = 10938
+
+    VFMSUBADD213PHZ128rkz = 10939
+
+    VFMSUBADD213PHZ256m = 10940
+
+    VFMSUBADD213PHZ256mb = 10941
+
+    VFMSUBADD213PHZ256mbk = 10942
+
+    VFMSUBADD213PHZ256mbkz = 10943
+
+    VFMSUBADD213PHZ256mk = 10944
+
+    VFMSUBADD213PHZ256mkz = 10945
+
+    VFMSUBADD213PHZ256r = 10946
+
+    VFMSUBADD213PHZ256rk = 10947
+
+    VFMSUBADD213PHZ256rkz = 10948
+
+    VFMSUBADD213PHZm = 10949
+
+    VFMSUBADD213PHZmb = 10950
+
+    VFMSUBADD213PHZmbk = 10951
+
+    VFMSUBADD213PHZmbkz = 10952
+
+    VFMSUBADD213PHZmk = 10953
+
+    VFMSUBADD213PHZmkz = 10954
+
+    VFMSUBADD213PHZr = 10955
+
+    VFMSUBADD213PHZrb = 10956
+
+    VFMSUBADD213PHZrbk = 10957
+
+    VFMSUBADD213PHZrbkz = 10958
+
+    VFMSUBADD213PHZrk = 10959
+
+    VFMSUBADD213PHZrkz = 10960
+
+    VFMSUBADD213PSYm = 10961
+
+    VFMSUBADD213PSYr = 10962
+
+    VFMSUBADD213PSZ128m = 10963
+
+    VFMSUBADD213PSZ128mb = 10964
+
+    VFMSUBADD213PSZ128mbk = 10965
+
+    VFMSUBADD213PSZ128mbkz = 10966
+
+    VFMSUBADD213PSZ128mk = 10967
+
+    VFMSUBADD213PSZ128mkz = 10968
+
+    VFMSUBADD213PSZ128r = 10969
+
+    VFMSUBADD213PSZ128rk = 10970
+
+    VFMSUBADD213PSZ128rkz = 10971
+
+    VFMSUBADD213PSZ256m = 10972
+
+    VFMSUBADD213PSZ256mb = 10973
+
+    VFMSUBADD213PSZ256mbk = 10974
+
+    VFMSUBADD213PSZ256mbkz = 10975
+
+    VFMSUBADD213PSZ256mk = 10976
+
+    VFMSUBADD213PSZ256mkz = 10977
+
+    VFMSUBADD213PSZ256r = 10978
+
+    VFMSUBADD213PSZ256rk = 10979
+
+    VFMSUBADD213PSZ256rkz = 10980
+
+    VFMSUBADD213PSZm = 10981
+
+    VFMSUBADD213PSZmb = 10982
+
+    VFMSUBADD213PSZmbk = 10983
+
+    VFMSUBADD213PSZmbkz = 10984
+
+    VFMSUBADD213PSZmk = 10985
+
+    VFMSUBADD213PSZmkz = 10986
+
+    VFMSUBADD213PSZr = 10987
+
+    VFMSUBADD213PSZrb = 10988
+
+    VFMSUBADD213PSZrbk = 10989
+
+    VFMSUBADD213PSZrbkz = 10990
+
+    VFMSUBADD213PSZrk = 10991
+
+    VFMSUBADD213PSZrkz = 10992
+
+    VFMSUBADD213PSm = 10993
+
+    VFMSUBADD213PSr = 10994
+
+    VFMSUBADD231PDYm = 10995
+
+    VFMSUBADD231PDYr = 10996
+
+    VFMSUBADD231PDZ128m = 10997
+
+    VFMSUBADD231PDZ128mb = 10998
+
+    VFMSUBADD231PDZ128mbk = 10999
+
+    VFMSUBADD231PDZ128mbkz = 11000
+
+    VFMSUBADD231PDZ128mk = 11001
+
+    VFMSUBADD231PDZ128mkz = 11002
+
+    VFMSUBADD231PDZ128r = 11003
+
+    VFMSUBADD231PDZ128rk = 11004
+
+    VFMSUBADD231PDZ128rkz = 11005
+
+    VFMSUBADD231PDZ256m = 11006
+
+    VFMSUBADD231PDZ256mb = 11007
+
+    VFMSUBADD231PDZ256mbk = 11008
+
+    VFMSUBADD231PDZ256mbkz = 11009
+
+    VFMSUBADD231PDZ256mk = 11010
+
+    VFMSUBADD231PDZ256mkz = 11011
+
+    VFMSUBADD231PDZ256r = 11012
+
+    VFMSUBADD231PDZ256rk = 11013
+
+    VFMSUBADD231PDZ256rkz = 11014
+
+    VFMSUBADD231PDZm = 11015
+
+    VFMSUBADD231PDZmb = 11016
+
+    VFMSUBADD231PDZmbk = 11017
+
+    VFMSUBADD231PDZmbkz = 11018
+
+    VFMSUBADD231PDZmk = 11019
+
+    VFMSUBADD231PDZmkz = 11020
+
+    VFMSUBADD231PDZr = 11021
+
+    VFMSUBADD231PDZrb = 11022
+
+    VFMSUBADD231PDZrbk = 11023
+
+    VFMSUBADD231PDZrbkz = 11024
+
+    VFMSUBADD231PDZrk = 11025
+
+    VFMSUBADD231PDZrkz = 11026
+
+    VFMSUBADD231PDm = 11027
+
+    VFMSUBADD231PDr = 11028
+
+    VFMSUBADD231PHZ128m = 11029
+
+    VFMSUBADD231PHZ128mb = 11030
+
+    VFMSUBADD231PHZ128mbk = 11031
+
+    VFMSUBADD231PHZ128mbkz = 11032
+
+    VFMSUBADD231PHZ128mk = 11033
+
+    VFMSUBADD231PHZ128mkz = 11034
+
+    VFMSUBADD231PHZ128r = 11035
+
+    VFMSUBADD231PHZ128rk = 11036
+
+    VFMSUBADD231PHZ128rkz = 11037
+
+    VFMSUBADD231PHZ256m = 11038
+
+    VFMSUBADD231PHZ256mb = 11039
+
+    VFMSUBADD231PHZ256mbk = 11040
+
+    VFMSUBADD231PHZ256mbkz = 11041
+
+    VFMSUBADD231PHZ256mk = 11042
+
+    VFMSUBADD231PHZ256mkz = 11043
+
+    VFMSUBADD231PHZ256r = 11044
+
+    VFMSUBADD231PHZ256rk = 11045
+
+    VFMSUBADD231PHZ256rkz = 11046
+
+    VFMSUBADD231PHZm = 11047
+
+    VFMSUBADD231PHZmb = 11048
+
+    VFMSUBADD231PHZmbk = 11049
+
+    VFMSUBADD231PHZmbkz = 11050
+
+    VFMSUBADD231PHZmk = 11051
+
+    VFMSUBADD231PHZmkz = 11052
+
+    VFMSUBADD231PHZr = 11053
+
+    VFMSUBADD231PHZrb = 11054
+
+    VFMSUBADD231PHZrbk = 11055
+
+    VFMSUBADD231PHZrbkz = 11056
+
+    VFMSUBADD231PHZrk = 11057
+
+    VFMSUBADD231PHZrkz = 11058
+
+    VFMSUBADD231PSYm = 11059
+
+    VFMSUBADD231PSYr = 11060
+
+    VFMSUBADD231PSZ128m = 11061
+
+    VFMSUBADD231PSZ128mb = 11062
+
+    VFMSUBADD231PSZ128mbk = 11063
+
+    VFMSUBADD231PSZ128mbkz = 11064
+
+    VFMSUBADD231PSZ128mk = 11065
+
+    VFMSUBADD231PSZ128mkz = 11066
+
+    VFMSUBADD231PSZ128r = 11067
+
+    VFMSUBADD231PSZ128rk = 11068
+
+    VFMSUBADD231PSZ128rkz = 11069
+
+    VFMSUBADD231PSZ256m = 11070
+
+    VFMSUBADD231PSZ256mb = 11071
+
+    VFMSUBADD231PSZ256mbk = 11072
+
+    VFMSUBADD231PSZ256mbkz = 11073
+
+    VFMSUBADD231PSZ256mk = 11074
+
+    VFMSUBADD231PSZ256mkz = 11075
+
+    VFMSUBADD231PSZ256r = 11076
+
+    VFMSUBADD231PSZ256rk = 11077
+
+    VFMSUBADD231PSZ256rkz = 11078
+
+    VFMSUBADD231PSZm = 11079
+
+    VFMSUBADD231PSZmb = 11080
+
+    VFMSUBADD231PSZmbk = 11081
+
+    VFMSUBADD231PSZmbkz = 11082
+
+    VFMSUBADD231PSZmk = 11083
+
+    VFMSUBADD231PSZmkz = 11084
+
+    VFMSUBADD231PSZr = 11085
+
+    VFMSUBADD231PSZrb = 11086
+
+    VFMSUBADD231PSZrbk = 11087
+
+    VFMSUBADD231PSZrbkz = 11088
+
+    VFMSUBADD231PSZrk = 11089
+
+    VFMSUBADD231PSZrkz = 11090
+
+    VFMSUBADD231PSm = 11091
+
+    VFMSUBADD231PSr = 11092
+
+    VFMSUBADDPD4Ymr = 11093
+
+    VFMSUBADDPD4Yrm = 11094
+
+    VFMSUBADDPD4Yrr = 11095
+
+    VFMSUBADDPD4Yrr_REV = 11096
+
+    VFMSUBADDPD4mr = 11097
+
+    VFMSUBADDPD4rm = 11098
+
+    VFMSUBADDPD4rr = 11099
+
+    VFMSUBADDPD4rr_REV = 11100
+
+    VFMSUBADDPS4Ymr = 11101
+
+    VFMSUBADDPS4Yrm = 11102
+
+    VFMSUBADDPS4Yrr = 11103
+
+    VFMSUBADDPS4Yrr_REV = 11104
+
+    VFMSUBADDPS4mr = 11105
+
+    VFMSUBADDPS4rm = 11106
+
+    VFMSUBADDPS4rr = 11107
+
+    VFMSUBADDPS4rr_REV = 11108
+
+    VFMSUBPD4Ymr = 11109
+
+    VFMSUBPD4Yrm = 11110
+
+    VFMSUBPD4Yrr = 11111
+
+    VFMSUBPD4Yrr_REV = 11112
+
+    VFMSUBPD4mr = 11113
+
+    VFMSUBPD4rm = 11114
+
+    VFMSUBPD4rr = 11115
+
+    VFMSUBPD4rr_REV = 11116
+
+    VFMSUBPS4Ymr = 11117
+
+    VFMSUBPS4Yrm = 11118
+
+    VFMSUBPS4Yrr = 11119
+
+    VFMSUBPS4Yrr_REV = 11120
+
+    VFMSUBPS4mr = 11121
+
+    VFMSUBPS4rm = 11122
+
+    VFMSUBPS4rr = 11123
+
+    VFMSUBPS4rr_REV = 11124
+
+    VFMSUBSD4mr = 11125
+
+    VFMSUBSD4mr_Int = 11126
+
+    VFMSUBSD4rm = 11127
+
+    VFMSUBSD4rm_Int = 11128
+
+    VFMSUBSD4rr = 11129
+
+    VFMSUBSD4rr_Int = 11130
+
+    VFMSUBSD4rr_Int_REV = 11131
+
+    VFMSUBSD4rr_REV = 11132
+
+    VFMSUBSS4mr = 11133
+
+    VFMSUBSS4mr_Int = 11134
+
+    VFMSUBSS4rm = 11135
+
+    VFMSUBSS4rm_Int = 11136
+
+    VFMSUBSS4rr = 11137
+
+    VFMSUBSS4rr_Int = 11138
+
+    VFMSUBSS4rr_Int_REV = 11139
+
+    VFMSUBSS4rr_REV = 11140
+
+    VFMULCPHZ128rm = 11141
+
+    VFMULCPHZ128rmb = 11142
+
+    VFMULCPHZ128rmbk = 11143
+
+    VFMULCPHZ128rmbkz = 11144
+
+    VFMULCPHZ128rmk = 11145
+
+    VFMULCPHZ128rmkz = 11146
+
+    VFMULCPHZ128rr = 11147
+
+    VFMULCPHZ128rrk = 11148
+
+    VFMULCPHZ128rrkz = 11149
+
+    VFMULCPHZ256rm = 11150
+
+    VFMULCPHZ256rmb = 11151
+
+    VFMULCPHZ256rmbk = 11152
+
+    VFMULCPHZ256rmbkz = 11153
+
+    VFMULCPHZ256rmk = 11154
+
+    VFMULCPHZ256rmkz = 11155
+
+    VFMULCPHZ256rr = 11156
+
+    VFMULCPHZ256rrk = 11157
+
+    VFMULCPHZ256rrkz = 11158
+
+    VFMULCPHZrm = 11159
+
+    VFMULCPHZrmb = 11160
+
+    VFMULCPHZrmbk = 11161
+
+    VFMULCPHZrmbkz = 11162
+
+    VFMULCPHZrmk = 11163
+
+    VFMULCPHZrmkz = 11164
+
+    VFMULCPHZrr = 11165
+
+    VFMULCPHZrrb = 11166
+
+    VFMULCPHZrrbk = 11167
+
+    VFMULCPHZrrbkz = 11168
+
+    VFMULCPHZrrk = 11169
+
+    VFMULCPHZrrkz = 11170
+
+    VFMULCSHZrm = 11171
+
+    VFMULCSHZrmk = 11172
+
+    VFMULCSHZrmkz = 11173
+
+    VFMULCSHZrr = 11174
+
+    VFMULCSHZrrb = 11175
+
+    VFMULCSHZrrbk = 11176
+
+    VFMULCSHZrrbkz = 11177
+
+    VFMULCSHZrrk = 11178
+
+    VFMULCSHZrrkz = 11179
+
+    VFNMADD132BF16Z128m = 11180
+
+    VFNMADD132BF16Z128mb = 11181
+
+    VFNMADD132BF16Z128mbk = 11182
+
+    VFNMADD132BF16Z128mbkz = 11183
+
+    VFNMADD132BF16Z128mk = 11184
+
+    VFNMADD132BF16Z128mkz = 11185
+
+    VFNMADD132BF16Z128r = 11186
+
+    VFNMADD132BF16Z128rk = 11187
+
+    VFNMADD132BF16Z128rkz = 11188
+
+    VFNMADD132BF16Z256m = 11189
+
+    VFNMADD132BF16Z256mb = 11190
+
+    VFNMADD132BF16Z256mbk = 11191
+
+    VFNMADD132BF16Z256mbkz = 11192
+
+    VFNMADD132BF16Z256mk = 11193
+
+    VFNMADD132BF16Z256mkz = 11194
+
+    VFNMADD132BF16Z256r = 11195
+
+    VFNMADD132BF16Z256rk = 11196
+
+    VFNMADD132BF16Z256rkz = 11197
+
+    VFNMADD132BF16Zm = 11198
+
+    VFNMADD132BF16Zmb = 11199
+
+    VFNMADD132BF16Zmbk = 11200
+
+    VFNMADD132BF16Zmbkz = 11201
+
+    VFNMADD132BF16Zmk = 11202
+
+    VFNMADD132BF16Zmkz = 11203
+
+    VFNMADD132BF16Zr = 11204
+
+    VFNMADD132BF16Zrk = 11205
+
+    VFNMADD132BF16Zrkz = 11206
+
+    VFNMADD132PDYm = 11207
+
+    VFNMADD132PDYr = 11208
+
+    VFNMADD132PDZ128m = 11209
+
+    VFNMADD132PDZ128mb = 11210
+
+    VFNMADD132PDZ128mbk = 11211
+
+    VFNMADD132PDZ128mbkz = 11212
+
+    VFNMADD132PDZ128mk = 11213
+
+    VFNMADD132PDZ128mkz = 11214
+
+    VFNMADD132PDZ128r = 11215
+
+    VFNMADD132PDZ128rk = 11216
+
+    VFNMADD132PDZ128rkz = 11217
+
+    VFNMADD132PDZ256m = 11218
+
+    VFNMADD132PDZ256mb = 11219
+
+    VFNMADD132PDZ256mbk = 11220
+
+    VFNMADD132PDZ256mbkz = 11221
+
+    VFNMADD132PDZ256mk = 11222
+
+    VFNMADD132PDZ256mkz = 11223
+
+    VFNMADD132PDZ256r = 11224
+
+    VFNMADD132PDZ256rk = 11225
+
+    VFNMADD132PDZ256rkz = 11226
+
+    VFNMADD132PDZm = 11227
+
+    VFNMADD132PDZmb = 11228
+
+    VFNMADD132PDZmbk = 11229
+
+    VFNMADD132PDZmbkz = 11230
+
+    VFNMADD132PDZmk = 11231
+
+    VFNMADD132PDZmkz = 11232
+
+    VFNMADD132PDZr = 11233
+
+    VFNMADD132PDZrb = 11234
+
+    VFNMADD132PDZrbk = 11235
+
+    VFNMADD132PDZrbkz = 11236
+
+    VFNMADD132PDZrk = 11237
+
+    VFNMADD132PDZrkz = 11238
+
+    VFNMADD132PDm = 11239
+
+    VFNMADD132PDr = 11240
+
+    VFNMADD132PHZ128m = 11241
+
+    VFNMADD132PHZ128mb = 11242
+
+    VFNMADD132PHZ128mbk = 11243
+
+    VFNMADD132PHZ128mbkz = 11244
+
+    VFNMADD132PHZ128mk = 11245
+
+    VFNMADD132PHZ128mkz = 11246
+
+    VFNMADD132PHZ128r = 11247
+
+    VFNMADD132PHZ128rk = 11248
+
+    VFNMADD132PHZ128rkz = 11249
+
+    VFNMADD132PHZ256m = 11250
+
+    VFNMADD132PHZ256mb = 11251
+
+    VFNMADD132PHZ256mbk = 11252
+
+    VFNMADD132PHZ256mbkz = 11253
+
+    VFNMADD132PHZ256mk = 11254
+
+    VFNMADD132PHZ256mkz = 11255
+
+    VFNMADD132PHZ256r = 11256
+
+    VFNMADD132PHZ256rk = 11257
+
+    VFNMADD132PHZ256rkz = 11258
+
+    VFNMADD132PHZm = 11259
+
+    VFNMADD132PHZmb = 11260
+
+    VFNMADD132PHZmbk = 11261
+
+    VFNMADD132PHZmbkz = 11262
+
+    VFNMADD132PHZmk = 11263
+
+    VFNMADD132PHZmkz = 11264
+
+    VFNMADD132PHZr = 11265
+
+    VFNMADD132PHZrb = 11266
+
+    VFNMADD132PHZrbk = 11267
+
+    VFNMADD132PHZrbkz = 11268
+
+    VFNMADD132PHZrk = 11269
+
+    VFNMADD132PHZrkz = 11270
+
+    VFNMADD132PSYm = 11271
+
+    VFNMADD132PSYr = 11272
+
+    VFNMADD132PSZ128m = 11273
+
+    VFNMADD132PSZ128mb = 11274
+
+    VFNMADD132PSZ128mbk = 11275
+
+    VFNMADD132PSZ128mbkz = 11276
+
+    VFNMADD132PSZ128mk = 11277
+
+    VFNMADD132PSZ128mkz = 11278
+
+    VFNMADD132PSZ128r = 11279
+
+    VFNMADD132PSZ128rk = 11280
+
+    VFNMADD132PSZ128rkz = 11281
+
+    VFNMADD132PSZ256m = 11282
+
+    VFNMADD132PSZ256mb = 11283
+
+    VFNMADD132PSZ256mbk = 11284
+
+    VFNMADD132PSZ256mbkz = 11285
+
+    VFNMADD132PSZ256mk = 11286
+
+    VFNMADD132PSZ256mkz = 11287
+
+    VFNMADD132PSZ256r = 11288
+
+    VFNMADD132PSZ256rk = 11289
+
+    VFNMADD132PSZ256rkz = 11290
+
+    VFNMADD132PSZm = 11291
+
+    VFNMADD132PSZmb = 11292
+
+    VFNMADD132PSZmbk = 11293
+
+    VFNMADD132PSZmbkz = 11294
+
+    VFNMADD132PSZmk = 11295
+
+    VFNMADD132PSZmkz = 11296
+
+    VFNMADD132PSZr = 11297
+
+    VFNMADD132PSZrb = 11298
+
+    VFNMADD132PSZrbk = 11299
+
+    VFNMADD132PSZrbkz = 11300
+
+    VFNMADD132PSZrk = 11301
+
+    VFNMADD132PSZrkz = 11302
+
+    VFNMADD132PSm = 11303
+
+    VFNMADD132PSr = 11304
+
+    VFNMADD132SDZm = 11305
+
+    VFNMADD132SDZm_Int = 11306
+
+    VFNMADD132SDZmk_Int = 11307
+
+    VFNMADD132SDZmkz_Int = 11308
+
+    VFNMADD132SDZr = 11309
+
+    VFNMADD132SDZr_Int = 11310
+
+    VFNMADD132SDZrb = 11311
+
+    VFNMADD132SDZrb_Int = 11312
+
+    VFNMADD132SDZrbk_Int = 11313
+
+    VFNMADD132SDZrbkz_Int = 11314
+
+    VFNMADD132SDZrk_Int = 11315
+
+    VFNMADD132SDZrkz_Int = 11316
+
+    VFNMADD132SDm = 11317
+
+    VFNMADD132SDm_Int = 11318
+
+    VFNMADD132SDr = 11319
+
+    VFNMADD132SDr_Int = 11320
+
+    VFNMADD132SHZm = 11321
+
+    VFNMADD132SHZm_Int = 11322
+
+    VFNMADD132SHZmk_Int = 11323
+
+    VFNMADD132SHZmkz_Int = 11324
+
+    VFNMADD132SHZr = 11325
+
+    VFNMADD132SHZr_Int = 11326
+
+    VFNMADD132SHZrb = 11327
+
+    VFNMADD132SHZrb_Int = 11328
+
+    VFNMADD132SHZrbk_Int = 11329
+
+    VFNMADD132SHZrbkz_Int = 11330
+
+    VFNMADD132SHZrk_Int = 11331
+
+    VFNMADD132SHZrkz_Int = 11332
+
+    VFNMADD132SSZm = 11333
+
+    VFNMADD132SSZm_Int = 11334
+
+    VFNMADD132SSZmk_Int = 11335
+
+    VFNMADD132SSZmkz_Int = 11336
+
+    VFNMADD132SSZr = 11337
+
+    VFNMADD132SSZr_Int = 11338
+
+    VFNMADD132SSZrb = 11339
+
+    VFNMADD132SSZrb_Int = 11340
+
+    VFNMADD132SSZrbk_Int = 11341
+
+    VFNMADD132SSZrbkz_Int = 11342
+
+    VFNMADD132SSZrk_Int = 11343
+
+    VFNMADD132SSZrkz_Int = 11344
+
+    VFNMADD132SSm = 11345
+
+    VFNMADD132SSm_Int = 11346
+
+    VFNMADD132SSr = 11347
+
+    VFNMADD132SSr_Int = 11348
+
+    VFNMADD213BF16Z128m = 11349
+
+    VFNMADD213BF16Z128mb = 11350
+
+    VFNMADD213BF16Z128mbk = 11351
+
+    VFNMADD213BF16Z128mbkz = 11352
+
+    VFNMADD213BF16Z128mk = 11353
+
+    VFNMADD213BF16Z128mkz = 11354
+
+    VFNMADD213BF16Z128r = 11355
+
+    VFNMADD213BF16Z128rk = 11356
+
+    VFNMADD213BF16Z128rkz = 11357
+
+    VFNMADD213BF16Z256m = 11358
+
+    VFNMADD213BF16Z256mb = 11359
+
+    VFNMADD213BF16Z256mbk = 11360
+
+    VFNMADD213BF16Z256mbkz = 11361
+
+    VFNMADD213BF16Z256mk = 11362
+
+    VFNMADD213BF16Z256mkz = 11363
+
+    VFNMADD213BF16Z256r = 11364
+
+    VFNMADD213BF16Z256rk = 11365
+
+    VFNMADD213BF16Z256rkz = 11366
+
+    VFNMADD213BF16Zm = 11367
+
+    VFNMADD213BF16Zmb = 11368
+
+    VFNMADD213BF16Zmbk = 11369
+
+    VFNMADD213BF16Zmbkz = 11370
+
+    VFNMADD213BF16Zmk = 11371
+
+    VFNMADD213BF16Zmkz = 11372
+
+    VFNMADD213BF16Zr = 11373
+
+    VFNMADD213BF16Zrk = 11374
+
+    VFNMADD213BF16Zrkz = 11375
+
+    VFNMADD213PDYm = 11376
+
+    VFNMADD213PDYr = 11377
+
+    VFNMADD213PDZ128m = 11378
+
+    VFNMADD213PDZ128mb = 11379
+
+    VFNMADD213PDZ128mbk = 11380
+
+    VFNMADD213PDZ128mbkz = 11381
+
+    VFNMADD213PDZ128mk = 11382
+
+    VFNMADD213PDZ128mkz = 11383
+
+    VFNMADD213PDZ128r = 11384
+
+    VFNMADD213PDZ128rk = 11385
+
+    VFNMADD213PDZ128rkz = 11386
+
+    VFNMADD213PDZ256m = 11387
+
+    VFNMADD213PDZ256mb = 11388
+
+    VFNMADD213PDZ256mbk = 11389
+
+    VFNMADD213PDZ256mbkz = 11390
+
+    VFNMADD213PDZ256mk = 11391
+
+    VFNMADD213PDZ256mkz = 11392
+
+    VFNMADD213PDZ256r = 11393
+
+    VFNMADD213PDZ256rk = 11394
+
+    VFNMADD213PDZ256rkz = 11395
+
+    VFNMADD213PDZm = 11396
+
+    VFNMADD213PDZmb = 11397
+
+    VFNMADD213PDZmbk = 11398
+
+    VFNMADD213PDZmbkz = 11399
+
+    VFNMADD213PDZmk = 11400
+
+    VFNMADD213PDZmkz = 11401
+
+    VFNMADD213PDZr = 11402
+
+    VFNMADD213PDZrb = 11403
+
+    VFNMADD213PDZrbk = 11404
+
+    VFNMADD213PDZrbkz = 11405
+
+    VFNMADD213PDZrk = 11406
+
+    VFNMADD213PDZrkz = 11407
+
+    VFNMADD213PDm = 11408
+
+    VFNMADD213PDr = 11409
+
+    VFNMADD213PHZ128m = 11410
+
+    VFNMADD213PHZ128mb = 11411
+
+    VFNMADD213PHZ128mbk = 11412
+
+    VFNMADD213PHZ128mbkz = 11413
+
+    VFNMADD213PHZ128mk = 11414
+
+    VFNMADD213PHZ128mkz = 11415
+
+    VFNMADD213PHZ128r = 11416
+
+    VFNMADD213PHZ128rk = 11417
+
+    VFNMADD213PHZ128rkz = 11418
+
+    VFNMADD213PHZ256m = 11419
+
+    VFNMADD213PHZ256mb = 11420
+
+    VFNMADD213PHZ256mbk = 11421
+
+    VFNMADD213PHZ256mbkz = 11422
+
+    VFNMADD213PHZ256mk = 11423
+
+    VFNMADD213PHZ256mkz = 11424
+
+    VFNMADD213PHZ256r = 11425
+
+    VFNMADD213PHZ256rk = 11426
+
+    VFNMADD213PHZ256rkz = 11427
+
+    VFNMADD213PHZm = 11428
+
+    VFNMADD213PHZmb = 11429
+
+    VFNMADD213PHZmbk = 11430
+
+    VFNMADD213PHZmbkz = 11431
+
+    VFNMADD213PHZmk = 11432
+
+    VFNMADD213PHZmkz = 11433
+
+    VFNMADD213PHZr = 11434
+
+    VFNMADD213PHZrb = 11435
+
+    VFNMADD213PHZrbk = 11436
+
+    VFNMADD213PHZrbkz = 11437
+
+    VFNMADD213PHZrk = 11438
+
+    VFNMADD213PHZrkz = 11439
+
+    VFNMADD213PSYm = 11440
+
+    VFNMADD213PSYr = 11441
+
+    VFNMADD213PSZ128m = 11442
+
+    VFNMADD213PSZ128mb = 11443
+
+    VFNMADD213PSZ128mbk = 11444
+
+    VFNMADD213PSZ128mbkz = 11445
+
+    VFNMADD213PSZ128mk = 11446
+
+    VFNMADD213PSZ128mkz = 11447
+
+    VFNMADD213PSZ128r = 11448
+
+    VFNMADD213PSZ128rk = 11449
+
+    VFNMADD213PSZ128rkz = 11450
+
+    VFNMADD213PSZ256m = 11451
+
+    VFNMADD213PSZ256mb = 11452
+
+    VFNMADD213PSZ256mbk = 11453
+
+    VFNMADD213PSZ256mbkz = 11454
+
+    VFNMADD213PSZ256mk = 11455
+
+    VFNMADD213PSZ256mkz = 11456
+
+    VFNMADD213PSZ256r = 11457
+
+    VFNMADD213PSZ256rk = 11458
+
+    VFNMADD213PSZ256rkz = 11459
+
+    VFNMADD213PSZm = 11460
+
+    VFNMADD213PSZmb = 11461
+
+    VFNMADD213PSZmbk = 11462
+
+    VFNMADD213PSZmbkz = 11463
+
+    VFNMADD213PSZmk = 11464
+
+    VFNMADD213PSZmkz = 11465
+
+    VFNMADD213PSZr = 11466
+
+    VFNMADD213PSZrb = 11467
+
+    VFNMADD213PSZrbk = 11468
+
+    VFNMADD213PSZrbkz = 11469
+
+    VFNMADD213PSZrk = 11470
+
+    VFNMADD213PSZrkz = 11471
+
+    VFNMADD213PSm = 11472
+
+    VFNMADD213PSr = 11473
+
+    VFNMADD213SDZm = 11474
+
+    VFNMADD213SDZm_Int = 11475
+
+    VFNMADD213SDZmk_Int = 11476
+
+    VFNMADD213SDZmkz_Int = 11477
+
+    VFNMADD213SDZr = 11478
+
+    VFNMADD213SDZr_Int = 11479
+
+    VFNMADD213SDZrb = 11480
+
+    VFNMADD213SDZrb_Int = 11481
+
+    VFNMADD213SDZrbk_Int = 11482
+
+    VFNMADD213SDZrbkz_Int = 11483
+
+    VFNMADD213SDZrk_Int = 11484
+
+    VFNMADD213SDZrkz_Int = 11485
+
+    VFNMADD213SDm = 11486
+
+    VFNMADD213SDm_Int = 11487
+
+    VFNMADD213SDr = 11488
+
+    VFNMADD213SDr_Int = 11489
+
+    VFNMADD213SHZm = 11490
+
+    VFNMADD213SHZm_Int = 11491
+
+    VFNMADD213SHZmk_Int = 11492
+
+    VFNMADD213SHZmkz_Int = 11493
+
+    VFNMADD213SHZr = 11494
+
+    VFNMADD213SHZr_Int = 11495
+
+    VFNMADD213SHZrb = 11496
+
+    VFNMADD213SHZrb_Int = 11497
+
+    VFNMADD213SHZrbk_Int = 11498
+
+    VFNMADD213SHZrbkz_Int = 11499
+
+    VFNMADD213SHZrk_Int = 11500
+
+    VFNMADD213SHZrkz_Int = 11501
+
+    VFNMADD213SSZm = 11502
+
+    VFNMADD213SSZm_Int = 11503
+
+    VFNMADD213SSZmk_Int = 11504
+
+    VFNMADD213SSZmkz_Int = 11505
+
+    VFNMADD213SSZr = 11506
+
+    VFNMADD213SSZr_Int = 11507
+
+    VFNMADD213SSZrb = 11508
+
+    VFNMADD213SSZrb_Int = 11509
+
+    VFNMADD213SSZrbk_Int = 11510
+
+    VFNMADD213SSZrbkz_Int = 11511
+
+    VFNMADD213SSZrk_Int = 11512
+
+    VFNMADD213SSZrkz_Int = 11513
+
+    VFNMADD213SSm = 11514
+
+    VFNMADD213SSm_Int = 11515
+
+    VFNMADD213SSr = 11516
+
+    VFNMADD213SSr_Int = 11517
+
+    VFNMADD231BF16Z128m = 11518
+
+    VFNMADD231BF16Z128mb = 11519
+
+    VFNMADD231BF16Z128mbk = 11520
+
+    VFNMADD231BF16Z128mbkz = 11521
+
+    VFNMADD231BF16Z128mk = 11522
+
+    VFNMADD231BF16Z128mkz = 11523
+
+    VFNMADD231BF16Z128r = 11524
+
+    VFNMADD231BF16Z128rk = 11525
+
+    VFNMADD231BF16Z128rkz = 11526
+
+    VFNMADD231BF16Z256m = 11527
+
+    VFNMADD231BF16Z256mb = 11528
+
+    VFNMADD231BF16Z256mbk = 11529
+
+    VFNMADD231BF16Z256mbkz = 11530
+
+    VFNMADD231BF16Z256mk = 11531
+
+    VFNMADD231BF16Z256mkz = 11532
+
+    VFNMADD231BF16Z256r = 11533
+
+    VFNMADD231BF16Z256rk = 11534
+
+    VFNMADD231BF16Z256rkz = 11535
+
+    VFNMADD231BF16Zm = 11536
+
+    VFNMADD231BF16Zmb = 11537
+
+    VFNMADD231BF16Zmbk = 11538
+
+    VFNMADD231BF16Zmbkz = 11539
+
+    VFNMADD231BF16Zmk = 11540
+
+    VFNMADD231BF16Zmkz = 11541
+
+    VFNMADD231BF16Zr = 11542
+
+    VFNMADD231BF16Zrk = 11543
+
+    VFNMADD231BF16Zrkz = 11544
+
+    VFNMADD231PDYm = 11545
+
+    VFNMADD231PDYr = 11546
+
+    VFNMADD231PDZ128m = 11547
+
+    VFNMADD231PDZ128mb = 11548
+
+    VFNMADD231PDZ128mbk = 11549
+
+    VFNMADD231PDZ128mbkz = 11550
+
+    VFNMADD231PDZ128mk = 11551
+
+    VFNMADD231PDZ128mkz = 11552
+
+    VFNMADD231PDZ128r = 11553
+
+    VFNMADD231PDZ128rk = 11554
+
+    VFNMADD231PDZ128rkz = 11555
+
+    VFNMADD231PDZ256m = 11556
+
+    VFNMADD231PDZ256mb = 11557
+
+    VFNMADD231PDZ256mbk = 11558
+
+    VFNMADD231PDZ256mbkz = 11559
+
+    VFNMADD231PDZ256mk = 11560
+
+    VFNMADD231PDZ256mkz = 11561
+
+    VFNMADD231PDZ256r = 11562
+
+    VFNMADD231PDZ256rk = 11563
+
+    VFNMADD231PDZ256rkz = 11564
+
+    VFNMADD231PDZm = 11565
+
+    VFNMADD231PDZmb = 11566
+
+    VFNMADD231PDZmbk = 11567
+
+    VFNMADD231PDZmbkz = 11568
+
+    VFNMADD231PDZmk = 11569
+
+    VFNMADD231PDZmkz = 11570
+
+    VFNMADD231PDZr = 11571
+
+    VFNMADD231PDZrb = 11572
+
+    VFNMADD231PDZrbk = 11573
+
+    VFNMADD231PDZrbkz = 11574
+
+    VFNMADD231PDZrk = 11575
+
+    VFNMADD231PDZrkz = 11576
+
+    VFNMADD231PDm = 11577
+
+    VFNMADD231PDr = 11578
+
+    VFNMADD231PHZ128m = 11579
+
+    VFNMADD231PHZ128mb = 11580
+
+    VFNMADD231PHZ128mbk = 11581
+
+    VFNMADD231PHZ128mbkz = 11582
+
+    VFNMADD231PHZ128mk = 11583
+
+    VFNMADD231PHZ128mkz = 11584
+
+    VFNMADD231PHZ128r = 11585
+
+    VFNMADD231PHZ128rk = 11586
+
+    VFNMADD231PHZ128rkz = 11587
+
+    VFNMADD231PHZ256m = 11588
+
+    VFNMADD231PHZ256mb = 11589
+
+    VFNMADD231PHZ256mbk = 11590
+
+    VFNMADD231PHZ256mbkz = 11591
+
+    VFNMADD231PHZ256mk = 11592
+
+    VFNMADD231PHZ256mkz = 11593
+
+    VFNMADD231PHZ256r = 11594
+
+    VFNMADD231PHZ256rk = 11595
+
+    VFNMADD231PHZ256rkz = 11596
+
+    VFNMADD231PHZm = 11597
+
+    VFNMADD231PHZmb = 11598
+
+    VFNMADD231PHZmbk = 11599
+
+    VFNMADD231PHZmbkz = 11600
+
+    VFNMADD231PHZmk = 11601
+
+    VFNMADD231PHZmkz = 11602
+
+    VFNMADD231PHZr = 11603
+
+    VFNMADD231PHZrb = 11604
+
+    VFNMADD231PHZrbk = 11605
+
+    VFNMADD231PHZrbkz = 11606
+
+    VFNMADD231PHZrk = 11607
+
+    VFNMADD231PHZrkz = 11608
+
+    VFNMADD231PSYm = 11609
+
+    VFNMADD231PSYr = 11610
+
+    VFNMADD231PSZ128m = 11611
+
+    VFNMADD231PSZ128mb = 11612
+
+    VFNMADD231PSZ128mbk = 11613
+
+    VFNMADD231PSZ128mbkz = 11614
+
+    VFNMADD231PSZ128mk = 11615
+
+    VFNMADD231PSZ128mkz = 11616
+
+    VFNMADD231PSZ128r = 11617
+
+    VFNMADD231PSZ128rk = 11618
+
+    VFNMADD231PSZ128rkz = 11619
+
+    VFNMADD231PSZ256m = 11620
+
+    VFNMADD231PSZ256mb = 11621
+
+    VFNMADD231PSZ256mbk = 11622
+
+    VFNMADD231PSZ256mbkz = 11623
+
+    VFNMADD231PSZ256mk = 11624
+
+    VFNMADD231PSZ256mkz = 11625
+
+    VFNMADD231PSZ256r = 11626
+
+    VFNMADD231PSZ256rk = 11627
+
+    VFNMADD231PSZ256rkz = 11628
+
+    VFNMADD231PSZm = 11629
+
+    VFNMADD231PSZmb = 11630
+
+    VFNMADD231PSZmbk = 11631
+
+    VFNMADD231PSZmbkz = 11632
+
+    VFNMADD231PSZmk = 11633
+
+    VFNMADD231PSZmkz = 11634
+
+    VFNMADD231PSZr = 11635
+
+    VFNMADD231PSZrb = 11636
+
+    VFNMADD231PSZrbk = 11637
+
+    VFNMADD231PSZrbkz = 11638
+
+    VFNMADD231PSZrk = 11639
+
+    VFNMADD231PSZrkz = 11640
+
+    VFNMADD231PSm = 11641
+
+    VFNMADD231PSr = 11642
+
+    VFNMADD231SDZm = 11643
+
+    VFNMADD231SDZm_Int = 11644
+
+    VFNMADD231SDZmk_Int = 11645
+
+    VFNMADD231SDZmkz_Int = 11646
+
+    VFNMADD231SDZr = 11647
+
+    VFNMADD231SDZr_Int = 11648
+
+    VFNMADD231SDZrb = 11649
+
+    VFNMADD231SDZrb_Int = 11650
+
+    VFNMADD231SDZrbk_Int = 11651
+
+    VFNMADD231SDZrbkz_Int = 11652
+
+    VFNMADD231SDZrk_Int = 11653
+
+    VFNMADD231SDZrkz_Int = 11654
+
+    VFNMADD231SDm = 11655
+
+    VFNMADD231SDm_Int = 11656
+
+    VFNMADD231SDr = 11657
+
+    VFNMADD231SDr_Int = 11658
+
+    VFNMADD231SHZm = 11659
+
+    VFNMADD231SHZm_Int = 11660
+
+    VFNMADD231SHZmk_Int = 11661
+
+    VFNMADD231SHZmkz_Int = 11662
+
+    VFNMADD231SHZr = 11663
+
+    VFNMADD231SHZr_Int = 11664
+
+    VFNMADD231SHZrb = 11665
+
+    VFNMADD231SHZrb_Int = 11666
+
+    VFNMADD231SHZrbk_Int = 11667
+
+    VFNMADD231SHZrbkz_Int = 11668
+
+    VFNMADD231SHZrk_Int = 11669
+
+    VFNMADD231SHZrkz_Int = 11670
+
+    VFNMADD231SSZm = 11671
+
+    VFNMADD231SSZm_Int = 11672
+
+    VFNMADD231SSZmk_Int = 11673
+
+    VFNMADD231SSZmkz_Int = 11674
+
+    VFNMADD231SSZr = 11675
+
+    VFNMADD231SSZr_Int = 11676
+
+    VFNMADD231SSZrb = 11677
+
+    VFNMADD231SSZrb_Int = 11678
+
+    VFNMADD231SSZrbk_Int = 11679
+
+    VFNMADD231SSZrbkz_Int = 11680
+
+    VFNMADD231SSZrk_Int = 11681
+
+    VFNMADD231SSZrkz_Int = 11682
+
+    VFNMADD231SSm = 11683
+
+    VFNMADD231SSm_Int = 11684
+
+    VFNMADD231SSr = 11685
+
+    VFNMADD231SSr_Int = 11686
+
+    VFNMADDPD4Ymr = 11687
+
+    VFNMADDPD4Yrm = 11688
+
+    VFNMADDPD4Yrr = 11689
+
+    VFNMADDPD4Yrr_REV = 11690
+
+    VFNMADDPD4mr = 11691
+
+    VFNMADDPD4rm = 11692
+
+    VFNMADDPD4rr = 11693
+
+    VFNMADDPD4rr_REV = 11694
+
+    VFNMADDPS4Ymr = 11695
+
+    VFNMADDPS4Yrm = 11696
+
+    VFNMADDPS4Yrr = 11697
+
+    VFNMADDPS4Yrr_REV = 11698
+
+    VFNMADDPS4mr = 11699
+
+    VFNMADDPS4rm = 11700
+
+    VFNMADDPS4rr = 11701
+
+    VFNMADDPS4rr_REV = 11702
+
+    VFNMADDSD4mr = 11703
+
+    VFNMADDSD4mr_Int = 11704
+
+    VFNMADDSD4rm = 11705
+
+    VFNMADDSD4rm_Int = 11706
+
+    VFNMADDSD4rr = 11707
+
+    VFNMADDSD4rr_Int = 11708
+
+    VFNMADDSD4rr_Int_REV = 11709
+
+    VFNMADDSD4rr_REV = 11710
+
+    VFNMADDSS4mr = 11711
+
+    VFNMADDSS4mr_Int = 11712
+
+    VFNMADDSS4rm = 11713
+
+    VFNMADDSS4rm_Int = 11714
+
+    VFNMADDSS4rr = 11715
+
+    VFNMADDSS4rr_Int = 11716
+
+    VFNMADDSS4rr_Int_REV = 11717
+
+    VFNMADDSS4rr_REV = 11718
+
+    VFNMSUB132BF16Z128m = 11719
+
+    VFNMSUB132BF16Z128mb = 11720
+
+    VFNMSUB132BF16Z128mbk = 11721
+
+    VFNMSUB132BF16Z128mbkz = 11722
+
+    VFNMSUB132BF16Z128mk = 11723
+
+    VFNMSUB132BF16Z128mkz = 11724
+
+    VFNMSUB132BF16Z128r = 11725
+
+    VFNMSUB132BF16Z128rk = 11726
+
+    VFNMSUB132BF16Z128rkz = 11727
+
+    VFNMSUB132BF16Z256m = 11728
+
+    VFNMSUB132BF16Z256mb = 11729
+
+    VFNMSUB132BF16Z256mbk = 11730
+
+    VFNMSUB132BF16Z256mbkz = 11731
+
+    VFNMSUB132BF16Z256mk = 11732
+
+    VFNMSUB132BF16Z256mkz = 11733
+
+    VFNMSUB132BF16Z256r = 11734
+
+    VFNMSUB132BF16Z256rk = 11735
+
+    VFNMSUB132BF16Z256rkz = 11736
+
+    VFNMSUB132BF16Zm = 11737
+
+    VFNMSUB132BF16Zmb = 11738
+
+    VFNMSUB132BF16Zmbk = 11739
+
+    VFNMSUB132BF16Zmbkz = 11740
+
+    VFNMSUB132BF16Zmk = 11741
+
+    VFNMSUB132BF16Zmkz = 11742
+
+    VFNMSUB132BF16Zr = 11743
+
+    VFNMSUB132BF16Zrk = 11744
+
+    VFNMSUB132BF16Zrkz = 11745
+
+    VFNMSUB132PDYm = 11746
+
+    VFNMSUB132PDYr = 11747
+
+    VFNMSUB132PDZ128m = 11748
+
+    VFNMSUB132PDZ128mb = 11749
+
+    VFNMSUB132PDZ128mbk = 11750
+
+    VFNMSUB132PDZ128mbkz = 11751
+
+    VFNMSUB132PDZ128mk = 11752
+
+    VFNMSUB132PDZ128mkz = 11753
+
+    VFNMSUB132PDZ128r = 11754
+
+    VFNMSUB132PDZ128rk = 11755
+
+    VFNMSUB132PDZ128rkz = 11756
+
+    VFNMSUB132PDZ256m = 11757
+
+    VFNMSUB132PDZ256mb = 11758
+
+    VFNMSUB132PDZ256mbk = 11759
+
+    VFNMSUB132PDZ256mbkz = 11760
+
+    VFNMSUB132PDZ256mk = 11761
+
+    VFNMSUB132PDZ256mkz = 11762
+
+    VFNMSUB132PDZ256r = 11763
+
+    VFNMSUB132PDZ256rk = 11764
+
+    VFNMSUB132PDZ256rkz = 11765
+
+    VFNMSUB132PDZm = 11766
+
+    VFNMSUB132PDZmb = 11767
+
+    VFNMSUB132PDZmbk = 11768
+
+    VFNMSUB132PDZmbkz = 11769
+
+    VFNMSUB132PDZmk = 11770
+
+    VFNMSUB132PDZmkz = 11771
+
+    VFNMSUB132PDZr = 11772
+
+    VFNMSUB132PDZrb = 11773
+
+    VFNMSUB132PDZrbk = 11774
+
+    VFNMSUB132PDZrbkz = 11775
+
+    VFNMSUB132PDZrk = 11776
+
+    VFNMSUB132PDZrkz = 11777
+
+    VFNMSUB132PDm = 11778
+
+    VFNMSUB132PDr = 11779
+
+    VFNMSUB132PHZ128m = 11780
+
+    VFNMSUB132PHZ128mb = 11781
+
+    VFNMSUB132PHZ128mbk = 11782
+
+    VFNMSUB132PHZ128mbkz = 11783
+
+    VFNMSUB132PHZ128mk = 11784
+
+    VFNMSUB132PHZ128mkz = 11785
+
+    VFNMSUB132PHZ128r = 11786
+
+    VFNMSUB132PHZ128rk = 11787
+
+    VFNMSUB132PHZ128rkz = 11788
+
+    VFNMSUB132PHZ256m = 11789
+
+    VFNMSUB132PHZ256mb = 11790
+
+    VFNMSUB132PHZ256mbk = 11791
+
+    VFNMSUB132PHZ256mbkz = 11792
+
+    VFNMSUB132PHZ256mk = 11793
+
+    VFNMSUB132PHZ256mkz = 11794
+
+    VFNMSUB132PHZ256r = 11795
+
+    VFNMSUB132PHZ256rk = 11796
+
+    VFNMSUB132PHZ256rkz = 11797
+
+    VFNMSUB132PHZm = 11798
+
+    VFNMSUB132PHZmb = 11799
+
+    VFNMSUB132PHZmbk = 11800
+
+    VFNMSUB132PHZmbkz = 11801
+
+    VFNMSUB132PHZmk = 11802
+
+    VFNMSUB132PHZmkz = 11803
+
+    VFNMSUB132PHZr = 11804
+
+    VFNMSUB132PHZrb = 11805
+
+    VFNMSUB132PHZrbk = 11806
+
+    VFNMSUB132PHZrbkz = 11807
+
+    VFNMSUB132PHZrk = 11808
+
+    VFNMSUB132PHZrkz = 11809
+
+    VFNMSUB132PSYm = 11810
+
+    VFNMSUB132PSYr = 11811
+
+    VFNMSUB132PSZ128m = 11812
+
+    VFNMSUB132PSZ128mb = 11813
+
+    VFNMSUB132PSZ128mbk = 11814
+
+    VFNMSUB132PSZ128mbkz = 11815
+
+    VFNMSUB132PSZ128mk = 11816
+
+    VFNMSUB132PSZ128mkz = 11817
+
+    VFNMSUB132PSZ128r = 11818
+
+    VFNMSUB132PSZ128rk = 11819
+
+    VFNMSUB132PSZ128rkz = 11820
+
+    VFNMSUB132PSZ256m = 11821
+
+    VFNMSUB132PSZ256mb = 11822
+
+    VFNMSUB132PSZ256mbk = 11823
+
+    VFNMSUB132PSZ256mbkz = 11824
+
+    VFNMSUB132PSZ256mk = 11825
+
+    VFNMSUB132PSZ256mkz = 11826
+
+    VFNMSUB132PSZ256r = 11827
+
+    VFNMSUB132PSZ256rk = 11828
+
+    VFNMSUB132PSZ256rkz = 11829
+
+    VFNMSUB132PSZm = 11830
+
+    VFNMSUB132PSZmb = 11831
+
+    VFNMSUB132PSZmbk = 11832
+
+    VFNMSUB132PSZmbkz = 11833
+
+    VFNMSUB132PSZmk = 11834
+
+    VFNMSUB132PSZmkz = 11835
+
+    VFNMSUB132PSZr = 11836
+
+    VFNMSUB132PSZrb = 11837
+
+    VFNMSUB132PSZrbk = 11838
+
+    VFNMSUB132PSZrbkz = 11839
+
+    VFNMSUB132PSZrk = 11840
+
+    VFNMSUB132PSZrkz = 11841
+
+    VFNMSUB132PSm = 11842
+
+    VFNMSUB132PSr = 11843
+
+    VFNMSUB132SDZm = 11844
+
+    VFNMSUB132SDZm_Int = 11845
+
+    VFNMSUB132SDZmk_Int = 11846
+
+    VFNMSUB132SDZmkz_Int = 11847
+
+    VFNMSUB132SDZr = 11848
+
+    VFNMSUB132SDZr_Int = 11849
+
+    VFNMSUB132SDZrb = 11850
+
+    VFNMSUB132SDZrb_Int = 11851
+
+    VFNMSUB132SDZrbk_Int = 11852
+
+    VFNMSUB132SDZrbkz_Int = 11853
+
+    VFNMSUB132SDZrk_Int = 11854
+
+    VFNMSUB132SDZrkz_Int = 11855
+
+    VFNMSUB132SDm = 11856
+
+    VFNMSUB132SDm_Int = 11857
+
+    VFNMSUB132SDr = 11858
+
+    VFNMSUB132SDr_Int = 11859
+
+    VFNMSUB132SHZm = 11860
+
+    VFNMSUB132SHZm_Int = 11861
+
+    VFNMSUB132SHZmk_Int = 11862
+
+    VFNMSUB132SHZmkz_Int = 11863
+
+    VFNMSUB132SHZr = 11864
+
+    VFNMSUB132SHZr_Int = 11865
+
+    VFNMSUB132SHZrb = 11866
+
+    VFNMSUB132SHZrb_Int = 11867
+
+    VFNMSUB132SHZrbk_Int = 11868
+
+    VFNMSUB132SHZrbkz_Int = 11869
+
+    VFNMSUB132SHZrk_Int = 11870
+
+    VFNMSUB132SHZrkz_Int = 11871
+
+    VFNMSUB132SSZm = 11872
+
+    VFNMSUB132SSZm_Int = 11873
+
+    VFNMSUB132SSZmk_Int = 11874
+
+    VFNMSUB132SSZmkz_Int = 11875
+
+    VFNMSUB132SSZr = 11876
+
+    VFNMSUB132SSZr_Int = 11877
+
+    VFNMSUB132SSZrb = 11878
+
+    VFNMSUB132SSZrb_Int = 11879
+
+    VFNMSUB132SSZrbk_Int = 11880
+
+    VFNMSUB132SSZrbkz_Int = 11881
+
+    VFNMSUB132SSZrk_Int = 11882
+
+    VFNMSUB132SSZrkz_Int = 11883
+
+    VFNMSUB132SSm = 11884
+
+    VFNMSUB132SSm_Int = 11885
+
+    VFNMSUB132SSr = 11886
+
+    VFNMSUB132SSr_Int = 11887
+
+    VFNMSUB213BF16Z128m = 11888
+
+    VFNMSUB213BF16Z128mb = 11889
+
+    VFNMSUB213BF16Z128mbk = 11890
+
+    VFNMSUB213BF16Z128mbkz = 11891
+
+    VFNMSUB213BF16Z128mk = 11892
+
+    VFNMSUB213BF16Z128mkz = 11893
+
+    VFNMSUB213BF16Z128r = 11894
+
+    VFNMSUB213BF16Z128rk = 11895
+
+    VFNMSUB213BF16Z128rkz = 11896
+
+    VFNMSUB213BF16Z256m = 11897
+
+    VFNMSUB213BF16Z256mb = 11898
+
+    VFNMSUB213BF16Z256mbk = 11899
+
+    VFNMSUB213BF16Z256mbkz = 11900
+
+    VFNMSUB213BF16Z256mk = 11901
+
+    VFNMSUB213BF16Z256mkz = 11902
+
+    VFNMSUB213BF16Z256r = 11903
+
+    VFNMSUB213BF16Z256rk = 11904
+
+    VFNMSUB213BF16Z256rkz = 11905
+
+    VFNMSUB213BF16Zm = 11906
+
+    VFNMSUB213BF16Zmb = 11907
+
+    VFNMSUB213BF16Zmbk = 11908
+
+    VFNMSUB213BF16Zmbkz = 11909
+
+    VFNMSUB213BF16Zmk = 11910
+
+    VFNMSUB213BF16Zmkz = 11911
+
+    VFNMSUB213BF16Zr = 11912
+
+    VFNMSUB213BF16Zrk = 11913
+
+    VFNMSUB213BF16Zrkz = 11914
+
+    VFNMSUB213PDYm = 11915
+
+    VFNMSUB213PDYr = 11916
+
+    VFNMSUB213PDZ128m = 11917
+
+    VFNMSUB213PDZ128mb = 11918
+
+    VFNMSUB213PDZ128mbk = 11919
+
+    VFNMSUB213PDZ128mbkz = 11920
+
+    VFNMSUB213PDZ128mk = 11921
+
+    VFNMSUB213PDZ128mkz = 11922
+
+    VFNMSUB213PDZ128r = 11923
+
+    VFNMSUB213PDZ128rk = 11924
+
+    VFNMSUB213PDZ128rkz = 11925
+
+    VFNMSUB213PDZ256m = 11926
+
+    VFNMSUB213PDZ256mb = 11927
+
+    VFNMSUB213PDZ256mbk = 11928
+
+    VFNMSUB213PDZ256mbkz = 11929
+
+    VFNMSUB213PDZ256mk = 11930
+
+    VFNMSUB213PDZ256mkz = 11931
+
+    VFNMSUB213PDZ256r = 11932
+
+    VFNMSUB213PDZ256rk = 11933
+
+    VFNMSUB213PDZ256rkz = 11934
+
+    VFNMSUB213PDZm = 11935
+
+    VFNMSUB213PDZmb = 11936
+
+    VFNMSUB213PDZmbk = 11937
+
+    VFNMSUB213PDZmbkz = 11938
+
+    VFNMSUB213PDZmk = 11939
+
+    VFNMSUB213PDZmkz = 11940
+
+    VFNMSUB213PDZr = 11941
+
+    VFNMSUB213PDZrb = 11942
+
+    VFNMSUB213PDZrbk = 11943
+
+    VFNMSUB213PDZrbkz = 11944
+
+    VFNMSUB213PDZrk = 11945
+
+    VFNMSUB213PDZrkz = 11946
+
+    VFNMSUB213PDm = 11947
+
+    VFNMSUB213PDr = 11948
+
+    VFNMSUB213PHZ128m = 11949
+
+    VFNMSUB213PHZ128mb = 11950
+
+    VFNMSUB213PHZ128mbk = 11951
+
+    VFNMSUB213PHZ128mbkz = 11952
+
+    VFNMSUB213PHZ128mk = 11953
+
+    VFNMSUB213PHZ128mkz = 11954
+
+    VFNMSUB213PHZ128r = 11955
+
+    VFNMSUB213PHZ128rk = 11956
+
+    VFNMSUB213PHZ128rkz = 11957
+
+    VFNMSUB213PHZ256m = 11958
+
+    VFNMSUB213PHZ256mb = 11959
+
+    VFNMSUB213PHZ256mbk = 11960
+
+    VFNMSUB213PHZ256mbkz = 11961
+
+    VFNMSUB213PHZ256mk = 11962
+
+    VFNMSUB213PHZ256mkz = 11963
+
+    VFNMSUB213PHZ256r = 11964
+
+    VFNMSUB213PHZ256rk = 11965
+
+    VFNMSUB213PHZ256rkz = 11966
+
+    VFNMSUB213PHZm = 11967
+
+    VFNMSUB213PHZmb = 11968
+
+    VFNMSUB213PHZmbk = 11969
+
+    VFNMSUB213PHZmbkz = 11970
+
+    VFNMSUB213PHZmk = 11971
+
+    VFNMSUB213PHZmkz = 11972
+
+    VFNMSUB213PHZr = 11973
+
+    VFNMSUB213PHZrb = 11974
+
+    VFNMSUB213PHZrbk = 11975
+
+    VFNMSUB213PHZrbkz = 11976
+
+    VFNMSUB213PHZrk = 11977
+
+    VFNMSUB213PHZrkz = 11978
+
+    VFNMSUB213PSYm = 11979
+
+    VFNMSUB213PSYr = 11980
+
+    VFNMSUB213PSZ128m = 11981
+
+    VFNMSUB213PSZ128mb = 11982
+
+    VFNMSUB213PSZ128mbk = 11983
+
+    VFNMSUB213PSZ128mbkz = 11984
+
+    VFNMSUB213PSZ128mk = 11985
+
+    VFNMSUB213PSZ128mkz = 11986
+
+    VFNMSUB213PSZ128r = 11987
+
+    VFNMSUB213PSZ128rk = 11988
+
+    VFNMSUB213PSZ128rkz = 11989
+
+    VFNMSUB213PSZ256m = 11990
+
+    VFNMSUB213PSZ256mb = 11991
+
+    VFNMSUB213PSZ256mbk = 11992
+
+    VFNMSUB213PSZ256mbkz = 11993
+
+    VFNMSUB213PSZ256mk = 11994
+
+    VFNMSUB213PSZ256mkz = 11995
+
+    VFNMSUB213PSZ256r = 11996
+
+    VFNMSUB213PSZ256rk = 11997
+
+    VFNMSUB213PSZ256rkz = 11998
+
+    VFNMSUB213PSZm = 11999
+
+    VFNMSUB213PSZmb = 12000
+
+    VFNMSUB213PSZmbk = 12001
+
+    VFNMSUB213PSZmbkz = 12002
+
+    VFNMSUB213PSZmk = 12003
+
+    VFNMSUB213PSZmkz = 12004
+
+    VFNMSUB213PSZr = 12005
+
+    VFNMSUB213PSZrb = 12006
+
+    VFNMSUB213PSZrbk = 12007
+
+    VFNMSUB213PSZrbkz = 12008
+
+    VFNMSUB213PSZrk = 12009
+
+    VFNMSUB213PSZrkz = 12010
+
+    VFNMSUB213PSm = 12011
+
+    VFNMSUB213PSr = 12012
+
+    VFNMSUB213SDZm = 12013
+
+    VFNMSUB213SDZm_Int = 12014
+
+    VFNMSUB213SDZmk_Int = 12015
+
+    VFNMSUB213SDZmkz_Int = 12016
+
+    VFNMSUB213SDZr = 12017
+
+    VFNMSUB213SDZr_Int = 12018
+
+    VFNMSUB213SDZrb = 12019
+
+    VFNMSUB213SDZrb_Int = 12020
+
+    VFNMSUB213SDZrbk_Int = 12021
+
+    VFNMSUB213SDZrbkz_Int = 12022
+
+    VFNMSUB213SDZrk_Int = 12023
+
+    VFNMSUB213SDZrkz_Int = 12024
+
+    VFNMSUB213SDm = 12025
+
+    VFNMSUB213SDm_Int = 12026
+
+    VFNMSUB213SDr = 12027
+
+    VFNMSUB213SDr_Int = 12028
+
+    VFNMSUB213SHZm = 12029
+
+    VFNMSUB213SHZm_Int = 12030
+
+    VFNMSUB213SHZmk_Int = 12031
+
+    VFNMSUB213SHZmkz_Int = 12032
+
+    VFNMSUB213SHZr = 12033
+
+    VFNMSUB213SHZr_Int = 12034
+
+    VFNMSUB213SHZrb = 12035
+
+    VFNMSUB213SHZrb_Int = 12036
+
+    VFNMSUB213SHZrbk_Int = 12037
+
+    VFNMSUB213SHZrbkz_Int = 12038
+
+    VFNMSUB213SHZrk_Int = 12039
+
+    VFNMSUB213SHZrkz_Int = 12040
+
+    VFNMSUB213SSZm = 12041
+
+    VFNMSUB213SSZm_Int = 12042
+
+    VFNMSUB213SSZmk_Int = 12043
+
+    VFNMSUB213SSZmkz_Int = 12044
+
+    VFNMSUB213SSZr = 12045
+
+    VFNMSUB213SSZr_Int = 12046
+
+    VFNMSUB213SSZrb = 12047
+
+    VFNMSUB213SSZrb_Int = 12048
+
+    VFNMSUB213SSZrbk_Int = 12049
+
+    VFNMSUB213SSZrbkz_Int = 12050
+
+    VFNMSUB213SSZrk_Int = 12051
+
+    VFNMSUB213SSZrkz_Int = 12052
+
+    VFNMSUB213SSm = 12053
+
+    VFNMSUB213SSm_Int = 12054
+
+    VFNMSUB213SSr = 12055
+
+    VFNMSUB213SSr_Int = 12056
+
+    VFNMSUB231BF16Z128m = 12057
+
+    VFNMSUB231BF16Z128mb = 12058
+
+    VFNMSUB231BF16Z128mbk = 12059
+
+    VFNMSUB231BF16Z128mbkz = 12060
+
+    VFNMSUB231BF16Z128mk = 12061
+
+    VFNMSUB231BF16Z128mkz = 12062
+
+    VFNMSUB231BF16Z128r = 12063
+
+    VFNMSUB231BF16Z128rk = 12064
+
+    VFNMSUB231BF16Z128rkz = 12065
+
+    VFNMSUB231BF16Z256m = 12066
+
+    VFNMSUB231BF16Z256mb = 12067
+
+    VFNMSUB231BF16Z256mbk = 12068
+
+    VFNMSUB231BF16Z256mbkz = 12069
+
+    VFNMSUB231BF16Z256mk = 12070
+
+    VFNMSUB231BF16Z256mkz = 12071
+
+    VFNMSUB231BF16Z256r = 12072
+
+    VFNMSUB231BF16Z256rk = 12073
+
+    VFNMSUB231BF16Z256rkz = 12074
+
+    VFNMSUB231BF16Zm = 12075
+
+    VFNMSUB231BF16Zmb = 12076
+
+    VFNMSUB231BF16Zmbk = 12077
+
+    VFNMSUB231BF16Zmbkz = 12078
+
+    VFNMSUB231BF16Zmk = 12079
+
+    VFNMSUB231BF16Zmkz = 12080
+
+    VFNMSUB231BF16Zr = 12081
+
+    VFNMSUB231BF16Zrk = 12082
+
+    VFNMSUB231BF16Zrkz = 12083
+
+    VFNMSUB231PDYm = 12084
+
+    VFNMSUB231PDYr = 12085
+
+    VFNMSUB231PDZ128m = 12086
+
+    VFNMSUB231PDZ128mb = 12087
+
+    VFNMSUB231PDZ128mbk = 12088
+
+    VFNMSUB231PDZ128mbkz = 12089
+
+    VFNMSUB231PDZ128mk = 12090
+
+    VFNMSUB231PDZ128mkz = 12091
+
+    VFNMSUB231PDZ128r = 12092
+
+    VFNMSUB231PDZ128rk = 12093
+
+    VFNMSUB231PDZ128rkz = 12094
+
+    VFNMSUB231PDZ256m = 12095
+
+    VFNMSUB231PDZ256mb = 12096
+
+    VFNMSUB231PDZ256mbk = 12097
+
+    VFNMSUB231PDZ256mbkz = 12098
+
+    VFNMSUB231PDZ256mk = 12099
+
+    VFNMSUB231PDZ256mkz = 12100
+
+    VFNMSUB231PDZ256r = 12101
+
+    VFNMSUB231PDZ256rk = 12102
+
+    VFNMSUB231PDZ256rkz = 12103
+
+    VFNMSUB231PDZm = 12104
+
+    VFNMSUB231PDZmb = 12105
+
+    VFNMSUB231PDZmbk = 12106
+
+    VFNMSUB231PDZmbkz = 12107
+
+    VFNMSUB231PDZmk = 12108
+
+    VFNMSUB231PDZmkz = 12109
+
+    VFNMSUB231PDZr = 12110
+
+    VFNMSUB231PDZrb = 12111
+
+    VFNMSUB231PDZrbk = 12112
+
+    VFNMSUB231PDZrbkz = 12113
+
+    VFNMSUB231PDZrk = 12114
+
+    VFNMSUB231PDZrkz = 12115
+
+    VFNMSUB231PDm = 12116
+
+    VFNMSUB231PDr = 12117
+
+    VFNMSUB231PHZ128m = 12118
+
+    VFNMSUB231PHZ128mb = 12119
+
+    VFNMSUB231PHZ128mbk = 12120
+
+    VFNMSUB231PHZ128mbkz = 12121
+
+    VFNMSUB231PHZ128mk = 12122
+
+    VFNMSUB231PHZ128mkz = 12123
+
+    VFNMSUB231PHZ128r = 12124
+
+    VFNMSUB231PHZ128rk = 12125
+
+    VFNMSUB231PHZ128rkz = 12126
+
+    VFNMSUB231PHZ256m = 12127
+
+    VFNMSUB231PHZ256mb = 12128
+
+    VFNMSUB231PHZ256mbk = 12129
+
+    VFNMSUB231PHZ256mbkz = 12130
+
+    VFNMSUB231PHZ256mk = 12131
+
+    VFNMSUB231PHZ256mkz = 12132
+
+    VFNMSUB231PHZ256r = 12133
+
+    VFNMSUB231PHZ256rk = 12134
+
+    VFNMSUB231PHZ256rkz = 12135
+
+    VFNMSUB231PHZm = 12136
+
+    VFNMSUB231PHZmb = 12137
+
+    VFNMSUB231PHZmbk = 12138
+
+    VFNMSUB231PHZmbkz = 12139
+
+    VFNMSUB231PHZmk = 12140
+
+    VFNMSUB231PHZmkz = 12141
+
+    VFNMSUB231PHZr = 12142
+
+    VFNMSUB231PHZrb = 12143
+
+    VFNMSUB231PHZrbk = 12144
+
+    VFNMSUB231PHZrbkz = 12145
+
+    VFNMSUB231PHZrk = 12146
+
+    VFNMSUB231PHZrkz = 12147
+
+    VFNMSUB231PSYm = 12148
+
+    VFNMSUB231PSYr = 12149
+
+    VFNMSUB231PSZ128m = 12150
+
+    VFNMSUB231PSZ128mb = 12151
+
+    VFNMSUB231PSZ128mbk = 12152
+
+    VFNMSUB231PSZ128mbkz = 12153
+
+    VFNMSUB231PSZ128mk = 12154
+
+    VFNMSUB231PSZ128mkz = 12155
+
+    VFNMSUB231PSZ128r = 12156
+
+    VFNMSUB231PSZ128rk = 12157
+
+    VFNMSUB231PSZ128rkz = 12158
+
+    VFNMSUB231PSZ256m = 12159
+
+    VFNMSUB231PSZ256mb = 12160
+
+    VFNMSUB231PSZ256mbk = 12161
+
+    VFNMSUB231PSZ256mbkz = 12162
+
+    VFNMSUB231PSZ256mk = 12163
+
+    VFNMSUB231PSZ256mkz = 12164
+
+    VFNMSUB231PSZ256r = 12165
+
+    VFNMSUB231PSZ256rk = 12166
+
+    VFNMSUB231PSZ256rkz = 12167
+
+    VFNMSUB231PSZm = 12168
+
+    VFNMSUB231PSZmb = 12169
+
+    VFNMSUB231PSZmbk = 12170
+
+    VFNMSUB231PSZmbkz = 12171
+
+    VFNMSUB231PSZmk = 12172
+
+    VFNMSUB231PSZmkz = 12173
+
+    VFNMSUB231PSZr = 12174
+
+    VFNMSUB231PSZrb = 12175
+
+    VFNMSUB231PSZrbk = 12176
+
+    VFNMSUB231PSZrbkz = 12177
+
+    VFNMSUB231PSZrk = 12178
+
+    VFNMSUB231PSZrkz = 12179
+
+    VFNMSUB231PSm = 12180
+
+    VFNMSUB231PSr = 12181
+
+    VFNMSUB231SDZm = 12182
+
+    VFNMSUB231SDZm_Int = 12183
+
+    VFNMSUB231SDZmk_Int = 12184
+
+    VFNMSUB231SDZmkz_Int = 12185
+
+    VFNMSUB231SDZr = 12186
+
+    VFNMSUB231SDZr_Int = 12187
+
+    VFNMSUB231SDZrb = 12188
+
+    VFNMSUB231SDZrb_Int = 12189
+
+    VFNMSUB231SDZrbk_Int = 12190
+
+    VFNMSUB231SDZrbkz_Int = 12191
+
+    VFNMSUB231SDZrk_Int = 12192
+
+    VFNMSUB231SDZrkz_Int = 12193
+
+    VFNMSUB231SDm = 12194
+
+    VFNMSUB231SDm_Int = 12195
+
+    VFNMSUB231SDr = 12196
+
+    VFNMSUB231SDr_Int = 12197
+
+    VFNMSUB231SHZm = 12198
+
+    VFNMSUB231SHZm_Int = 12199
+
+    VFNMSUB231SHZmk_Int = 12200
+
+    VFNMSUB231SHZmkz_Int = 12201
+
+    VFNMSUB231SHZr = 12202
+
+    VFNMSUB231SHZr_Int = 12203
+
+    VFNMSUB231SHZrb = 12204
+
+    VFNMSUB231SHZrb_Int = 12205
+
+    VFNMSUB231SHZrbk_Int = 12206
+
+    VFNMSUB231SHZrbkz_Int = 12207
+
+    VFNMSUB231SHZrk_Int = 12208
+
+    VFNMSUB231SHZrkz_Int = 12209
+
+    VFNMSUB231SSZm = 12210
+
+    VFNMSUB231SSZm_Int = 12211
+
+    VFNMSUB231SSZmk_Int = 12212
+
+    VFNMSUB231SSZmkz_Int = 12213
+
+    VFNMSUB231SSZr = 12214
+
+    VFNMSUB231SSZr_Int = 12215
+
+    VFNMSUB231SSZrb = 12216
+
+    VFNMSUB231SSZrb_Int = 12217
+
+    VFNMSUB231SSZrbk_Int = 12218
+
+    VFNMSUB231SSZrbkz_Int = 12219
+
+    VFNMSUB231SSZrk_Int = 12220
+
+    VFNMSUB231SSZrkz_Int = 12221
+
+    VFNMSUB231SSm = 12222
+
+    VFNMSUB231SSm_Int = 12223
+
+    VFNMSUB231SSr = 12224
+
+    VFNMSUB231SSr_Int = 12225
+
+    VFNMSUBPD4Ymr = 12226
+
+    VFNMSUBPD4Yrm = 12227
+
+    VFNMSUBPD4Yrr = 12228
+
+    VFNMSUBPD4Yrr_REV = 12229
+
+    VFNMSUBPD4mr = 12230
+
+    VFNMSUBPD4rm = 12231
+
+    VFNMSUBPD4rr = 12232
+
+    VFNMSUBPD4rr_REV = 12233
+
+    VFNMSUBPS4Ymr = 12234
+
+    VFNMSUBPS4Yrm = 12235
+
+    VFNMSUBPS4Yrr = 12236
+
+    VFNMSUBPS4Yrr_REV = 12237
+
+    VFNMSUBPS4mr = 12238
+
+    VFNMSUBPS4rm = 12239
+
+    VFNMSUBPS4rr = 12240
+
+    VFNMSUBPS4rr_REV = 12241
+
+    VFNMSUBSD4mr = 12242
+
+    VFNMSUBSD4mr_Int = 12243
+
+    VFNMSUBSD4rm = 12244
+
+    VFNMSUBSD4rm_Int = 12245
+
+    VFNMSUBSD4rr = 12246
+
+    VFNMSUBSD4rr_Int = 12247
+
+    VFNMSUBSD4rr_Int_REV = 12248
+
+    VFNMSUBSD4rr_REV = 12249
+
+    VFNMSUBSS4mr = 12250
+
+    VFNMSUBSS4mr_Int = 12251
+
+    VFNMSUBSS4rm = 12252
+
+    VFNMSUBSS4rm_Int = 12253
+
+    VFNMSUBSS4rr = 12254
+
+    VFNMSUBSS4rr_Int = 12255
+
+    VFNMSUBSS4rr_Int_REV = 12256
+
+    VFNMSUBSS4rr_REV = 12257
+
+    VFPCLASSBF16Z128mbi = 12258
+
+    VFPCLASSBF16Z128mbik = 12259
+
+    VFPCLASSBF16Z128mi = 12260
+
+    VFPCLASSBF16Z128mik = 12261
+
+    VFPCLASSBF16Z128ri = 12262
+
+    VFPCLASSBF16Z128rik = 12263
+
+    VFPCLASSBF16Z256mbi = 12264
+
+    VFPCLASSBF16Z256mbik = 12265
+
+    VFPCLASSBF16Z256mi = 12266
+
+    VFPCLASSBF16Z256mik = 12267
+
+    VFPCLASSBF16Z256ri = 12268
+
+    VFPCLASSBF16Z256rik = 12269
+
+    VFPCLASSBF16Zmbi = 12270
+
+    VFPCLASSBF16Zmbik = 12271
+
+    VFPCLASSBF16Zmi = 12272
+
+    VFPCLASSBF16Zmik = 12273
+
+    VFPCLASSBF16Zri = 12274
+
+    VFPCLASSBF16Zrik = 12275
+
+    VFPCLASSPDZ128mbi = 12276
+
+    VFPCLASSPDZ128mbik = 12277
+
+    VFPCLASSPDZ128mi = 12278
+
+    VFPCLASSPDZ128mik = 12279
+
+    VFPCLASSPDZ128ri = 12280
+
+    VFPCLASSPDZ128rik = 12281
+
+    VFPCLASSPDZ256mbi = 12282
+
+    VFPCLASSPDZ256mbik = 12283
+
+    VFPCLASSPDZ256mi = 12284
+
+    VFPCLASSPDZ256mik = 12285
+
+    VFPCLASSPDZ256ri = 12286
+
+    VFPCLASSPDZ256rik = 12287
+
+    VFPCLASSPDZmbi = 12288
+
+    VFPCLASSPDZmbik = 12289
+
+    VFPCLASSPDZmi = 12290
+
+    VFPCLASSPDZmik = 12291
+
+    VFPCLASSPDZri = 12292
+
+    VFPCLASSPDZrik = 12293
+
+    VFPCLASSPHZ128mbi = 12294
+
+    VFPCLASSPHZ128mbik = 12295
+
+    VFPCLASSPHZ128mi = 12296
+
+    VFPCLASSPHZ128mik = 12297
+
+    VFPCLASSPHZ128ri = 12298
+
+    VFPCLASSPHZ128rik = 12299
+
+    VFPCLASSPHZ256mbi = 12300
+
+    VFPCLASSPHZ256mbik = 12301
+
+    VFPCLASSPHZ256mi = 12302
+
+    VFPCLASSPHZ256mik = 12303
+
+    VFPCLASSPHZ256ri = 12304
+
+    VFPCLASSPHZ256rik = 12305
+
+    VFPCLASSPHZmbi = 12306
+
+    VFPCLASSPHZmbik = 12307
+
+    VFPCLASSPHZmi = 12308
+
+    VFPCLASSPHZmik = 12309
+
+    VFPCLASSPHZri = 12310
+
+    VFPCLASSPHZrik = 12311
+
+    VFPCLASSPSZ128mbi = 12312
+
+    VFPCLASSPSZ128mbik = 12313
+
+    VFPCLASSPSZ128mi = 12314
+
+    VFPCLASSPSZ128mik = 12315
+
+    VFPCLASSPSZ128ri = 12316
+
+    VFPCLASSPSZ128rik = 12317
+
+    VFPCLASSPSZ256mbi = 12318
+
+    VFPCLASSPSZ256mbik = 12319
+
+    VFPCLASSPSZ256mi = 12320
+
+    VFPCLASSPSZ256mik = 12321
+
+    VFPCLASSPSZ256ri = 12322
+
+    VFPCLASSPSZ256rik = 12323
+
+    VFPCLASSPSZmbi = 12324
+
+    VFPCLASSPSZmbik = 12325
+
+    VFPCLASSPSZmi = 12326
+
+    VFPCLASSPSZmik = 12327
+
+    VFPCLASSPSZri = 12328
+
+    VFPCLASSPSZrik = 12329
+
+    VFPCLASSSDZmi = 12330
+
+    VFPCLASSSDZmik = 12331
+
+    VFPCLASSSDZri = 12332
+
+    VFPCLASSSDZrik = 12333
+
+    VFPCLASSSHZmi = 12334
+
+    VFPCLASSSHZmik = 12335
+
+    VFPCLASSSHZri = 12336
+
+    VFPCLASSSHZrik = 12337
+
+    VFPCLASSSSZmi = 12338
+
+    VFPCLASSSSZmik = 12339
+
+    VFPCLASSSSZri = 12340
+
+    VFPCLASSSSZrik = 12341
+
+    VFRCZPDYrm = 12342
+
+    VFRCZPDYrr = 12343
+
+    VFRCZPDrm = 12344
+
+    VFRCZPDrr = 12345
+
+    VFRCZPSYrm = 12346
+
+    VFRCZPSYrr = 12347
+
+    VFRCZPSrm = 12348
+
+    VFRCZPSrr = 12349
+
+    VFRCZSDrm = 12350
+
+    VFRCZSDrr = 12351
+
+    VFRCZSSrm = 12352
+
+    VFRCZSSrr = 12353
+
+    VGATHERDPDYrm = 12354
+
+    VGATHERDPDZ128rm = 12355
+
+    VGATHERDPDZ256rm = 12356
+
+    VGATHERDPDZrm = 12357
+
+    VGATHERDPDrm = 12358
+
+    VGATHERDPSYrm = 12359
+
+    VGATHERDPSZ128rm = 12360
+
+    VGATHERDPSZ256rm = 12361
+
+    VGATHERDPSZrm = 12362
+
+    VGATHERDPSrm = 12363
+
+    VGATHERPF0DPDm = 12364
+
+    VGATHERPF0DPSm = 12365
+
+    VGATHERPF0QPDm = 12366
+
+    VGATHERPF0QPSm = 12367
+
+    VGATHERPF1DPDm = 12368
+
+    VGATHERPF1DPSm = 12369
+
+    VGATHERPF1QPDm = 12370
+
+    VGATHERPF1QPSm = 12371
+
+    VGATHERQPDYrm = 12372
+
+    VGATHERQPDZ128rm = 12373
+
+    VGATHERQPDZ256rm = 12374
+
+    VGATHERQPDZrm = 12375
+
+    VGATHERQPDrm = 12376
+
+    VGATHERQPSYrm = 12377
+
+    VGATHERQPSZ128rm = 12378
+
+    VGATHERQPSZ256rm = 12379
+
+    VGATHERQPSZrm = 12380
+
+    VGATHERQPSrm = 12381
+
+    VGETEXPBF16Z128m = 12382
+
+    VGETEXPBF16Z128mb = 12383
+
+    VGETEXPBF16Z128mbk = 12384
+
+    VGETEXPBF16Z128mbkz = 12385
+
+    VGETEXPBF16Z128mk = 12386
+
+    VGETEXPBF16Z128mkz = 12387
+
+    VGETEXPBF16Z128r = 12388
+
+    VGETEXPBF16Z128rk = 12389
+
+    VGETEXPBF16Z128rkz = 12390
+
+    VGETEXPBF16Z256m = 12391
+
+    VGETEXPBF16Z256mb = 12392
+
+    VGETEXPBF16Z256mbk = 12393
+
+    VGETEXPBF16Z256mbkz = 12394
+
+    VGETEXPBF16Z256mk = 12395
+
+    VGETEXPBF16Z256mkz = 12396
+
+    VGETEXPBF16Z256r = 12397
+
+    VGETEXPBF16Z256rk = 12398
+
+    VGETEXPBF16Z256rkz = 12399
+
+    VGETEXPBF16Zm = 12400
+
+    VGETEXPBF16Zmb = 12401
+
+    VGETEXPBF16Zmbk = 12402
+
+    VGETEXPBF16Zmbkz = 12403
+
+    VGETEXPBF16Zmk = 12404
+
+    VGETEXPBF16Zmkz = 12405
+
+    VGETEXPBF16Zr = 12406
+
+    VGETEXPBF16Zrk = 12407
+
+    VGETEXPBF16Zrkz = 12408
+
+    VGETEXPPDZ128m = 12409
+
+    VGETEXPPDZ128mb = 12410
+
+    VGETEXPPDZ128mbk = 12411
+
+    VGETEXPPDZ128mbkz = 12412
+
+    VGETEXPPDZ128mk = 12413
+
+    VGETEXPPDZ128mkz = 12414
+
+    VGETEXPPDZ128r = 12415
+
+    VGETEXPPDZ128rk = 12416
+
+    VGETEXPPDZ128rkz = 12417
+
+    VGETEXPPDZ256m = 12418
+
+    VGETEXPPDZ256mb = 12419
+
+    VGETEXPPDZ256mbk = 12420
+
+    VGETEXPPDZ256mbkz = 12421
+
+    VGETEXPPDZ256mk = 12422
+
+    VGETEXPPDZ256mkz = 12423
+
+    VGETEXPPDZ256r = 12424
+
+    VGETEXPPDZ256rk = 12425
+
+    VGETEXPPDZ256rkz = 12426
+
+    VGETEXPPDZm = 12427
+
+    VGETEXPPDZmb = 12428
+
+    VGETEXPPDZmbk = 12429
+
+    VGETEXPPDZmbkz = 12430
+
+    VGETEXPPDZmk = 12431
+
+    VGETEXPPDZmkz = 12432
+
+    VGETEXPPDZr = 12433
+
+    VGETEXPPDZrb = 12434
+
+    VGETEXPPDZrbk = 12435
+
+    VGETEXPPDZrbkz = 12436
+
+    VGETEXPPDZrk = 12437
+
+    VGETEXPPDZrkz = 12438
+
+    VGETEXPPHZ128m = 12439
+
+    VGETEXPPHZ128mb = 12440
+
+    VGETEXPPHZ128mbk = 12441
+
+    VGETEXPPHZ128mbkz = 12442
+
+    VGETEXPPHZ128mk = 12443
+
+    VGETEXPPHZ128mkz = 12444
+
+    VGETEXPPHZ128r = 12445
+
+    VGETEXPPHZ128rk = 12446
+
+    VGETEXPPHZ128rkz = 12447
+
+    VGETEXPPHZ256m = 12448
+
+    VGETEXPPHZ256mb = 12449
+
+    VGETEXPPHZ256mbk = 12450
+
+    VGETEXPPHZ256mbkz = 12451
+
+    VGETEXPPHZ256mk = 12452
+
+    VGETEXPPHZ256mkz = 12453
+
+    VGETEXPPHZ256r = 12454
+
+    VGETEXPPHZ256rk = 12455
+
+    VGETEXPPHZ256rkz = 12456
+
+    VGETEXPPHZm = 12457
+
+    VGETEXPPHZmb = 12458
+
+    VGETEXPPHZmbk = 12459
+
+    VGETEXPPHZmbkz = 12460
+
+    VGETEXPPHZmk = 12461
+
+    VGETEXPPHZmkz = 12462
+
+    VGETEXPPHZr = 12463
+
+    VGETEXPPHZrb = 12464
+
+    VGETEXPPHZrbk = 12465
+
+    VGETEXPPHZrbkz = 12466
+
+    VGETEXPPHZrk = 12467
+
+    VGETEXPPHZrkz = 12468
+
+    VGETEXPPSZ128m = 12469
+
+    VGETEXPPSZ128mb = 12470
+
+    VGETEXPPSZ128mbk = 12471
+
+    VGETEXPPSZ128mbkz = 12472
+
+    VGETEXPPSZ128mk = 12473
+
+    VGETEXPPSZ128mkz = 12474
+
+    VGETEXPPSZ128r = 12475
+
+    VGETEXPPSZ128rk = 12476
+
+    VGETEXPPSZ128rkz = 12477
+
+    VGETEXPPSZ256m = 12478
+
+    VGETEXPPSZ256mb = 12479
+
+    VGETEXPPSZ256mbk = 12480
+
+    VGETEXPPSZ256mbkz = 12481
+
+    VGETEXPPSZ256mk = 12482
+
+    VGETEXPPSZ256mkz = 12483
+
+    VGETEXPPSZ256r = 12484
+
+    VGETEXPPSZ256rk = 12485
+
+    VGETEXPPSZ256rkz = 12486
+
+    VGETEXPPSZm = 12487
+
+    VGETEXPPSZmb = 12488
+
+    VGETEXPPSZmbk = 12489
+
+    VGETEXPPSZmbkz = 12490
+
+    VGETEXPPSZmk = 12491
+
+    VGETEXPPSZmkz = 12492
+
+    VGETEXPPSZr = 12493
+
+    VGETEXPPSZrb = 12494
+
+    VGETEXPPSZrbk = 12495
+
+    VGETEXPPSZrbkz = 12496
+
+    VGETEXPPSZrk = 12497
+
+    VGETEXPPSZrkz = 12498
+
+    VGETEXPSDZm = 12499
+
+    VGETEXPSDZmk = 12500
+
+    VGETEXPSDZmkz = 12501
+
+    VGETEXPSDZr = 12502
+
+    VGETEXPSDZrb = 12503
+
+    VGETEXPSDZrbk = 12504
+
+    VGETEXPSDZrbkz = 12505
+
+    VGETEXPSDZrk = 12506
+
+    VGETEXPSDZrkz = 12507
+
+    VGETEXPSHZm = 12508
+
+    VGETEXPSHZmk = 12509
+
+    VGETEXPSHZmkz = 12510
+
+    VGETEXPSHZr = 12511
+
+    VGETEXPSHZrb = 12512
+
+    VGETEXPSHZrbk = 12513
+
+    VGETEXPSHZrbkz = 12514
+
+    VGETEXPSHZrk = 12515
+
+    VGETEXPSHZrkz = 12516
+
+    VGETEXPSSZm = 12517
+
+    VGETEXPSSZmk = 12518
+
+    VGETEXPSSZmkz = 12519
+
+    VGETEXPSSZr = 12520
+
+    VGETEXPSSZrb = 12521
+
+    VGETEXPSSZrbk = 12522
+
+    VGETEXPSSZrbkz = 12523
+
+    VGETEXPSSZrk = 12524
+
+    VGETEXPSSZrkz = 12525
+
+    VGETMANTBF16Z128rmbi = 12526
+
+    VGETMANTBF16Z128rmbik = 12527
+
+    VGETMANTBF16Z128rmbikz = 12528
+
+    VGETMANTBF16Z128rmi = 12529
+
+    VGETMANTBF16Z128rmik = 12530
+
+    VGETMANTBF16Z128rmikz = 12531
+
+    VGETMANTBF16Z128rri = 12532
+
+    VGETMANTBF16Z128rrik = 12533
+
+    VGETMANTBF16Z128rrikz = 12534
+
+    VGETMANTBF16Z256rmbi = 12535
+
+    VGETMANTBF16Z256rmbik = 12536
+
+    VGETMANTBF16Z256rmbikz = 12537
+
+    VGETMANTBF16Z256rmi = 12538
+
+    VGETMANTBF16Z256rmik = 12539
+
+    VGETMANTBF16Z256rmikz = 12540
+
+    VGETMANTBF16Z256rri = 12541
+
+    VGETMANTBF16Z256rrik = 12542
+
+    VGETMANTBF16Z256rrikz = 12543
+
+    VGETMANTBF16Zrmbi = 12544
+
+    VGETMANTBF16Zrmbik = 12545
+
+    VGETMANTBF16Zrmbikz = 12546
+
+    VGETMANTBF16Zrmi = 12547
+
+    VGETMANTBF16Zrmik = 12548
+
+    VGETMANTBF16Zrmikz = 12549
+
+    VGETMANTBF16Zrri = 12550
+
+    VGETMANTBF16Zrrik = 12551
+
+    VGETMANTBF16Zrrikz = 12552
+
+    VGETMANTPDZ128rmbi = 12553
+
+    VGETMANTPDZ128rmbik = 12554
+
+    VGETMANTPDZ128rmbikz = 12555
+
+    VGETMANTPDZ128rmi = 12556
+
+    VGETMANTPDZ128rmik = 12557
+
+    VGETMANTPDZ128rmikz = 12558
+
+    VGETMANTPDZ128rri = 12559
+
+    VGETMANTPDZ128rrik = 12560
+
+    VGETMANTPDZ128rrikz = 12561
+
+    VGETMANTPDZ256rmbi = 12562
+
+    VGETMANTPDZ256rmbik = 12563
+
+    VGETMANTPDZ256rmbikz = 12564
+
+    VGETMANTPDZ256rmi = 12565
+
+    VGETMANTPDZ256rmik = 12566
+
+    VGETMANTPDZ256rmikz = 12567
+
+    VGETMANTPDZ256rri = 12568
+
+    VGETMANTPDZ256rrik = 12569
+
+    VGETMANTPDZ256rrikz = 12570
+
+    VGETMANTPDZrmbi = 12571
+
+    VGETMANTPDZrmbik = 12572
+
+    VGETMANTPDZrmbikz = 12573
+
+    VGETMANTPDZrmi = 12574
+
+    VGETMANTPDZrmik = 12575
+
+    VGETMANTPDZrmikz = 12576
+
+    VGETMANTPDZrri = 12577
+
+    VGETMANTPDZrrib = 12578
+
+    VGETMANTPDZrribk = 12579
+
+    VGETMANTPDZrribkz = 12580
+
+    VGETMANTPDZrrik = 12581
+
+    VGETMANTPDZrrikz = 12582
+
+    VGETMANTPHZ128rmbi = 12583
+
+    VGETMANTPHZ128rmbik = 12584
+
+    VGETMANTPHZ128rmbikz = 12585
+
+    VGETMANTPHZ128rmi = 12586
+
+    VGETMANTPHZ128rmik = 12587
+
+    VGETMANTPHZ128rmikz = 12588
+
+    VGETMANTPHZ128rri = 12589
+
+    VGETMANTPHZ128rrik = 12590
+
+    VGETMANTPHZ128rrikz = 12591
+
+    VGETMANTPHZ256rmbi = 12592
+
+    VGETMANTPHZ256rmbik = 12593
+
+    VGETMANTPHZ256rmbikz = 12594
+
+    VGETMANTPHZ256rmi = 12595
+
+    VGETMANTPHZ256rmik = 12596
+
+    VGETMANTPHZ256rmikz = 12597
+
+    VGETMANTPHZ256rri = 12598
+
+    VGETMANTPHZ256rrik = 12599
+
+    VGETMANTPHZ256rrikz = 12600
+
+    VGETMANTPHZrmbi = 12601
+
+    VGETMANTPHZrmbik = 12602
+
+    VGETMANTPHZrmbikz = 12603
+
+    VGETMANTPHZrmi = 12604
+
+    VGETMANTPHZrmik = 12605
+
+    VGETMANTPHZrmikz = 12606
+
+    VGETMANTPHZrri = 12607
+
+    VGETMANTPHZrrib = 12608
+
+    VGETMANTPHZrribk = 12609
+
+    VGETMANTPHZrribkz = 12610
+
+    VGETMANTPHZrrik = 12611
+
+    VGETMANTPHZrrikz = 12612
+
+    VGETMANTPSZ128rmbi = 12613
+
+    VGETMANTPSZ128rmbik = 12614
+
+    VGETMANTPSZ128rmbikz = 12615
+
+    VGETMANTPSZ128rmi = 12616
+
+    VGETMANTPSZ128rmik = 12617
+
+    VGETMANTPSZ128rmikz = 12618
+
+    VGETMANTPSZ128rri = 12619
+
+    VGETMANTPSZ128rrik = 12620
+
+    VGETMANTPSZ128rrikz = 12621
+
+    VGETMANTPSZ256rmbi = 12622
+
+    VGETMANTPSZ256rmbik = 12623
+
+    VGETMANTPSZ256rmbikz = 12624
+
+    VGETMANTPSZ256rmi = 12625
+
+    VGETMANTPSZ256rmik = 12626
+
+    VGETMANTPSZ256rmikz = 12627
+
+    VGETMANTPSZ256rri = 12628
+
+    VGETMANTPSZ256rrik = 12629
+
+    VGETMANTPSZ256rrikz = 12630
+
+    VGETMANTPSZrmbi = 12631
+
+    VGETMANTPSZrmbik = 12632
+
+    VGETMANTPSZrmbikz = 12633
+
+    VGETMANTPSZrmi = 12634
+
+    VGETMANTPSZrmik = 12635
+
+    VGETMANTPSZrmikz = 12636
+
+    VGETMANTPSZrri = 12637
+
+    VGETMANTPSZrrib = 12638
+
+    VGETMANTPSZrribk = 12639
+
+    VGETMANTPSZrribkz = 12640
+
+    VGETMANTPSZrrik = 12641
+
+    VGETMANTPSZrrikz = 12642
+
+    VGETMANTSDZrmi = 12643
+
+    VGETMANTSDZrmik = 12644
+
+    VGETMANTSDZrmikz = 12645
+
+    VGETMANTSDZrri = 12646
+
+    VGETMANTSDZrrib = 12647
+
+    VGETMANTSDZrribk = 12648
+
+    VGETMANTSDZrribkz = 12649
+
+    VGETMANTSDZrrik = 12650
+
+    VGETMANTSDZrrikz = 12651
+
+    VGETMANTSHZrmi = 12652
+
+    VGETMANTSHZrmik = 12653
+
+    VGETMANTSHZrmikz = 12654
+
+    VGETMANTSHZrri = 12655
+
+    VGETMANTSHZrrib = 12656
+
+    VGETMANTSHZrribk = 12657
+
+    VGETMANTSHZrribkz = 12658
+
+    VGETMANTSHZrrik = 12659
+
+    VGETMANTSHZrrikz = 12660
+
+    VGETMANTSSZrmi = 12661
+
+    VGETMANTSSZrmik = 12662
+
+    VGETMANTSSZrmikz = 12663
+
+    VGETMANTSSZrri = 12664
+
+    VGETMANTSSZrrib = 12665
+
+    VGETMANTSSZrribk = 12666
+
+    VGETMANTSSZrribkz = 12667
+
+    VGETMANTSSZrrik = 12668
+
+    VGETMANTSSZrrikz = 12669
+
+    VGF2P8AFFINEINVQBYrmi = 12670
+
+    VGF2P8AFFINEINVQBYrri = 12671
+
+    VGF2P8AFFINEINVQBZ128rmbi = 12672
+
+    VGF2P8AFFINEINVQBZ128rmbik = 12673
+
+    VGF2P8AFFINEINVQBZ128rmbikz = 12674
+
+    VGF2P8AFFINEINVQBZ128rmi = 12675
+
+    VGF2P8AFFINEINVQBZ128rmik = 12676
+
+    VGF2P8AFFINEINVQBZ128rmikz = 12677
+
+    VGF2P8AFFINEINVQBZ128rri = 12678
+
+    VGF2P8AFFINEINVQBZ128rrik = 12679
+
+    VGF2P8AFFINEINVQBZ128rrikz = 12680
+
+    VGF2P8AFFINEINVQBZ256rmbi = 12681
+
+    VGF2P8AFFINEINVQBZ256rmbik = 12682
+
+    VGF2P8AFFINEINVQBZ256rmbikz = 12683
+
+    VGF2P8AFFINEINVQBZ256rmi = 12684
+
+    VGF2P8AFFINEINVQBZ256rmik = 12685
+
+    VGF2P8AFFINEINVQBZ256rmikz = 12686
+
+    VGF2P8AFFINEINVQBZ256rri = 12687
+
+    VGF2P8AFFINEINVQBZ256rrik = 12688
+
+    VGF2P8AFFINEINVQBZ256rrikz = 12689
+
+    VGF2P8AFFINEINVQBZrmbi = 12690
+
+    VGF2P8AFFINEINVQBZrmbik = 12691
+
+    VGF2P8AFFINEINVQBZrmbikz = 12692
+
+    VGF2P8AFFINEINVQBZrmi = 12693
+
+    VGF2P8AFFINEINVQBZrmik = 12694
+
+    VGF2P8AFFINEINVQBZrmikz = 12695
+
+    VGF2P8AFFINEINVQBZrri = 12696
+
+    VGF2P8AFFINEINVQBZrrik = 12697
+
+    VGF2P8AFFINEINVQBZrrikz = 12698
+
+    VGF2P8AFFINEINVQBrmi = 12699
+
+    VGF2P8AFFINEINVQBrri = 12700
+
+    VGF2P8AFFINEQBYrmi = 12701
+
+    VGF2P8AFFINEQBYrri = 12702
+
+    VGF2P8AFFINEQBZ128rmbi = 12703
+
+    VGF2P8AFFINEQBZ128rmbik = 12704
+
+    VGF2P8AFFINEQBZ128rmbikz = 12705
+
+    VGF2P8AFFINEQBZ128rmi = 12706
+
+    VGF2P8AFFINEQBZ128rmik = 12707
+
+    VGF2P8AFFINEQBZ128rmikz = 12708
+
+    VGF2P8AFFINEQBZ128rri = 12709
+
+    VGF2P8AFFINEQBZ128rrik = 12710
+
+    VGF2P8AFFINEQBZ128rrikz = 12711
+
+    VGF2P8AFFINEQBZ256rmbi = 12712
+
+    VGF2P8AFFINEQBZ256rmbik = 12713
+
+    VGF2P8AFFINEQBZ256rmbikz = 12714
+
+    VGF2P8AFFINEQBZ256rmi = 12715
+
+    VGF2P8AFFINEQBZ256rmik = 12716
+
+    VGF2P8AFFINEQBZ256rmikz = 12717
+
+    VGF2P8AFFINEQBZ256rri = 12718
+
+    VGF2P8AFFINEQBZ256rrik = 12719
+
+    VGF2P8AFFINEQBZ256rrikz = 12720
+
+    VGF2P8AFFINEQBZrmbi = 12721
+
+    VGF2P8AFFINEQBZrmbik = 12722
+
+    VGF2P8AFFINEQBZrmbikz = 12723
+
+    VGF2P8AFFINEQBZrmi = 12724
+
+    VGF2P8AFFINEQBZrmik = 12725
+
+    VGF2P8AFFINEQBZrmikz = 12726
+
+    VGF2P8AFFINEQBZrri = 12727
+
+    VGF2P8AFFINEQBZrrik = 12728
+
+    VGF2P8AFFINEQBZrrikz = 12729
+
+    VGF2P8AFFINEQBrmi = 12730
+
+    VGF2P8AFFINEQBrri = 12731
+
+    VGF2P8MULBYrm = 12732
+
+    VGF2P8MULBYrr = 12733
+
+    VGF2P8MULBZ128rm = 12734
+
+    VGF2P8MULBZ128rmk = 12735
+
+    VGF2P8MULBZ128rmkz = 12736
+
+    VGF2P8MULBZ128rr = 12737
+
+    VGF2P8MULBZ128rrk = 12738
+
+    VGF2P8MULBZ128rrkz = 12739
+
+    VGF2P8MULBZ256rm = 12740
+
+    VGF2P8MULBZ256rmk = 12741
+
+    VGF2P8MULBZ256rmkz = 12742
+
+    VGF2P8MULBZ256rr = 12743
+
+    VGF2P8MULBZ256rrk = 12744
+
+    VGF2P8MULBZ256rrkz = 12745
+
+    VGF2P8MULBZrm = 12746
+
+    VGF2P8MULBZrmk = 12747
+
+    VGF2P8MULBZrmkz = 12748
+
+    VGF2P8MULBZrr = 12749
+
+    VGF2P8MULBZrrk = 12750
+
+    VGF2P8MULBZrrkz = 12751
+
+    VGF2P8MULBrm = 12752
+
+    VGF2P8MULBrr = 12753
+
+    VHADDPDYrm = 12754
+
+    VHADDPDYrr = 12755
+
+    VHADDPDrm = 12756
+
+    VHADDPDrr = 12757
+
+    VHADDPSYrm = 12758
+
+    VHADDPSYrr = 12759
+
+    VHADDPSrm = 12760
+
+    VHADDPSrr = 12761
+
+    VHSUBPDYrm = 12762
+
+    VHSUBPDYrr = 12763
+
+    VHSUBPDrm = 12764
+
+    VHSUBPDrr = 12765
+
+    VHSUBPSYrm = 12766
+
+    VHSUBPSYrr = 12767
+
+    VHSUBPSrm = 12768
+
+    VHSUBPSrr = 12769
+
+    VINSERTF128rmi = 12770
+
+    VINSERTF128rri = 12771
+
+    VINSERTF32X4Z256rmi = 12772
+
+    VINSERTF32X4Z256rmik = 12773
+
+    VINSERTF32X4Z256rmikz = 12774
+
+    VINSERTF32X4Z256rri = 12775
+
+    VINSERTF32X4Z256rrik = 12776
+
+    VINSERTF32X4Z256rrikz = 12777
+
+    VINSERTF32X4Zrmi = 12778
+
+    VINSERTF32X4Zrmik = 12779
+
+    VINSERTF32X4Zrmikz = 12780
+
+    VINSERTF32X4Zrri = 12781
+
+    VINSERTF32X4Zrrik = 12782
+
+    VINSERTF32X4Zrrikz = 12783
+
+    VINSERTF32X8Zrmi = 12784
+
+    VINSERTF32X8Zrmik = 12785
+
+    VINSERTF32X8Zrmikz = 12786
+
+    VINSERTF32X8Zrri = 12787
+
+    VINSERTF32X8Zrrik = 12788
+
+    VINSERTF32X8Zrrikz = 12789
+
+    VINSERTF64X2Z256rmi = 12790
+
+    VINSERTF64X2Z256rmik = 12791
+
+    VINSERTF64X2Z256rmikz = 12792
+
+    VINSERTF64X2Z256rri = 12793
+
+    VINSERTF64X2Z256rrik = 12794
+
+    VINSERTF64X2Z256rrikz = 12795
+
+    VINSERTF64X2Zrmi = 12796
+
+    VINSERTF64X2Zrmik = 12797
+
+    VINSERTF64X2Zrmikz = 12798
+
+    VINSERTF64X2Zrri = 12799
+
+    VINSERTF64X2Zrrik = 12800
+
+    VINSERTF64X2Zrrikz = 12801
+
+    VINSERTF64X4Zrmi = 12802
+
+    VINSERTF64X4Zrmik = 12803
+
+    VINSERTF64X4Zrmikz = 12804
+
+    VINSERTF64X4Zrri = 12805
+
+    VINSERTF64X4Zrrik = 12806
+
+    VINSERTF64X4Zrrikz = 12807
+
+    VINSERTI128rmi = 12808
+
+    VINSERTI128rri = 12809
+
+    VINSERTI32X4Z256rmi = 12810
+
+    VINSERTI32X4Z256rmik = 12811
+
+    VINSERTI32X4Z256rmikz = 12812
+
+    VINSERTI32X4Z256rri = 12813
+
+    VINSERTI32X4Z256rrik = 12814
+
+    VINSERTI32X4Z256rrikz = 12815
+
+    VINSERTI32X4Zrmi = 12816
+
+    VINSERTI32X4Zrmik = 12817
+
+    VINSERTI32X4Zrmikz = 12818
+
+    VINSERTI32X4Zrri = 12819
+
+    VINSERTI32X4Zrrik = 12820
+
+    VINSERTI32X4Zrrikz = 12821
+
+    VINSERTI32X8Zrmi = 12822
+
+    VINSERTI32X8Zrmik = 12823
+
+    VINSERTI32X8Zrmikz = 12824
+
+    VINSERTI32X8Zrri = 12825
+
+    VINSERTI32X8Zrrik = 12826
+
+    VINSERTI32X8Zrrikz = 12827
+
+    VINSERTI64X2Z256rmi = 12828
+
+    VINSERTI64X2Z256rmik = 12829
+
+    VINSERTI64X2Z256rmikz = 12830
+
+    VINSERTI64X2Z256rri = 12831
+
+    VINSERTI64X2Z256rrik = 12832
+
+    VINSERTI64X2Z256rrikz = 12833
+
+    VINSERTI64X2Zrmi = 12834
+
+    VINSERTI64X2Zrmik = 12835
+
+    VINSERTI64X2Zrmikz = 12836
+
+    VINSERTI64X2Zrri = 12837
+
+    VINSERTI64X2Zrrik = 12838
+
+    VINSERTI64X2Zrrikz = 12839
+
+    VINSERTI64X4Zrmi = 12840
+
+    VINSERTI64X4Zrmik = 12841
+
+    VINSERTI64X4Zrmikz = 12842
+
+    VINSERTI64X4Zrri = 12843
+
+    VINSERTI64X4Zrrik = 12844
+
+    VINSERTI64X4Zrrikz = 12845
+
+    VINSERTPSZrmi = 12846
+
+    VINSERTPSZrri = 12847
+
+    VINSERTPSrmi = 12848
+
+    VINSERTPSrri = 12849
+
+    VLDDQUYrm = 12850
+
+    VLDDQUrm = 12851
+
+    VLDMXCSR = 12852
+
+    VMASKMOVDQU = 12853
+
+    VMASKMOVDQU64 = 12854
+
+    VMASKMOVPDYmr = 12855
+
+    VMASKMOVPDYrm = 12856
+
+    VMASKMOVPDmr = 12857
+
+    VMASKMOVPDrm = 12858
+
+    VMASKMOVPSYmr = 12859
+
+    VMASKMOVPSYrm = 12860
+
+    VMASKMOVPSmr = 12861
+
+    VMASKMOVPSrm = 12862
+
+    VMAXBF16Z128rm = 12863
+
+    VMAXBF16Z128rmb = 12864
+
+    VMAXBF16Z128rmbk = 12865
+
+    VMAXBF16Z128rmbkz = 12866
+
+    VMAXBF16Z128rmk = 12867
+
+    VMAXBF16Z128rmkz = 12868
+
+    VMAXBF16Z128rr = 12869
+
+    VMAXBF16Z128rrk = 12870
+
+    VMAXBF16Z128rrkz = 12871
+
+    VMAXBF16Z256rm = 12872
+
+    VMAXBF16Z256rmb = 12873
+
+    VMAXBF16Z256rmbk = 12874
+
+    VMAXBF16Z256rmbkz = 12875
+
+    VMAXBF16Z256rmk = 12876
+
+    VMAXBF16Z256rmkz = 12877
+
+    VMAXBF16Z256rr = 12878
+
+    VMAXBF16Z256rrk = 12879
+
+    VMAXBF16Z256rrkz = 12880
+
+    VMAXBF16Zrm = 12881
+
+    VMAXBF16Zrmb = 12882
+
+    VMAXBF16Zrmbk = 12883
+
+    VMAXBF16Zrmbkz = 12884
+
+    VMAXBF16Zrmk = 12885
+
+    VMAXBF16Zrmkz = 12886
+
+    VMAXBF16Zrr = 12887
+
+    VMAXBF16Zrrk = 12888
+
+    VMAXBF16Zrrkz = 12889
+
+    VMAXCPDYrm = 12890
+
+    VMAXCPDYrr = 12891
+
+    VMAXCPDZ128rm = 12892
+
+    VMAXCPDZ128rmb = 12893
+
+    VMAXCPDZ128rmbk = 12894
+
+    VMAXCPDZ128rmbkz = 12895
+
+    VMAXCPDZ128rmk = 12896
+
+    VMAXCPDZ128rmkz = 12897
+
+    VMAXCPDZ128rr = 12898
+
+    VMAXCPDZ128rrk = 12899
+
+    VMAXCPDZ128rrkz = 12900
+
+    VMAXCPDZ256rm = 12901
+
+    VMAXCPDZ256rmb = 12902
+
+    VMAXCPDZ256rmbk = 12903
+
+    VMAXCPDZ256rmbkz = 12904
+
+    VMAXCPDZ256rmk = 12905
+
+    VMAXCPDZ256rmkz = 12906
+
+    VMAXCPDZ256rr = 12907
+
+    VMAXCPDZ256rrk = 12908
+
+    VMAXCPDZ256rrkz = 12909
+
+    VMAXCPDZrm = 12910
+
+    VMAXCPDZrmb = 12911
+
+    VMAXCPDZrmbk = 12912
+
+    VMAXCPDZrmbkz = 12913
+
+    VMAXCPDZrmk = 12914
+
+    VMAXCPDZrmkz = 12915
+
+    VMAXCPDZrr = 12916
+
+    VMAXCPDZrrk = 12917
+
+    VMAXCPDZrrkz = 12918
+
+    VMAXCPDrm = 12919
+
+    VMAXCPDrr = 12920
+
+    VMAXCPHZ128rm = 12921
+
+    VMAXCPHZ128rmb = 12922
+
+    VMAXCPHZ128rmbk = 12923
+
+    VMAXCPHZ128rmbkz = 12924
+
+    VMAXCPHZ128rmk = 12925
+
+    VMAXCPHZ128rmkz = 12926
+
+    VMAXCPHZ128rr = 12927
+
+    VMAXCPHZ128rrk = 12928
+
+    VMAXCPHZ128rrkz = 12929
+
+    VMAXCPHZ256rm = 12930
+
+    VMAXCPHZ256rmb = 12931
+
+    VMAXCPHZ256rmbk = 12932
+
+    VMAXCPHZ256rmbkz = 12933
+
+    VMAXCPHZ256rmk = 12934
+
+    VMAXCPHZ256rmkz = 12935
+
+    VMAXCPHZ256rr = 12936
+
+    VMAXCPHZ256rrk = 12937
+
+    VMAXCPHZ256rrkz = 12938
+
+    VMAXCPHZrm = 12939
+
+    VMAXCPHZrmb = 12940
+
+    VMAXCPHZrmbk = 12941
+
+    VMAXCPHZrmbkz = 12942
+
+    VMAXCPHZrmk = 12943
+
+    VMAXCPHZrmkz = 12944
+
+    VMAXCPHZrr = 12945
+
+    VMAXCPHZrrk = 12946
+
+    VMAXCPHZrrkz = 12947
+
+    VMAXCPSYrm = 12948
+
+    VMAXCPSYrr = 12949
+
+    VMAXCPSZ128rm = 12950
+
+    VMAXCPSZ128rmb = 12951
+
+    VMAXCPSZ128rmbk = 12952
+
+    VMAXCPSZ128rmbkz = 12953
+
+    VMAXCPSZ128rmk = 12954
+
+    VMAXCPSZ128rmkz = 12955
+
+    VMAXCPSZ128rr = 12956
+
+    VMAXCPSZ128rrk = 12957
+
+    VMAXCPSZ128rrkz = 12958
+
+    VMAXCPSZ256rm = 12959
+
+    VMAXCPSZ256rmb = 12960
+
+    VMAXCPSZ256rmbk = 12961
+
+    VMAXCPSZ256rmbkz = 12962
+
+    VMAXCPSZ256rmk = 12963
+
+    VMAXCPSZ256rmkz = 12964
+
+    VMAXCPSZ256rr = 12965
+
+    VMAXCPSZ256rrk = 12966
+
+    VMAXCPSZ256rrkz = 12967
+
+    VMAXCPSZrm = 12968
+
+    VMAXCPSZrmb = 12969
+
+    VMAXCPSZrmbk = 12970
+
+    VMAXCPSZrmbkz = 12971
+
+    VMAXCPSZrmk = 12972
+
+    VMAXCPSZrmkz = 12973
+
+    VMAXCPSZrr = 12974
+
+    VMAXCPSZrrk = 12975
+
+    VMAXCPSZrrkz = 12976
+
+    VMAXCPSrm = 12977
+
+    VMAXCPSrr = 12978
+
+    VMAXCSDZrm = 12979
+
+    VMAXCSDZrr = 12980
+
+    VMAXCSDrm = 12981
+
+    VMAXCSDrr = 12982
+
+    VMAXCSHZrm = 12983
+
+    VMAXCSHZrr = 12984
+
+    VMAXCSSZrm = 12985
+
+    VMAXCSSZrr = 12986
+
+    VMAXCSSrm = 12987
+
+    VMAXCSSrr = 12988
+
+    VMAXPDYrm = 12989
+
+    VMAXPDYrr = 12990
+
+    VMAXPDZ128rm = 12991
+
+    VMAXPDZ128rmb = 12992
+
+    VMAXPDZ128rmbk = 12993
+
+    VMAXPDZ128rmbkz = 12994
+
+    VMAXPDZ128rmk = 12995
+
+    VMAXPDZ128rmkz = 12996
+
+    VMAXPDZ128rr = 12997
+
+    VMAXPDZ128rrk = 12998
+
+    VMAXPDZ128rrkz = 12999
+
+    VMAXPDZ256rm = 13000
+
+    VMAXPDZ256rmb = 13001
+
+    VMAXPDZ256rmbk = 13002
+
+    VMAXPDZ256rmbkz = 13003
+
+    VMAXPDZ256rmk = 13004
+
+    VMAXPDZ256rmkz = 13005
+
+    VMAXPDZ256rr = 13006
+
+    VMAXPDZ256rrk = 13007
+
+    VMAXPDZ256rrkz = 13008
+
+    VMAXPDZrm = 13009
+
+    VMAXPDZrmb = 13010
+
+    VMAXPDZrmbk = 13011
+
+    VMAXPDZrmbkz = 13012
+
+    VMAXPDZrmk = 13013
+
+    VMAXPDZrmkz = 13014
+
+    VMAXPDZrr = 13015
+
+    VMAXPDZrrb = 13016
+
+    VMAXPDZrrbk = 13017
+
+    VMAXPDZrrbkz = 13018
+
+    VMAXPDZrrk = 13019
+
+    VMAXPDZrrkz = 13020
+
+    VMAXPDrm = 13021
+
+    VMAXPDrr = 13022
+
+    VMAXPHZ128rm = 13023
+
+    VMAXPHZ128rmb = 13024
+
+    VMAXPHZ128rmbk = 13025
+
+    VMAXPHZ128rmbkz = 13026
+
+    VMAXPHZ128rmk = 13027
+
+    VMAXPHZ128rmkz = 13028
+
+    VMAXPHZ128rr = 13029
+
+    VMAXPHZ128rrk = 13030
+
+    VMAXPHZ128rrkz = 13031
+
+    VMAXPHZ256rm = 13032
+
+    VMAXPHZ256rmb = 13033
+
+    VMAXPHZ256rmbk = 13034
+
+    VMAXPHZ256rmbkz = 13035
+
+    VMAXPHZ256rmk = 13036
+
+    VMAXPHZ256rmkz = 13037
+
+    VMAXPHZ256rr = 13038
+
+    VMAXPHZ256rrk = 13039
+
+    VMAXPHZ256rrkz = 13040
+
+    VMAXPHZrm = 13041
+
+    VMAXPHZrmb = 13042
+
+    VMAXPHZrmbk = 13043
+
+    VMAXPHZrmbkz = 13044
+
+    VMAXPHZrmk = 13045
+
+    VMAXPHZrmkz = 13046
+
+    VMAXPHZrr = 13047
+
+    VMAXPHZrrb = 13048
+
+    VMAXPHZrrbk = 13049
+
+    VMAXPHZrrbkz = 13050
+
+    VMAXPHZrrk = 13051
+
+    VMAXPHZrrkz = 13052
+
+    VMAXPSYrm = 13053
+
+    VMAXPSYrr = 13054
+
+    VMAXPSZ128rm = 13055
+
+    VMAXPSZ128rmb = 13056
+
+    VMAXPSZ128rmbk = 13057
+
+    VMAXPSZ128rmbkz = 13058
+
+    VMAXPSZ128rmk = 13059
+
+    VMAXPSZ128rmkz = 13060
+
+    VMAXPSZ128rr = 13061
+
+    VMAXPSZ128rrk = 13062
+
+    VMAXPSZ128rrkz = 13063
+
+    VMAXPSZ256rm = 13064
+
+    VMAXPSZ256rmb = 13065
+
+    VMAXPSZ256rmbk = 13066
+
+    VMAXPSZ256rmbkz = 13067
+
+    VMAXPSZ256rmk = 13068
+
+    VMAXPSZ256rmkz = 13069
+
+    VMAXPSZ256rr = 13070
+
+    VMAXPSZ256rrk = 13071
+
+    VMAXPSZ256rrkz = 13072
+
+    VMAXPSZrm = 13073
+
+    VMAXPSZrmb = 13074
+
+    VMAXPSZrmbk = 13075
+
+    VMAXPSZrmbkz = 13076
+
+    VMAXPSZrmk = 13077
+
+    VMAXPSZrmkz = 13078
+
+    VMAXPSZrr = 13079
+
+    VMAXPSZrrb = 13080
+
+    VMAXPSZrrbk = 13081
+
+    VMAXPSZrrbkz = 13082
+
+    VMAXPSZrrk = 13083
+
+    VMAXPSZrrkz = 13084
+
+    VMAXPSrm = 13085
+
+    VMAXPSrr = 13086
+
+    VMAXSDZrm = 13087
+
+    VMAXSDZrm_Int = 13088
+
+    VMAXSDZrmk_Int = 13089
+
+    VMAXSDZrmkz_Int = 13090
+
+    VMAXSDZrr = 13091
+
+    VMAXSDZrr_Int = 13092
+
+    VMAXSDZrrb_Int = 13093
+
+    VMAXSDZrrbk_Int = 13094
+
+    VMAXSDZrrbkz_Int = 13095
+
+    VMAXSDZrrk_Int = 13096
+
+    VMAXSDZrrkz_Int = 13097
+
+    VMAXSDrm = 13098
+
+    VMAXSDrm_Int = 13099
+
+    VMAXSDrr = 13100
+
+    VMAXSDrr_Int = 13101
+
+    VMAXSHZrm = 13102
+
+    VMAXSHZrm_Int = 13103
+
+    VMAXSHZrmk_Int = 13104
+
+    VMAXSHZrmkz_Int = 13105
+
+    VMAXSHZrr = 13106
+
+    VMAXSHZrr_Int = 13107
+
+    VMAXSHZrrb_Int = 13108
+
+    VMAXSHZrrbk_Int = 13109
+
+    VMAXSHZrrbkz_Int = 13110
+
+    VMAXSHZrrk_Int = 13111
+
+    VMAXSHZrrkz_Int = 13112
+
+    VMAXSSZrm = 13113
+
+    VMAXSSZrm_Int = 13114
+
+    VMAXSSZrmk_Int = 13115
+
+    VMAXSSZrmkz_Int = 13116
+
+    VMAXSSZrr = 13117
+
+    VMAXSSZrr_Int = 13118
+
+    VMAXSSZrrb_Int = 13119
+
+    VMAXSSZrrbk_Int = 13120
+
+    VMAXSSZrrbkz_Int = 13121
+
+    VMAXSSZrrk_Int = 13122
+
+    VMAXSSZrrkz_Int = 13123
+
+    VMAXSSrm = 13124
+
+    VMAXSSrm_Int = 13125
+
+    VMAXSSrr = 13126
+
+    VMAXSSrr_Int = 13127
+
+    VMCALL = 13128
+
+    VMCLEARm = 13129
+
+    VMFUNC = 13130
+
+    VMINBF16Z128rm = 13131
+
+    VMINBF16Z128rmb = 13132
+
+    VMINBF16Z128rmbk = 13133
+
+    VMINBF16Z128rmbkz = 13134
+
+    VMINBF16Z128rmk = 13135
+
+    VMINBF16Z128rmkz = 13136
+
+    VMINBF16Z128rr = 13137
+
+    VMINBF16Z128rrk = 13138
+
+    VMINBF16Z128rrkz = 13139
+
+    VMINBF16Z256rm = 13140
+
+    VMINBF16Z256rmb = 13141
+
+    VMINBF16Z256rmbk = 13142
+
+    VMINBF16Z256rmbkz = 13143
+
+    VMINBF16Z256rmk = 13144
+
+    VMINBF16Z256rmkz = 13145
+
+    VMINBF16Z256rr = 13146
+
+    VMINBF16Z256rrk = 13147
+
+    VMINBF16Z256rrkz = 13148
+
+    VMINBF16Zrm = 13149
+
+    VMINBF16Zrmb = 13150
+
+    VMINBF16Zrmbk = 13151
+
+    VMINBF16Zrmbkz = 13152
+
+    VMINBF16Zrmk = 13153
+
+    VMINBF16Zrmkz = 13154
+
+    VMINBF16Zrr = 13155
+
+    VMINBF16Zrrk = 13156
+
+    VMINBF16Zrrkz = 13157
+
+    VMINCPDYrm = 13158
+
+    VMINCPDYrr = 13159
+
+    VMINCPDZ128rm = 13160
+
+    VMINCPDZ128rmb = 13161
+
+    VMINCPDZ128rmbk = 13162
+
+    VMINCPDZ128rmbkz = 13163
+
+    VMINCPDZ128rmk = 13164
+
+    VMINCPDZ128rmkz = 13165
+
+    VMINCPDZ128rr = 13166
+
+    VMINCPDZ128rrk = 13167
+
+    VMINCPDZ128rrkz = 13168
+
+    VMINCPDZ256rm = 13169
+
+    VMINCPDZ256rmb = 13170
+
+    VMINCPDZ256rmbk = 13171
+
+    VMINCPDZ256rmbkz = 13172
+
+    VMINCPDZ256rmk = 13173
+
+    VMINCPDZ256rmkz = 13174
+
+    VMINCPDZ256rr = 13175
+
+    VMINCPDZ256rrk = 13176
+
+    VMINCPDZ256rrkz = 13177
+
+    VMINCPDZrm = 13178
+
+    VMINCPDZrmb = 13179
+
+    VMINCPDZrmbk = 13180
+
+    VMINCPDZrmbkz = 13181
+
+    VMINCPDZrmk = 13182
+
+    VMINCPDZrmkz = 13183
+
+    VMINCPDZrr = 13184
+
+    VMINCPDZrrk = 13185
+
+    VMINCPDZrrkz = 13186
+
+    VMINCPDrm = 13187
+
+    VMINCPDrr = 13188
+
+    VMINCPHZ128rm = 13189
+
+    VMINCPHZ128rmb = 13190
+
+    VMINCPHZ128rmbk = 13191
+
+    VMINCPHZ128rmbkz = 13192
+
+    VMINCPHZ128rmk = 13193
+
+    VMINCPHZ128rmkz = 13194
+
+    VMINCPHZ128rr = 13195
+
+    VMINCPHZ128rrk = 13196
+
+    VMINCPHZ128rrkz = 13197
+
+    VMINCPHZ256rm = 13198
+
+    VMINCPHZ256rmb = 13199
+
+    VMINCPHZ256rmbk = 13200
+
+    VMINCPHZ256rmbkz = 13201
+
+    VMINCPHZ256rmk = 13202
+
+    VMINCPHZ256rmkz = 13203
+
+    VMINCPHZ256rr = 13204
+
+    VMINCPHZ256rrk = 13205
+
+    VMINCPHZ256rrkz = 13206
+
+    VMINCPHZrm = 13207
+
+    VMINCPHZrmb = 13208
+
+    VMINCPHZrmbk = 13209
+
+    VMINCPHZrmbkz = 13210
+
+    VMINCPHZrmk = 13211
+
+    VMINCPHZrmkz = 13212
+
+    VMINCPHZrr = 13213
+
+    VMINCPHZrrk = 13214
+
+    VMINCPHZrrkz = 13215
+
+    VMINCPSYrm = 13216
+
+    VMINCPSYrr = 13217
+
+    VMINCPSZ128rm = 13218
+
+    VMINCPSZ128rmb = 13219
+
+    VMINCPSZ128rmbk = 13220
+
+    VMINCPSZ128rmbkz = 13221
+
+    VMINCPSZ128rmk = 13222
+
+    VMINCPSZ128rmkz = 13223
+
+    VMINCPSZ128rr = 13224
+
+    VMINCPSZ128rrk = 13225
+
+    VMINCPSZ128rrkz = 13226
+
+    VMINCPSZ256rm = 13227
+
+    VMINCPSZ256rmb = 13228
+
+    VMINCPSZ256rmbk = 13229
+
+    VMINCPSZ256rmbkz = 13230
+
+    VMINCPSZ256rmk = 13231
+
+    VMINCPSZ256rmkz = 13232
+
+    VMINCPSZ256rr = 13233
+
+    VMINCPSZ256rrk = 13234
+
+    VMINCPSZ256rrkz = 13235
+
+    VMINCPSZrm = 13236
+
+    VMINCPSZrmb = 13237
+
+    VMINCPSZrmbk = 13238
+
+    VMINCPSZrmbkz = 13239
+
+    VMINCPSZrmk = 13240
+
+    VMINCPSZrmkz = 13241
+
+    VMINCPSZrr = 13242
+
+    VMINCPSZrrk = 13243
+
+    VMINCPSZrrkz = 13244
+
+    VMINCPSrm = 13245
+
+    VMINCPSrr = 13246
+
+    VMINCSDZrm = 13247
+
+    VMINCSDZrr = 13248
+
+    VMINCSDrm = 13249
+
+    VMINCSDrr = 13250
+
+    VMINCSHZrm = 13251
+
+    VMINCSHZrr = 13252
+
+    VMINCSSZrm = 13253
+
+    VMINCSSZrr = 13254
+
+    VMINCSSrm = 13255
+
+    VMINCSSrr = 13256
+
+    VMINMAXBF16Z128rmbi = 13257
+
+    VMINMAXBF16Z128rmbik = 13258
+
+    VMINMAXBF16Z128rmbikz = 13259
+
+    VMINMAXBF16Z128rmi = 13260
+
+    VMINMAXBF16Z128rmik = 13261
+
+    VMINMAXBF16Z128rmikz = 13262
+
+    VMINMAXBF16Z128rri = 13263
+
+    VMINMAXBF16Z128rrik = 13264
+
+    VMINMAXBF16Z128rrikz = 13265
+
+    VMINMAXBF16Z256rmbi = 13266
+
+    VMINMAXBF16Z256rmbik = 13267
+
+    VMINMAXBF16Z256rmbikz = 13268
+
+    VMINMAXBF16Z256rmi = 13269
+
+    VMINMAXBF16Z256rmik = 13270
+
+    VMINMAXBF16Z256rmikz = 13271
+
+    VMINMAXBF16Z256rri = 13272
+
+    VMINMAXBF16Z256rrik = 13273
+
+    VMINMAXBF16Z256rrikz = 13274
+
+    VMINMAXBF16Zrmbi = 13275
+
+    VMINMAXBF16Zrmbik = 13276
+
+    VMINMAXBF16Zrmbikz = 13277
+
+    VMINMAXBF16Zrmi = 13278
+
+    VMINMAXBF16Zrmik = 13279
+
+    VMINMAXBF16Zrmikz = 13280
+
+    VMINMAXBF16Zrri = 13281
+
+    VMINMAXBF16Zrrik = 13282
+
+    VMINMAXBF16Zrrikz = 13283
+
+    VMINMAXPDZ128rmbi = 13284
+
+    VMINMAXPDZ128rmbik = 13285
+
+    VMINMAXPDZ128rmbikz = 13286
+
+    VMINMAXPDZ128rmi = 13287
+
+    VMINMAXPDZ128rmik = 13288
+
+    VMINMAXPDZ128rmikz = 13289
+
+    VMINMAXPDZ128rri = 13290
+
+    VMINMAXPDZ128rrik = 13291
+
+    VMINMAXPDZ128rrikz = 13292
+
+    VMINMAXPDZ256rmbi = 13293
+
+    VMINMAXPDZ256rmbik = 13294
+
+    VMINMAXPDZ256rmbikz = 13295
+
+    VMINMAXPDZ256rmi = 13296
+
+    VMINMAXPDZ256rmik = 13297
+
+    VMINMAXPDZ256rmikz = 13298
+
+    VMINMAXPDZ256rri = 13299
+
+    VMINMAXPDZ256rrik = 13300
+
+    VMINMAXPDZ256rrikz = 13301
+
+    VMINMAXPDZrmbi = 13302
+
+    VMINMAXPDZrmbik = 13303
+
+    VMINMAXPDZrmbikz = 13304
+
+    VMINMAXPDZrmi = 13305
+
+    VMINMAXPDZrmik = 13306
+
+    VMINMAXPDZrmikz = 13307
+
+    VMINMAXPDZrri = 13308
+
+    VMINMAXPDZrrib = 13309
+
+    VMINMAXPDZrribk = 13310
+
+    VMINMAXPDZrribkz = 13311
+
+    VMINMAXPDZrrik = 13312
+
+    VMINMAXPDZrrikz = 13313
+
+    VMINMAXPHZ128rmbi = 13314
+
+    VMINMAXPHZ128rmbik = 13315
+
+    VMINMAXPHZ128rmbikz = 13316
+
+    VMINMAXPHZ128rmi = 13317
+
+    VMINMAXPHZ128rmik = 13318
+
+    VMINMAXPHZ128rmikz = 13319
+
+    VMINMAXPHZ128rri = 13320
+
+    VMINMAXPHZ128rrik = 13321
+
+    VMINMAXPHZ128rrikz = 13322
+
+    VMINMAXPHZ256rmbi = 13323
+
+    VMINMAXPHZ256rmbik = 13324
+
+    VMINMAXPHZ256rmbikz = 13325
+
+    VMINMAXPHZ256rmi = 13326
+
+    VMINMAXPHZ256rmik = 13327
+
+    VMINMAXPHZ256rmikz = 13328
+
+    VMINMAXPHZ256rri = 13329
+
+    VMINMAXPHZ256rrik = 13330
+
+    VMINMAXPHZ256rrikz = 13331
+
+    VMINMAXPHZrmbi = 13332
+
+    VMINMAXPHZrmbik = 13333
+
+    VMINMAXPHZrmbikz = 13334
+
+    VMINMAXPHZrmi = 13335
+
+    VMINMAXPHZrmik = 13336
+
+    VMINMAXPHZrmikz = 13337
+
+    VMINMAXPHZrri = 13338
+
+    VMINMAXPHZrrib = 13339
+
+    VMINMAXPHZrribk = 13340
+
+    VMINMAXPHZrribkz = 13341
+
+    VMINMAXPHZrrik = 13342
+
+    VMINMAXPHZrrikz = 13343
+
+    VMINMAXPSZ128rmbi = 13344
+
+    VMINMAXPSZ128rmbik = 13345
+
+    VMINMAXPSZ128rmbikz = 13346
+
+    VMINMAXPSZ128rmi = 13347
+
+    VMINMAXPSZ128rmik = 13348
+
+    VMINMAXPSZ128rmikz = 13349
+
+    VMINMAXPSZ128rri = 13350
+
+    VMINMAXPSZ128rrik = 13351
+
+    VMINMAXPSZ128rrikz = 13352
+
+    VMINMAXPSZ256rmbi = 13353
+
+    VMINMAXPSZ256rmbik = 13354
+
+    VMINMAXPSZ256rmbikz = 13355
+
+    VMINMAXPSZ256rmi = 13356
+
+    VMINMAXPSZ256rmik = 13357
+
+    VMINMAXPSZ256rmikz = 13358
+
+    VMINMAXPSZ256rri = 13359
+
+    VMINMAXPSZ256rrik = 13360
+
+    VMINMAXPSZ256rrikz = 13361
+
+    VMINMAXPSZrmbi = 13362
+
+    VMINMAXPSZrmbik = 13363
+
+    VMINMAXPSZrmbikz = 13364
+
+    VMINMAXPSZrmi = 13365
+
+    VMINMAXPSZrmik = 13366
+
+    VMINMAXPSZrmikz = 13367
+
+    VMINMAXPSZrri = 13368
+
+    VMINMAXPSZrrib = 13369
+
+    VMINMAXPSZrribk = 13370
+
+    VMINMAXPSZrribkz = 13371
+
+    VMINMAXPSZrrik = 13372
+
+    VMINMAXPSZrrikz = 13373
+
+    VMINMAXSDrmi = 13374
+
+    VMINMAXSDrmi_Int = 13375
+
+    VMINMAXSDrmik_Int = 13376
+
+    VMINMAXSDrmikz_Int = 13377
+
+    VMINMAXSDrri = 13378
+
+    VMINMAXSDrri_Int = 13379
+
+    VMINMAXSDrrib_Int = 13380
+
+    VMINMAXSDrribk_Int = 13381
+
+    VMINMAXSDrribkz_Int = 13382
+
+    VMINMAXSDrrik_Int = 13383
+
+    VMINMAXSDrrikz_Int = 13384
+
+    VMINMAXSHrmi = 13385
+
+    VMINMAXSHrmi_Int = 13386
+
+    VMINMAXSHrmik_Int = 13387
+
+    VMINMAXSHrmikz_Int = 13388
+
+    VMINMAXSHrri = 13389
+
+    VMINMAXSHrri_Int = 13390
+
+    VMINMAXSHrrib_Int = 13391
+
+    VMINMAXSHrribk_Int = 13392
+
+    VMINMAXSHrribkz_Int = 13393
+
+    VMINMAXSHrrik_Int = 13394
+
+    VMINMAXSHrrikz_Int = 13395
+
+    VMINMAXSSrmi = 13396
+
+    VMINMAXSSrmi_Int = 13397
+
+    VMINMAXSSrmik_Int = 13398
+
+    VMINMAXSSrmikz_Int = 13399
+
+    VMINMAXSSrri = 13400
+
+    VMINMAXSSrri_Int = 13401
+
+    VMINMAXSSrrib_Int = 13402
+
+    VMINMAXSSrribk_Int = 13403
+
+    VMINMAXSSrribkz_Int = 13404
+
+    VMINMAXSSrrik_Int = 13405
+
+    VMINMAXSSrrikz_Int = 13406
+
+    VMINPDYrm = 13407
+
+    VMINPDYrr = 13408
+
+    VMINPDZ128rm = 13409
+
+    VMINPDZ128rmb = 13410
+
+    VMINPDZ128rmbk = 13411
+
+    VMINPDZ128rmbkz = 13412
+
+    VMINPDZ128rmk = 13413
+
+    VMINPDZ128rmkz = 13414
+
+    VMINPDZ128rr = 13415
+
+    VMINPDZ128rrk = 13416
+
+    VMINPDZ128rrkz = 13417
+
+    VMINPDZ256rm = 13418
+
+    VMINPDZ256rmb = 13419
+
+    VMINPDZ256rmbk = 13420
+
+    VMINPDZ256rmbkz = 13421
+
+    VMINPDZ256rmk = 13422
+
+    VMINPDZ256rmkz = 13423
+
+    VMINPDZ256rr = 13424
+
+    VMINPDZ256rrk = 13425
+
+    VMINPDZ256rrkz = 13426
+
+    VMINPDZrm = 13427
+
+    VMINPDZrmb = 13428
+
+    VMINPDZrmbk = 13429
+
+    VMINPDZrmbkz = 13430
+
+    VMINPDZrmk = 13431
+
+    VMINPDZrmkz = 13432
+
+    VMINPDZrr = 13433
+
+    VMINPDZrrb = 13434
+
+    VMINPDZrrbk = 13435
+
+    VMINPDZrrbkz = 13436
+
+    VMINPDZrrk = 13437
+
+    VMINPDZrrkz = 13438
+
+    VMINPDrm = 13439
+
+    VMINPDrr = 13440
+
+    VMINPHZ128rm = 13441
+
+    VMINPHZ128rmb = 13442
+
+    VMINPHZ128rmbk = 13443
+
+    VMINPHZ128rmbkz = 13444
+
+    VMINPHZ128rmk = 13445
+
+    VMINPHZ128rmkz = 13446
+
+    VMINPHZ128rr = 13447
+
+    VMINPHZ128rrk = 13448
+
+    VMINPHZ128rrkz = 13449
+
+    VMINPHZ256rm = 13450
+
+    VMINPHZ256rmb = 13451
+
+    VMINPHZ256rmbk = 13452
+
+    VMINPHZ256rmbkz = 13453
+
+    VMINPHZ256rmk = 13454
+
+    VMINPHZ256rmkz = 13455
+
+    VMINPHZ256rr = 13456
+
+    VMINPHZ256rrk = 13457
+
+    VMINPHZ256rrkz = 13458
+
+    VMINPHZrm = 13459
+
+    VMINPHZrmb = 13460
+
+    VMINPHZrmbk = 13461
+
+    VMINPHZrmbkz = 13462
+
+    VMINPHZrmk = 13463
+
+    VMINPHZrmkz = 13464
+
+    VMINPHZrr = 13465
+
+    VMINPHZrrb = 13466
+
+    VMINPHZrrbk = 13467
+
+    VMINPHZrrbkz = 13468
+
+    VMINPHZrrk = 13469
+
+    VMINPHZrrkz = 13470
+
+    VMINPSYrm = 13471
+
+    VMINPSYrr = 13472
+
+    VMINPSZ128rm = 13473
+
+    VMINPSZ128rmb = 13474
+
+    VMINPSZ128rmbk = 13475
+
+    VMINPSZ128rmbkz = 13476
+
+    VMINPSZ128rmk = 13477
+
+    VMINPSZ128rmkz = 13478
+
+    VMINPSZ128rr = 13479
+
+    VMINPSZ128rrk = 13480
+
+    VMINPSZ128rrkz = 13481
+
+    VMINPSZ256rm = 13482
+
+    VMINPSZ256rmb = 13483
+
+    VMINPSZ256rmbk = 13484
+
+    VMINPSZ256rmbkz = 13485
+
+    VMINPSZ256rmk = 13486
+
+    VMINPSZ256rmkz = 13487
+
+    VMINPSZ256rr = 13488
+
+    VMINPSZ256rrk = 13489
+
+    VMINPSZ256rrkz = 13490
+
+    VMINPSZrm = 13491
+
+    VMINPSZrmb = 13492
+
+    VMINPSZrmbk = 13493
+
+    VMINPSZrmbkz = 13494
+
+    VMINPSZrmk = 13495
+
+    VMINPSZrmkz = 13496
+
+    VMINPSZrr = 13497
+
+    VMINPSZrrb = 13498
+
+    VMINPSZrrbk = 13499
+
+    VMINPSZrrbkz = 13500
+
+    VMINPSZrrk = 13501
+
+    VMINPSZrrkz = 13502
+
+    VMINPSrm = 13503
+
+    VMINPSrr = 13504
+
+    VMINSDZrm = 13505
+
+    VMINSDZrm_Int = 13506
+
+    VMINSDZrmk_Int = 13507
+
+    VMINSDZrmkz_Int = 13508
+
+    VMINSDZrr = 13509
+
+    VMINSDZrr_Int = 13510
+
+    VMINSDZrrb_Int = 13511
+
+    VMINSDZrrbk_Int = 13512
+
+    VMINSDZrrbkz_Int = 13513
+
+    VMINSDZrrk_Int = 13514
+
+    VMINSDZrrkz_Int = 13515
+
+    VMINSDrm = 13516
+
+    VMINSDrm_Int = 13517
+
+    VMINSDrr = 13518
+
+    VMINSDrr_Int = 13519
+
+    VMINSHZrm = 13520
+
+    VMINSHZrm_Int = 13521
+
+    VMINSHZrmk_Int = 13522
+
+    VMINSHZrmkz_Int = 13523
+
+    VMINSHZrr = 13524
+
+    VMINSHZrr_Int = 13525
+
+    VMINSHZrrb_Int = 13526
+
+    VMINSHZrrbk_Int = 13527
+
+    VMINSHZrrbkz_Int = 13528
+
+    VMINSHZrrk_Int = 13529
+
+    VMINSHZrrkz_Int = 13530
+
+    VMINSSZrm = 13531
+
+    VMINSSZrm_Int = 13532
+
+    VMINSSZrmk_Int = 13533
+
+    VMINSSZrmkz_Int = 13534
+
+    VMINSSZrr = 13535
+
+    VMINSSZrr_Int = 13536
+
+    VMINSSZrrb_Int = 13537
+
+    VMINSSZrrbk_Int = 13538
+
+    VMINSSZrrbkz_Int = 13539
+
+    VMINSSZrrk_Int = 13540
+
+    VMINSSZrrkz_Int = 13541
+
+    VMINSSrm = 13542
+
+    VMINSSrm_Int = 13543
+
+    VMINSSrr = 13544
+
+    VMINSSrr_Int = 13545
+
+    VMLAUNCH = 13546
+
+    VMLOAD32 = 13547
+
+    VMLOAD64 = 13548
+
+    VMMCALL = 13549
+
+    VMOV64toPQIZrm = 13550
+
+    VMOV64toPQIZrr = 13551
+
+    VMOV64toPQIrm = 13552
+
+    VMOV64toPQIrr = 13553
+
+    VMOV64toSDZrr = 13554
+
+    VMOV64toSDrr = 13555
+
+    VMOVAPDYmr = 13556
+
+    VMOVAPDYrm = 13557
+
+    VMOVAPDYrr = 13558
+
+    VMOVAPDYrr_REV = 13559
+
+    VMOVAPDZ128mr = 13560
+
+    VMOVAPDZ128mrk = 13561
+
+    VMOVAPDZ128rm = 13562
+
+    VMOVAPDZ128rmk = 13563
+
+    VMOVAPDZ128rmkz = 13564
+
+    VMOVAPDZ128rr = 13565
+
+    VMOVAPDZ128rr_REV = 13566
+
+    VMOVAPDZ128rrk = 13567
+
+    VMOVAPDZ128rrk_REV = 13568
+
+    VMOVAPDZ128rrkz = 13569
+
+    VMOVAPDZ128rrkz_REV = 13570
+
+    VMOVAPDZ256mr = 13571
+
+    VMOVAPDZ256mrk = 13572
+
+    VMOVAPDZ256rm = 13573
+
+    VMOVAPDZ256rmk = 13574
+
+    VMOVAPDZ256rmkz = 13575
+
+    VMOVAPDZ256rr = 13576
+
+    VMOVAPDZ256rr_REV = 13577
+
+    VMOVAPDZ256rrk = 13578
+
+    VMOVAPDZ256rrk_REV = 13579
+
+    VMOVAPDZ256rrkz = 13580
+
+    VMOVAPDZ256rrkz_REV = 13581
+
+    VMOVAPDZmr = 13582
+
+    VMOVAPDZmrk = 13583
+
+    VMOVAPDZrm = 13584
+
+    VMOVAPDZrmk = 13585
+
+    VMOVAPDZrmkz = 13586
+
+    VMOVAPDZrr = 13587
+
+    VMOVAPDZrr_REV = 13588
+
+    VMOVAPDZrrk = 13589
+
+    VMOVAPDZrrk_REV = 13590
+
+    VMOVAPDZrrkz = 13591
+
+    VMOVAPDZrrkz_REV = 13592
+
+    VMOVAPDmr = 13593
+
+    VMOVAPDrm = 13594
+
+    VMOVAPDrr = 13595
+
+    VMOVAPDrr_REV = 13596
+
+    VMOVAPSYmr = 13597
+
+    VMOVAPSYrm = 13598
+
+    VMOVAPSYrr = 13599
+
+    VMOVAPSYrr_REV = 13600
+
+    VMOVAPSZ128mr = 13601
+
+    VMOVAPSZ128mrk = 13602
+
+    VMOVAPSZ128rm = 13603
+
+    VMOVAPSZ128rmk = 13604
+
+    VMOVAPSZ128rmkz = 13605
+
+    VMOVAPSZ128rr = 13606
+
+    VMOVAPSZ128rr_REV = 13607
+
+    VMOVAPSZ128rrk = 13608
+
+    VMOVAPSZ128rrk_REV = 13609
+
+    VMOVAPSZ128rrkz = 13610
+
+    VMOVAPSZ128rrkz_REV = 13611
+
+    VMOVAPSZ256mr = 13612
+
+    VMOVAPSZ256mrk = 13613
+
+    VMOVAPSZ256rm = 13614
+
+    VMOVAPSZ256rmk = 13615
+
+    VMOVAPSZ256rmkz = 13616
+
+    VMOVAPSZ256rr = 13617
+
+    VMOVAPSZ256rr_REV = 13618
+
+    VMOVAPSZ256rrk = 13619
+
+    VMOVAPSZ256rrk_REV = 13620
+
+    VMOVAPSZ256rrkz = 13621
+
+    VMOVAPSZ256rrkz_REV = 13622
+
+    VMOVAPSZmr = 13623
+
+    VMOVAPSZmrk = 13624
+
+    VMOVAPSZrm = 13625
+
+    VMOVAPSZrmk = 13626
+
+    VMOVAPSZrmkz = 13627
+
+    VMOVAPSZrr = 13628
+
+    VMOVAPSZrr_REV = 13629
+
+    VMOVAPSZrrk = 13630
+
+    VMOVAPSZrrk_REV = 13631
+
+    VMOVAPSZrrkz = 13632
+
+    VMOVAPSZrrkz_REV = 13633
+
+    VMOVAPSmr = 13634
+
+    VMOVAPSrm = 13635
+
+    VMOVAPSrr = 13636
+
+    VMOVAPSrr_REV = 13637
+
+    VMOVDDUPYrm = 13638
+
+    VMOVDDUPYrr = 13639
+
+    VMOVDDUPZ128rm = 13640
+
+    VMOVDDUPZ128rmk = 13641
+
+    VMOVDDUPZ128rmkz = 13642
+
+    VMOVDDUPZ128rr = 13643
+
+    VMOVDDUPZ128rrk = 13644
+
+    VMOVDDUPZ128rrkz = 13645
+
+    VMOVDDUPZ256rm = 13646
+
+    VMOVDDUPZ256rmk = 13647
+
+    VMOVDDUPZ256rmkz = 13648
+
+    VMOVDDUPZ256rr = 13649
+
+    VMOVDDUPZ256rrk = 13650
+
+    VMOVDDUPZ256rrkz = 13651
+
+    VMOVDDUPZrm = 13652
+
+    VMOVDDUPZrmk = 13653
+
+    VMOVDDUPZrmkz = 13654
+
+    VMOVDDUPZrr = 13655
+
+    VMOVDDUPZrrk = 13656
+
+    VMOVDDUPZrrkz = 13657
+
+    VMOVDDUPrm = 13658
+
+    VMOVDDUPrr = 13659
+
+    VMOVDI2PDIZrm = 13660
+
+    VMOVDI2PDIZrr = 13661
+
+    VMOVDI2PDIrm = 13662
+
+    VMOVDI2PDIrr = 13663
+
+    VMOVDI2SSZrr = 13664
+
+    VMOVDI2SSrr = 13665
+
+    VMOVDQA32Z128mr = 13666
+
+    VMOVDQA32Z128mrk = 13667
+
+    VMOVDQA32Z128rm = 13668
+
+    VMOVDQA32Z128rmk = 13669
+
+    VMOVDQA32Z128rmkz = 13670
+
+    VMOVDQA32Z128rr = 13671
+
+    VMOVDQA32Z128rr_REV = 13672
+
+    VMOVDQA32Z128rrk = 13673
+
+    VMOVDQA32Z128rrk_REV = 13674
+
+    VMOVDQA32Z128rrkz = 13675
+
+    VMOVDQA32Z128rrkz_REV = 13676
+
+    VMOVDQA32Z256mr = 13677
+
+    VMOVDQA32Z256mrk = 13678
+
+    VMOVDQA32Z256rm = 13679
+
+    VMOVDQA32Z256rmk = 13680
+
+    VMOVDQA32Z256rmkz = 13681
+
+    VMOVDQA32Z256rr = 13682
+
+    VMOVDQA32Z256rr_REV = 13683
+
+    VMOVDQA32Z256rrk = 13684
+
+    VMOVDQA32Z256rrk_REV = 13685
+
+    VMOVDQA32Z256rrkz = 13686
+
+    VMOVDQA32Z256rrkz_REV = 13687
+
+    VMOVDQA32Zmr = 13688
+
+    VMOVDQA32Zmrk = 13689
+
+    VMOVDQA32Zrm = 13690
+
+    VMOVDQA32Zrmk = 13691
+
+    VMOVDQA32Zrmkz = 13692
+
+    VMOVDQA32Zrr = 13693
+
+    VMOVDQA32Zrr_REV = 13694
+
+    VMOVDQA32Zrrk = 13695
+
+    VMOVDQA32Zrrk_REV = 13696
+
+    VMOVDQA32Zrrkz = 13697
+
+    VMOVDQA32Zrrkz_REV = 13698
+
+    VMOVDQA64Z128mr = 13699
+
+    VMOVDQA64Z128mrk = 13700
+
+    VMOVDQA64Z128rm = 13701
+
+    VMOVDQA64Z128rmk = 13702
+
+    VMOVDQA64Z128rmkz = 13703
+
+    VMOVDQA64Z128rr = 13704
+
+    VMOVDQA64Z128rr_REV = 13705
+
+    VMOVDQA64Z128rrk = 13706
+
+    VMOVDQA64Z128rrk_REV = 13707
+
+    VMOVDQA64Z128rrkz = 13708
+
+    VMOVDQA64Z128rrkz_REV = 13709
+
+    VMOVDQA64Z256mr = 13710
+
+    VMOVDQA64Z256mrk = 13711
+
+    VMOVDQA64Z256rm = 13712
+
+    VMOVDQA64Z256rmk = 13713
+
+    VMOVDQA64Z256rmkz = 13714
+
+    VMOVDQA64Z256rr = 13715
+
+    VMOVDQA64Z256rr_REV = 13716
+
+    VMOVDQA64Z256rrk = 13717
+
+    VMOVDQA64Z256rrk_REV = 13718
+
+    VMOVDQA64Z256rrkz = 13719
+
+    VMOVDQA64Z256rrkz_REV = 13720
+
+    VMOVDQA64Zmr = 13721
+
+    VMOVDQA64Zmrk = 13722
+
+    VMOVDQA64Zrm = 13723
+
+    VMOVDQA64Zrmk = 13724
+
+    VMOVDQA64Zrmkz = 13725
+
+    VMOVDQA64Zrr = 13726
+
+    VMOVDQA64Zrr_REV = 13727
+
+    VMOVDQA64Zrrk = 13728
+
+    VMOVDQA64Zrrk_REV = 13729
+
+    VMOVDQA64Zrrkz = 13730
+
+    VMOVDQA64Zrrkz_REV = 13731
+
+    VMOVDQAYmr = 13732
+
+    VMOVDQAYrm = 13733
+
+    VMOVDQAYrr = 13734
+
+    VMOVDQAYrr_REV = 13735
+
+    VMOVDQAmr = 13736
+
+    VMOVDQArm = 13737
+
+    VMOVDQArr = 13738
+
+    VMOVDQArr_REV = 13739
+
+    VMOVDQU16Z128mr = 13740
+
+    VMOVDQU16Z128mrk = 13741
+
+    VMOVDQU16Z128rm = 13742
+
+    VMOVDQU16Z128rmk = 13743
+
+    VMOVDQU16Z128rmkz = 13744
+
+    VMOVDQU16Z128rr = 13745
+
+    VMOVDQU16Z128rr_REV = 13746
+
+    VMOVDQU16Z128rrk = 13747
+
+    VMOVDQU16Z128rrk_REV = 13748
+
+    VMOVDQU16Z128rrkz = 13749
+
+    VMOVDQU16Z128rrkz_REV = 13750
+
+    VMOVDQU16Z256mr = 13751
+
+    VMOVDQU16Z256mrk = 13752
+
+    VMOVDQU16Z256rm = 13753
+
+    VMOVDQU16Z256rmk = 13754
+
+    VMOVDQU16Z256rmkz = 13755
+
+    VMOVDQU16Z256rr = 13756
+
+    VMOVDQU16Z256rr_REV = 13757
+
+    VMOVDQU16Z256rrk = 13758
+
+    VMOVDQU16Z256rrk_REV = 13759
+
+    VMOVDQU16Z256rrkz = 13760
+
+    VMOVDQU16Z256rrkz_REV = 13761
+
+    VMOVDQU16Zmr = 13762
+
+    VMOVDQU16Zmrk = 13763
+
+    VMOVDQU16Zrm = 13764
+
+    VMOVDQU16Zrmk = 13765
+
+    VMOVDQU16Zrmkz = 13766
+
+    VMOVDQU16Zrr = 13767
+
+    VMOVDQU16Zrr_REV = 13768
+
+    VMOVDQU16Zrrk = 13769
+
+    VMOVDQU16Zrrk_REV = 13770
+
+    VMOVDQU16Zrrkz = 13771
+
+    VMOVDQU16Zrrkz_REV = 13772
+
+    VMOVDQU32Z128mr = 13773
+
+    VMOVDQU32Z128mrk = 13774
+
+    VMOVDQU32Z128rm = 13775
+
+    VMOVDQU32Z128rmk = 13776
+
+    VMOVDQU32Z128rmkz = 13777
+
+    VMOVDQU32Z128rr = 13778
+
+    VMOVDQU32Z128rr_REV = 13779
+
+    VMOVDQU32Z128rrk = 13780
+
+    VMOVDQU32Z128rrk_REV = 13781
+
+    VMOVDQU32Z128rrkz = 13782
+
+    VMOVDQU32Z128rrkz_REV = 13783
+
+    VMOVDQU32Z256mr = 13784
+
+    VMOVDQU32Z256mrk = 13785
+
+    VMOVDQU32Z256rm = 13786
+
+    VMOVDQU32Z256rmk = 13787
+
+    VMOVDQU32Z256rmkz = 13788
+
+    VMOVDQU32Z256rr = 13789
+
+    VMOVDQU32Z256rr_REV = 13790
+
+    VMOVDQU32Z256rrk = 13791
+
+    VMOVDQU32Z256rrk_REV = 13792
+
+    VMOVDQU32Z256rrkz = 13793
+
+    VMOVDQU32Z256rrkz_REV = 13794
+
+    VMOVDQU32Zmr = 13795
+
+    VMOVDQU32Zmrk = 13796
+
+    VMOVDQU32Zrm = 13797
+
+    VMOVDQU32Zrmk = 13798
+
+    VMOVDQU32Zrmkz = 13799
+
+    VMOVDQU32Zrr = 13800
+
+    VMOVDQU32Zrr_REV = 13801
+
+    VMOVDQU32Zrrk = 13802
+
+    VMOVDQU32Zrrk_REV = 13803
+
+    VMOVDQU32Zrrkz = 13804
+
+    VMOVDQU32Zrrkz_REV = 13805
+
+    VMOVDQU64Z128mr = 13806
+
+    VMOVDQU64Z128mrk = 13807
+
+    VMOVDQU64Z128rm = 13808
+
+    VMOVDQU64Z128rmk = 13809
+
+    VMOVDQU64Z128rmkz = 13810
+
+    VMOVDQU64Z128rr = 13811
+
+    VMOVDQU64Z128rr_REV = 13812
+
+    VMOVDQU64Z128rrk = 13813
+
+    VMOVDQU64Z128rrk_REV = 13814
+
+    VMOVDQU64Z128rrkz = 13815
+
+    VMOVDQU64Z128rrkz_REV = 13816
+
+    VMOVDQU64Z256mr = 13817
+
+    VMOVDQU64Z256mrk = 13818
+
+    VMOVDQU64Z256rm = 13819
+
+    VMOVDQU64Z256rmk = 13820
+
+    VMOVDQU64Z256rmkz = 13821
+
+    VMOVDQU64Z256rr = 13822
+
+    VMOVDQU64Z256rr_REV = 13823
+
+    VMOVDQU64Z256rrk = 13824
+
+    VMOVDQU64Z256rrk_REV = 13825
+
+    VMOVDQU64Z256rrkz = 13826
+
+    VMOVDQU64Z256rrkz_REV = 13827
+
+    VMOVDQU64Zmr = 13828
+
+    VMOVDQU64Zmrk = 13829
+
+    VMOVDQU64Zrm = 13830
+
+    VMOVDQU64Zrmk = 13831
+
+    VMOVDQU64Zrmkz = 13832
+
+    VMOVDQU64Zrr = 13833
+
+    VMOVDQU64Zrr_REV = 13834
+
+    VMOVDQU64Zrrk = 13835
+
+    VMOVDQU64Zrrk_REV = 13836
+
+    VMOVDQU64Zrrkz = 13837
+
+    VMOVDQU64Zrrkz_REV = 13838
+
+    VMOVDQU8Z128mr = 13839
+
+    VMOVDQU8Z128mrk = 13840
+
+    VMOVDQU8Z128rm = 13841
+
+    VMOVDQU8Z128rmk = 13842
+
+    VMOVDQU8Z128rmkz = 13843
+
+    VMOVDQU8Z128rr = 13844
+
+    VMOVDQU8Z128rr_REV = 13845
+
+    VMOVDQU8Z128rrk = 13846
+
+    VMOVDQU8Z128rrk_REV = 13847
+
+    VMOVDQU8Z128rrkz = 13848
+
+    VMOVDQU8Z128rrkz_REV = 13849
+
+    VMOVDQU8Z256mr = 13850
+
+    VMOVDQU8Z256mrk = 13851
+
+    VMOVDQU8Z256rm = 13852
+
+    VMOVDQU8Z256rmk = 13853
+
+    VMOVDQU8Z256rmkz = 13854
+
+    VMOVDQU8Z256rr = 13855
+
+    VMOVDQU8Z256rr_REV = 13856
+
+    VMOVDQU8Z256rrk = 13857
+
+    VMOVDQU8Z256rrk_REV = 13858
+
+    VMOVDQU8Z256rrkz = 13859
+
+    VMOVDQU8Z256rrkz_REV = 13860
+
+    VMOVDQU8Zmr = 13861
+
+    VMOVDQU8Zmrk = 13862
+
+    VMOVDQU8Zrm = 13863
+
+    VMOVDQU8Zrmk = 13864
+
+    VMOVDQU8Zrmkz = 13865
+
+    VMOVDQU8Zrr = 13866
+
+    VMOVDQU8Zrr_REV = 13867
+
+    VMOVDQU8Zrrk = 13868
+
+    VMOVDQU8Zrrk_REV = 13869
+
+    VMOVDQU8Zrrkz = 13870
+
+    VMOVDQU8Zrrkz_REV = 13871
+
+    VMOVDQUYmr = 13872
+
+    VMOVDQUYrm = 13873
+
+    VMOVDQUYrr = 13874
+
+    VMOVDQUYrr_REV = 13875
+
+    VMOVDQUmr = 13876
+
+    VMOVDQUrm = 13877
+
+    VMOVDQUrr = 13878
+
+    VMOVDQUrr_REV = 13879
+
+    VMOVHLPSZrr = 13880
+
+    VMOVHLPSrr = 13881
+
+    VMOVHPDZ128mr = 13882
+
+    VMOVHPDZ128rm = 13883
+
+    VMOVHPDmr = 13884
+
+    VMOVHPDrm = 13885
+
+    VMOVHPSZ128mr = 13886
+
+    VMOVHPSZ128rm = 13887
+
+    VMOVHPSmr = 13888
+
+    VMOVHPSrm = 13889
+
+    VMOVLHPSZrr = 13890
+
+    VMOVLHPSrr = 13891
+
+    VMOVLPDZ128mr = 13892
+
+    VMOVLPDZ128rm = 13893
+
+    VMOVLPDmr = 13894
+
+    VMOVLPDrm = 13895
+
+    VMOVLPSZ128mr = 13896
+
+    VMOVLPSZ128rm = 13897
+
+    VMOVLPSmr = 13898
+
+    VMOVLPSrm = 13899
+
+    VMOVMSKPDYrr = 13900
+
+    VMOVMSKPDrr = 13901
+
+    VMOVMSKPSYrr = 13902
+
+    VMOVMSKPSrr = 13903
+
+    VMOVNTDQAYrm = 13904
+
+    VMOVNTDQAZ128rm = 13905
+
+    VMOVNTDQAZ256rm = 13906
+
+    VMOVNTDQAZrm = 13907
+
+    VMOVNTDQArm = 13908
+
+    VMOVNTDQYmr = 13909
+
+    VMOVNTDQZ128mr = 13910
+
+    VMOVNTDQZ256mr = 13911
+
+    VMOVNTDQZmr = 13912
+
+    VMOVNTDQmr = 13913
+
+    VMOVNTPDYmr = 13914
+
+    VMOVNTPDZ128mr = 13915
+
+    VMOVNTPDZ256mr = 13916
+
+    VMOVNTPDZmr = 13917
+
+    VMOVNTPDmr = 13918
+
+    VMOVNTPSYmr = 13919
+
+    VMOVNTPSZ128mr = 13920
+
+    VMOVNTPSZ256mr = 13921
+
+    VMOVNTPSZmr = 13922
+
+    VMOVNTPSmr = 13923
+
+    VMOVPDI2DIZmr = 13924
+
+    VMOVPDI2DIZrr = 13925
+
+    VMOVPDI2DImr = 13926
+
+    VMOVPDI2DIrr = 13927
+
+    VMOVPQI2QIZmr = 13928
+
+    VMOVPQI2QIZrr = 13929
+
+    VMOVPQI2QImr = 13930
+
+    VMOVPQI2QIrr = 13931
+
+    VMOVPQIto64Zmr = 13932
+
+    VMOVPQIto64Zrr = 13933
+
+    VMOVPQIto64mr = 13934
+
+    VMOVPQIto64rr = 13935
+
+    VMOVQI2PQIZrm = 13936
+
+    VMOVQI2PQIrm = 13937
+
+    VMOVRSBZ128m = 13938
+
+    VMOVRSBZ128mk = 13939
+
+    VMOVRSBZ128mkz = 13940
+
+    VMOVRSBZ256m = 13941
+
+    VMOVRSBZ256mk = 13942
+
+    VMOVRSBZ256mkz = 13943
+
+    VMOVRSBZm = 13944
+
+    VMOVRSBZmk = 13945
+
+    VMOVRSBZmkz = 13946
+
+    VMOVRSDZ128m = 13947
+
+    VMOVRSDZ128mk = 13948
+
+    VMOVRSDZ128mkz = 13949
+
+    VMOVRSDZ256m = 13950
+
+    VMOVRSDZ256mk = 13951
+
+    VMOVRSDZ256mkz = 13952
+
+    VMOVRSDZm = 13953
+
+    VMOVRSDZmk = 13954
+
+    VMOVRSDZmkz = 13955
+
+    VMOVRSQZ128m = 13956
+
+    VMOVRSQZ128mk = 13957
+
+    VMOVRSQZ128mkz = 13958
+
+    VMOVRSQZ256m = 13959
+
+    VMOVRSQZ256mk = 13960
+
+    VMOVRSQZ256mkz = 13961
+
+    VMOVRSQZm = 13962
+
+    VMOVRSQZmk = 13963
+
+    VMOVRSQZmkz = 13964
+
+    VMOVRSWZ128m = 13965
+
+    VMOVRSWZ128mk = 13966
+
+    VMOVRSWZ128mkz = 13967
+
+    VMOVRSWZ256m = 13968
+
+    VMOVRSWZ256mk = 13969
+
+    VMOVRSWZ256mkz = 13970
+
+    VMOVRSWZm = 13971
+
+    VMOVRSWZmk = 13972
+
+    VMOVRSWZmkz = 13973
+
+    VMOVSDZmr = 13974
+
+    VMOVSDZmrk = 13975
+
+    VMOVSDZrm = 13976
+
+    VMOVSDZrm_alt = 13977
+
+    VMOVSDZrmk = 13978
+
+    VMOVSDZrmkz = 13979
+
+    VMOVSDZrr = 13980
+
+    VMOVSDZrr_REV = 13981
+
+    VMOVSDZrrk = 13982
+
+    VMOVSDZrrk_REV = 13983
+
+    VMOVSDZrrkz = 13984
+
+    VMOVSDZrrkz_REV = 13985
+
+    VMOVSDmr = 13986
+
+    VMOVSDrm = 13987
+
+    VMOVSDrm_alt = 13988
+
+    VMOVSDrr = 13989
+
+    VMOVSDrr_REV = 13990
+
+    VMOVSDto64Zrr = 13991
+
+    VMOVSDto64rr = 13992
+
+    VMOVSH2Wrr = 13993
+
+    VMOVSHDUPYrm = 13994
+
+    VMOVSHDUPYrr = 13995
+
+    VMOVSHDUPZ128rm = 13996
+
+    VMOVSHDUPZ128rmk = 13997
+
+    VMOVSHDUPZ128rmkz = 13998
+
+    VMOVSHDUPZ128rr = 13999
+
+    VMOVSHDUPZ128rrk = 14000
+
+    VMOVSHDUPZ128rrkz = 14001
+
+    VMOVSHDUPZ256rm = 14002
+
+    VMOVSHDUPZ256rmk = 14003
+
+    VMOVSHDUPZ256rmkz = 14004
+
+    VMOVSHDUPZ256rr = 14005
+
+    VMOVSHDUPZ256rrk = 14006
+
+    VMOVSHDUPZ256rrkz = 14007
+
+    VMOVSHDUPZrm = 14008
+
+    VMOVSHDUPZrmk = 14009
+
+    VMOVSHDUPZrmkz = 14010
+
+    VMOVSHDUPZrr = 14011
+
+    VMOVSHDUPZrrk = 14012
+
+    VMOVSHDUPZrrkz = 14013
+
+    VMOVSHDUPrm = 14014
+
+    VMOVSHDUPrr = 14015
+
+    VMOVSHZmr = 14016
+
+    VMOVSHZmrk = 14017
+
+    VMOVSHZrm = 14018
+
+    VMOVSHZrm_alt = 14019
+
+    VMOVSHZrmk = 14020
+
+    VMOVSHZrmkz = 14021
+
+    VMOVSHZrr = 14022
+
+    VMOVSHZrr_REV = 14023
+
+    VMOVSHZrrk = 14024
+
+    VMOVSHZrrk_REV = 14025
+
+    VMOVSHZrrkz = 14026
+
+    VMOVSHZrrkz_REV = 14027
+
+    VMOVSHtoW64rr = 14028
+
+    VMOVSLDUPYrm = 14029
+
+    VMOVSLDUPYrr = 14030
+
+    VMOVSLDUPZ128rm = 14031
+
+    VMOVSLDUPZ128rmk = 14032
+
+    VMOVSLDUPZ128rmkz = 14033
+
+    VMOVSLDUPZ128rr = 14034
+
+    VMOVSLDUPZ128rrk = 14035
+
+    VMOVSLDUPZ128rrkz = 14036
+
+    VMOVSLDUPZ256rm = 14037
+
+    VMOVSLDUPZ256rmk = 14038
+
+    VMOVSLDUPZ256rmkz = 14039
+
+    VMOVSLDUPZ256rr = 14040
+
+    VMOVSLDUPZ256rrk = 14041
+
+    VMOVSLDUPZ256rrkz = 14042
+
+    VMOVSLDUPZrm = 14043
+
+    VMOVSLDUPZrmk = 14044
+
+    VMOVSLDUPZrmkz = 14045
+
+    VMOVSLDUPZrr = 14046
+
+    VMOVSLDUPZrrk = 14047
+
+    VMOVSLDUPZrrkz = 14048
+
+    VMOVSLDUPrm = 14049
+
+    VMOVSLDUPrr = 14050
+
+    VMOVSS2DIZrr = 14051
+
+    VMOVSS2DIrr = 14052
+
+    VMOVSSZmr = 14053
+
+    VMOVSSZmrk = 14054
+
+    VMOVSSZrm = 14055
+
+    VMOVSSZrm_alt = 14056
+
+    VMOVSSZrmk = 14057
+
+    VMOVSSZrmkz = 14058
+
+    VMOVSSZrr = 14059
+
+    VMOVSSZrr_REV = 14060
+
+    VMOVSSZrrk = 14061
+
+    VMOVSSZrrk_REV = 14062
+
+    VMOVSSZrrkz = 14063
+
+    VMOVSSZrrkz_REV = 14064
+
+    VMOVSSmr = 14065
+
+    VMOVSSrm = 14066
+
+    VMOVSSrm_alt = 14067
+
+    VMOVSSrr = 14068
+
+    VMOVSSrr_REV = 14069
+
+    VMOVUPDYmr = 14070
+
+    VMOVUPDYrm = 14071
+
+    VMOVUPDYrr = 14072
+
+    VMOVUPDYrr_REV = 14073
+
+    VMOVUPDZ128mr = 14074
+
+    VMOVUPDZ128mrk = 14075
+
+    VMOVUPDZ128rm = 14076
+
+    VMOVUPDZ128rmk = 14077
+
+    VMOVUPDZ128rmkz = 14078
+
+    VMOVUPDZ128rr = 14079
+
+    VMOVUPDZ128rr_REV = 14080
+
+    VMOVUPDZ128rrk = 14081
+
+    VMOVUPDZ128rrk_REV = 14082
+
+    VMOVUPDZ128rrkz = 14083
+
+    VMOVUPDZ128rrkz_REV = 14084
+
+    VMOVUPDZ256mr = 14085
+
+    VMOVUPDZ256mrk = 14086
+
+    VMOVUPDZ256rm = 14087
+
+    VMOVUPDZ256rmk = 14088
+
+    VMOVUPDZ256rmkz = 14089
+
+    VMOVUPDZ256rr = 14090
+
+    VMOVUPDZ256rr_REV = 14091
+
+    VMOVUPDZ256rrk = 14092
+
+    VMOVUPDZ256rrk_REV = 14093
+
+    VMOVUPDZ256rrkz = 14094
+
+    VMOVUPDZ256rrkz_REV = 14095
+
+    VMOVUPDZmr = 14096
+
+    VMOVUPDZmrk = 14097
+
+    VMOVUPDZrm = 14098
+
+    VMOVUPDZrmk = 14099
+
+    VMOVUPDZrmkz = 14100
+
+    VMOVUPDZrr = 14101
+
+    VMOVUPDZrr_REV = 14102
+
+    VMOVUPDZrrk = 14103
+
+    VMOVUPDZrrk_REV = 14104
+
+    VMOVUPDZrrkz = 14105
+
+    VMOVUPDZrrkz_REV = 14106
+
+    VMOVUPDmr = 14107
+
+    VMOVUPDrm = 14108
+
+    VMOVUPDrr = 14109
+
+    VMOVUPDrr_REV = 14110
+
+    VMOVUPSYmr = 14111
+
+    VMOVUPSYrm = 14112
+
+    VMOVUPSYrr = 14113
+
+    VMOVUPSYrr_REV = 14114
+
+    VMOVUPSZ128mr = 14115
+
+    VMOVUPSZ128mrk = 14116
+
+    VMOVUPSZ128rm = 14117
+
+    VMOVUPSZ128rmk = 14118
+
+    VMOVUPSZ128rmkz = 14119
+
+    VMOVUPSZ128rr = 14120
+
+    VMOVUPSZ128rr_REV = 14121
+
+    VMOVUPSZ128rrk = 14122
+
+    VMOVUPSZ128rrk_REV = 14123
+
+    VMOVUPSZ128rrkz = 14124
+
+    VMOVUPSZ128rrkz_REV = 14125
+
+    VMOVUPSZ256mr = 14126
+
+    VMOVUPSZ256mrk = 14127
+
+    VMOVUPSZ256rm = 14128
+
+    VMOVUPSZ256rmk = 14129
+
+    VMOVUPSZ256rmkz = 14130
+
+    VMOVUPSZ256rr = 14131
+
+    VMOVUPSZ256rr_REV = 14132
+
+    VMOVUPSZ256rrk = 14133
+
+    VMOVUPSZ256rrk_REV = 14134
+
+    VMOVUPSZ256rrkz = 14135
+
+    VMOVUPSZ256rrkz_REV = 14136
+
+    VMOVUPSZmr = 14137
+
+    VMOVUPSZmrk = 14138
+
+    VMOVUPSZrm = 14139
+
+    VMOVUPSZrmk = 14140
+
+    VMOVUPSZrmkz = 14141
+
+    VMOVUPSZrr = 14142
+
+    VMOVUPSZrr_REV = 14143
+
+    VMOVUPSZrrk = 14144
+
+    VMOVUPSZrrk_REV = 14145
+
+    VMOVUPSZrrkz = 14146
+
+    VMOVUPSZrrkz_REV = 14147
+
+    VMOVUPSmr = 14148
+
+    VMOVUPSrm = 14149
+
+    VMOVUPSrr = 14150
+
+    VMOVUPSrr_REV = 14151
+
+    VMOVW2SHrr = 14152
+
+    VMOVW64toSHrr = 14153
+
+    VMOVWmr = 14154
+
+    VMOVWrm = 14155
+
+    VMOVZPDILo2PDIZmr = 14156
+
+    VMOVZPDILo2PDIZrm = 14157
+
+    VMOVZPDILo2PDIZrr = 14158
+
+    VMOVZPDILo2PDIZrr2 = 14159
+
+    VMOVZPQILo2PQIZrr = 14160
+
+    VMOVZPQILo2PQIrr = 14161
+
+    VMOVZPWILo2PWIZmr = 14162
+
+    VMOVZPWILo2PWIZrm = 14163
+
+    VMOVZPWILo2PWIZrr = 14164
+
+    VMOVZPWILo2PWIZrr2 = 14165
+
+    VMPSADBWYrmi = 14166
+
+    VMPSADBWYrri = 14167
+
+    VMPSADBWZ128rmi = 14168
+
+    VMPSADBWZ128rmik = 14169
+
+    VMPSADBWZ128rmikz = 14170
+
+    VMPSADBWZ128rri = 14171
+
+    VMPSADBWZ128rrik = 14172
+
+    VMPSADBWZ128rrikz = 14173
+
+    VMPSADBWZ256rmi = 14174
+
+    VMPSADBWZ256rmik = 14175
+
+    VMPSADBWZ256rmikz = 14176
+
+    VMPSADBWZ256rri = 14177
+
+    VMPSADBWZ256rrik = 14178
+
+    VMPSADBWZ256rrikz = 14179
+
+    VMPSADBWZrmi = 14180
+
+    VMPSADBWZrmik = 14181
+
+    VMPSADBWZrmikz = 14182
+
+    VMPSADBWZrri = 14183
+
+    VMPSADBWZrrik = 14184
+
+    VMPSADBWZrrikz = 14185
+
+    VMPSADBWrmi = 14186
+
+    VMPSADBWrri = 14187
+
+    VMPTRLDm = 14188
+
+    VMPTRSTm = 14189
+
+    VMREAD32mr = 14190
+
+    VMREAD32rr = 14191
+
+    VMREAD64mr = 14192
+
+    VMREAD64rr = 14193
+
+    VMRESUME = 14194
+
+    VMRUN32 = 14195
+
+    VMRUN64 = 14196
+
+    VMSAVE32 = 14197
+
+    VMSAVE64 = 14198
+
+    VMULBF16Z128rm = 14199
+
+    VMULBF16Z128rmb = 14200
+
+    VMULBF16Z128rmbk = 14201
+
+    VMULBF16Z128rmbkz = 14202
+
+    VMULBF16Z128rmk = 14203
+
+    VMULBF16Z128rmkz = 14204
+
+    VMULBF16Z128rr = 14205
+
+    VMULBF16Z128rrk = 14206
+
+    VMULBF16Z128rrkz = 14207
+
+    VMULBF16Z256rm = 14208
+
+    VMULBF16Z256rmb = 14209
+
+    VMULBF16Z256rmbk = 14210
+
+    VMULBF16Z256rmbkz = 14211
+
+    VMULBF16Z256rmk = 14212
+
+    VMULBF16Z256rmkz = 14213
+
+    VMULBF16Z256rr = 14214
+
+    VMULBF16Z256rrk = 14215
+
+    VMULBF16Z256rrkz = 14216
+
+    VMULBF16Zrm = 14217
+
+    VMULBF16Zrmb = 14218
+
+    VMULBF16Zrmbk = 14219
+
+    VMULBF16Zrmbkz = 14220
+
+    VMULBF16Zrmk = 14221
+
+    VMULBF16Zrmkz = 14222
+
+    VMULBF16Zrr = 14223
+
+    VMULBF16Zrrk = 14224
+
+    VMULBF16Zrrkz = 14225
+
+    VMULPDYrm = 14226
+
+    VMULPDYrr = 14227
+
+    VMULPDZ128rm = 14228
+
+    VMULPDZ128rmb = 14229
+
+    VMULPDZ128rmbk = 14230
+
+    VMULPDZ128rmbkz = 14231
+
+    VMULPDZ128rmk = 14232
+
+    VMULPDZ128rmkz = 14233
+
+    VMULPDZ128rr = 14234
+
+    VMULPDZ128rrk = 14235
+
+    VMULPDZ128rrkz = 14236
+
+    VMULPDZ256rm = 14237
+
+    VMULPDZ256rmb = 14238
+
+    VMULPDZ256rmbk = 14239
+
+    VMULPDZ256rmbkz = 14240
+
+    VMULPDZ256rmk = 14241
+
+    VMULPDZ256rmkz = 14242
+
+    VMULPDZ256rr = 14243
+
+    VMULPDZ256rrk = 14244
+
+    VMULPDZ256rrkz = 14245
+
+    VMULPDZrm = 14246
+
+    VMULPDZrmb = 14247
+
+    VMULPDZrmbk = 14248
+
+    VMULPDZrmbkz = 14249
+
+    VMULPDZrmk = 14250
+
+    VMULPDZrmkz = 14251
+
+    VMULPDZrr = 14252
+
+    VMULPDZrrb = 14253
+
+    VMULPDZrrbk = 14254
+
+    VMULPDZrrbkz = 14255
+
+    VMULPDZrrk = 14256
+
+    VMULPDZrrkz = 14257
+
+    VMULPDrm = 14258
+
+    VMULPDrr = 14259
+
+    VMULPHZ128rm = 14260
+
+    VMULPHZ128rmb = 14261
+
+    VMULPHZ128rmbk = 14262
+
+    VMULPHZ128rmbkz = 14263
+
+    VMULPHZ128rmk = 14264
+
+    VMULPHZ128rmkz = 14265
+
+    VMULPHZ128rr = 14266
+
+    VMULPHZ128rrk = 14267
+
+    VMULPHZ128rrkz = 14268
+
+    VMULPHZ256rm = 14269
+
+    VMULPHZ256rmb = 14270
+
+    VMULPHZ256rmbk = 14271
+
+    VMULPHZ256rmbkz = 14272
+
+    VMULPHZ256rmk = 14273
+
+    VMULPHZ256rmkz = 14274
+
+    VMULPHZ256rr = 14275
+
+    VMULPHZ256rrk = 14276
+
+    VMULPHZ256rrkz = 14277
+
+    VMULPHZrm = 14278
+
+    VMULPHZrmb = 14279
+
+    VMULPHZrmbk = 14280
+
+    VMULPHZrmbkz = 14281
+
+    VMULPHZrmk = 14282
+
+    VMULPHZrmkz = 14283
+
+    VMULPHZrr = 14284
+
+    VMULPHZrrb = 14285
+
+    VMULPHZrrbk = 14286
+
+    VMULPHZrrbkz = 14287
+
+    VMULPHZrrk = 14288
+
+    VMULPHZrrkz = 14289
+
+    VMULPSYrm = 14290
+
+    VMULPSYrr = 14291
+
+    VMULPSZ128rm = 14292
+
+    VMULPSZ128rmb = 14293
+
+    VMULPSZ128rmbk = 14294
+
+    VMULPSZ128rmbkz = 14295
+
+    VMULPSZ128rmk = 14296
+
+    VMULPSZ128rmkz = 14297
+
+    VMULPSZ128rr = 14298
+
+    VMULPSZ128rrk = 14299
+
+    VMULPSZ128rrkz = 14300
+
+    VMULPSZ256rm = 14301
+
+    VMULPSZ256rmb = 14302
+
+    VMULPSZ256rmbk = 14303
+
+    VMULPSZ256rmbkz = 14304
+
+    VMULPSZ256rmk = 14305
+
+    VMULPSZ256rmkz = 14306
+
+    VMULPSZ256rr = 14307
+
+    VMULPSZ256rrk = 14308
+
+    VMULPSZ256rrkz = 14309
+
+    VMULPSZrm = 14310
+
+    VMULPSZrmb = 14311
+
+    VMULPSZrmbk = 14312
+
+    VMULPSZrmbkz = 14313
+
+    VMULPSZrmk = 14314
+
+    VMULPSZrmkz = 14315
+
+    VMULPSZrr = 14316
+
+    VMULPSZrrb = 14317
+
+    VMULPSZrrbk = 14318
+
+    VMULPSZrrbkz = 14319
+
+    VMULPSZrrk = 14320
+
+    VMULPSZrrkz = 14321
+
+    VMULPSrm = 14322
+
+    VMULPSrr = 14323
+
+    VMULSDZrm = 14324
+
+    VMULSDZrm_Int = 14325
+
+    VMULSDZrmk_Int = 14326
+
+    VMULSDZrmkz_Int = 14327
+
+    VMULSDZrr = 14328
+
+    VMULSDZrr_Int = 14329
+
+    VMULSDZrrb_Int = 14330
+
+    VMULSDZrrbk_Int = 14331
+
+    VMULSDZrrbkz_Int = 14332
+
+    VMULSDZrrk_Int = 14333
+
+    VMULSDZrrkz_Int = 14334
+
+    VMULSDrm = 14335
+
+    VMULSDrm_Int = 14336
+
+    VMULSDrr = 14337
+
+    VMULSDrr_Int = 14338
+
+    VMULSHZrm = 14339
+
+    VMULSHZrm_Int = 14340
+
+    VMULSHZrmk_Int = 14341
+
+    VMULSHZrmkz_Int = 14342
+
+    VMULSHZrr = 14343
+
+    VMULSHZrr_Int = 14344
+
+    VMULSHZrrb_Int = 14345
+
+    VMULSHZrrbk_Int = 14346
+
+    VMULSHZrrbkz_Int = 14347
+
+    VMULSHZrrk_Int = 14348
+
+    VMULSHZrrkz_Int = 14349
+
+    VMULSSZrm = 14350
+
+    VMULSSZrm_Int = 14351
+
+    VMULSSZrmk_Int = 14352
+
+    VMULSSZrmkz_Int = 14353
+
+    VMULSSZrr = 14354
+
+    VMULSSZrr_Int = 14355
+
+    VMULSSZrrb_Int = 14356
+
+    VMULSSZrrbk_Int = 14357
+
+    VMULSSZrrbkz_Int = 14358
+
+    VMULSSZrrk_Int = 14359
+
+    VMULSSZrrkz_Int = 14360
+
+    VMULSSrm = 14361
+
+    VMULSSrm_Int = 14362
+
+    VMULSSrr = 14363
+
+    VMULSSrr_Int = 14364
+
+    VMWRITE32rm = 14365
+
+    VMWRITE32rr = 14366
+
+    VMWRITE64rm = 14367
+
+    VMWRITE64rr = 14368
+
+    VMXOFF = 14369
+
+    VMXON = 14370
+
+    VORPDYrm = 14371
+
+    VORPDYrr = 14372
+
+    VORPDZ128rm = 14373
+
+    VORPDZ128rmb = 14374
+
+    VORPDZ128rmbk = 14375
+
+    VORPDZ128rmbkz = 14376
+
+    VORPDZ128rmk = 14377
+
+    VORPDZ128rmkz = 14378
+
+    VORPDZ128rr = 14379
+
+    VORPDZ128rrk = 14380
+
+    VORPDZ128rrkz = 14381
+
+    VORPDZ256rm = 14382
+
+    VORPDZ256rmb = 14383
+
+    VORPDZ256rmbk = 14384
+
+    VORPDZ256rmbkz = 14385
+
+    VORPDZ256rmk = 14386
+
+    VORPDZ256rmkz = 14387
+
+    VORPDZ256rr = 14388
+
+    VORPDZ256rrk = 14389
+
+    VORPDZ256rrkz = 14390
+
+    VORPDZrm = 14391
+
+    VORPDZrmb = 14392
+
+    VORPDZrmbk = 14393
+
+    VORPDZrmbkz = 14394
+
+    VORPDZrmk = 14395
+
+    VORPDZrmkz = 14396
+
+    VORPDZrr = 14397
+
+    VORPDZrrk = 14398
+
+    VORPDZrrkz = 14399
+
+    VORPDrm = 14400
+
+    VORPDrr = 14401
+
+    VORPSYrm = 14402
+
+    VORPSYrr = 14403
+
+    VORPSZ128rm = 14404
+
+    VORPSZ128rmb = 14405
+
+    VORPSZ128rmbk = 14406
+
+    VORPSZ128rmbkz = 14407
+
+    VORPSZ128rmk = 14408
+
+    VORPSZ128rmkz = 14409
+
+    VORPSZ128rr = 14410
+
+    VORPSZ128rrk = 14411
+
+    VORPSZ128rrkz = 14412
+
+    VORPSZ256rm = 14413
+
+    VORPSZ256rmb = 14414
+
+    VORPSZ256rmbk = 14415
+
+    VORPSZ256rmbkz = 14416
+
+    VORPSZ256rmk = 14417
+
+    VORPSZ256rmkz = 14418
+
+    VORPSZ256rr = 14419
+
+    VORPSZ256rrk = 14420
+
+    VORPSZ256rrkz = 14421
+
+    VORPSZrm = 14422
+
+    VORPSZrmb = 14423
+
+    VORPSZrmbk = 14424
+
+    VORPSZrmbkz = 14425
+
+    VORPSZrmk = 14426
+
+    VORPSZrmkz = 14427
+
+    VORPSZrr = 14428
+
+    VORPSZrrk = 14429
+
+    VORPSZrrkz = 14430
+
+    VORPSrm = 14431
+
+    VORPSrr = 14432
+
+    VP2INTERSECTDZ128rm = 14433
+
+    VP2INTERSECTDZ128rmb = 14434
+
+    VP2INTERSECTDZ128rr = 14435
+
+    VP2INTERSECTDZ256rm = 14436
+
+    VP2INTERSECTDZ256rmb = 14437
+
+    VP2INTERSECTDZ256rr = 14438
+
+    VP2INTERSECTDZrm = 14439
+
+    VP2INTERSECTDZrmb = 14440
+
+    VP2INTERSECTDZrr = 14441
+
+    VP2INTERSECTQZ128rm = 14442
+
+    VP2INTERSECTQZ128rmb = 14443
+
+    VP2INTERSECTQZ128rr = 14444
+
+    VP2INTERSECTQZ256rm = 14445
+
+    VP2INTERSECTQZ256rmb = 14446
+
+    VP2INTERSECTQZ256rr = 14447
+
+    VP2INTERSECTQZrm = 14448
+
+    VP2INTERSECTQZrmb = 14449
+
+    VP2INTERSECTQZrr = 14450
+
+    VP4DPWSSDSrm = 14451
+
+    VP4DPWSSDSrmk = 14452
+
+    VP4DPWSSDSrmkz = 14453
+
+    VP4DPWSSDrm = 14454
+
+    VP4DPWSSDrmk = 14455
+
+    VP4DPWSSDrmkz = 14456
+
+    VPABSBYrm = 14457
+
+    VPABSBYrr = 14458
+
+    VPABSBZ128rm = 14459
+
+    VPABSBZ128rmk = 14460
+
+    VPABSBZ128rmkz = 14461
+
+    VPABSBZ128rr = 14462
+
+    VPABSBZ128rrk = 14463
+
+    VPABSBZ128rrkz = 14464
+
+    VPABSBZ256rm = 14465
+
+    VPABSBZ256rmk = 14466
+
+    VPABSBZ256rmkz = 14467
+
+    VPABSBZ256rr = 14468
+
+    VPABSBZ256rrk = 14469
+
+    VPABSBZ256rrkz = 14470
+
+    VPABSBZrm = 14471
+
+    VPABSBZrmk = 14472
+
+    VPABSBZrmkz = 14473
+
+    VPABSBZrr = 14474
+
+    VPABSBZrrk = 14475
+
+    VPABSBZrrkz = 14476
+
+    VPABSBrm = 14477
+
+    VPABSBrr = 14478
+
+    VPABSDYrm = 14479
+
+    VPABSDYrr = 14480
+
+    VPABSDZ128rm = 14481
+
+    VPABSDZ128rmb = 14482
+
+    VPABSDZ128rmbk = 14483
+
+    VPABSDZ128rmbkz = 14484
+
+    VPABSDZ128rmk = 14485
+
+    VPABSDZ128rmkz = 14486
+
+    VPABSDZ128rr = 14487
+
+    VPABSDZ128rrk = 14488
+
+    VPABSDZ128rrkz = 14489
+
+    VPABSDZ256rm = 14490
+
+    VPABSDZ256rmb = 14491
+
+    VPABSDZ256rmbk = 14492
+
+    VPABSDZ256rmbkz = 14493
+
+    VPABSDZ256rmk = 14494
+
+    VPABSDZ256rmkz = 14495
+
+    VPABSDZ256rr = 14496
+
+    VPABSDZ256rrk = 14497
+
+    VPABSDZ256rrkz = 14498
+
+    VPABSDZrm = 14499
+
+    VPABSDZrmb = 14500
+
+    VPABSDZrmbk = 14501
+
+    VPABSDZrmbkz = 14502
+
+    VPABSDZrmk = 14503
+
+    VPABSDZrmkz = 14504
+
+    VPABSDZrr = 14505
+
+    VPABSDZrrk = 14506
+
+    VPABSDZrrkz = 14507
+
+    VPABSDrm = 14508
+
+    VPABSDrr = 14509
+
+    VPABSQZ128rm = 14510
+
+    VPABSQZ128rmb = 14511
+
+    VPABSQZ128rmbk = 14512
+
+    VPABSQZ128rmbkz = 14513
+
+    VPABSQZ128rmk = 14514
+
+    VPABSQZ128rmkz = 14515
+
+    VPABSQZ128rr = 14516
+
+    VPABSQZ128rrk = 14517
+
+    VPABSQZ128rrkz = 14518
+
+    VPABSQZ256rm = 14519
+
+    VPABSQZ256rmb = 14520
+
+    VPABSQZ256rmbk = 14521
+
+    VPABSQZ256rmbkz = 14522
+
+    VPABSQZ256rmk = 14523
+
+    VPABSQZ256rmkz = 14524
+
+    VPABSQZ256rr = 14525
+
+    VPABSQZ256rrk = 14526
+
+    VPABSQZ256rrkz = 14527
+
+    VPABSQZrm = 14528
+
+    VPABSQZrmb = 14529
+
+    VPABSQZrmbk = 14530
+
+    VPABSQZrmbkz = 14531
+
+    VPABSQZrmk = 14532
+
+    VPABSQZrmkz = 14533
+
+    VPABSQZrr = 14534
+
+    VPABSQZrrk = 14535
+
+    VPABSQZrrkz = 14536
+
+    VPABSWYrm = 14537
+
+    VPABSWYrr = 14538
+
+    VPABSWZ128rm = 14539
+
+    VPABSWZ128rmk = 14540
+
+    VPABSWZ128rmkz = 14541
+
+    VPABSWZ128rr = 14542
+
+    VPABSWZ128rrk = 14543
+
+    VPABSWZ128rrkz = 14544
+
+    VPABSWZ256rm = 14545
+
+    VPABSWZ256rmk = 14546
+
+    VPABSWZ256rmkz = 14547
+
+    VPABSWZ256rr = 14548
+
+    VPABSWZ256rrk = 14549
+
+    VPABSWZ256rrkz = 14550
+
+    VPABSWZrm = 14551
+
+    VPABSWZrmk = 14552
+
+    VPABSWZrmkz = 14553
+
+    VPABSWZrr = 14554
+
+    VPABSWZrrk = 14555
+
+    VPABSWZrrkz = 14556
+
+    VPABSWrm = 14557
+
+    VPABSWrr = 14558
+
+    VPACKSSDWYrm = 14559
+
+    VPACKSSDWYrr = 14560
+
+    VPACKSSDWZ128rm = 14561
+
+    VPACKSSDWZ128rmb = 14562
+
+    VPACKSSDWZ128rmbk = 14563
+
+    VPACKSSDWZ128rmbkz = 14564
+
+    VPACKSSDWZ128rmk = 14565
+
+    VPACKSSDWZ128rmkz = 14566
+
+    VPACKSSDWZ128rr = 14567
+
+    VPACKSSDWZ128rrk = 14568
+
+    VPACKSSDWZ128rrkz = 14569
+
+    VPACKSSDWZ256rm = 14570
+
+    VPACKSSDWZ256rmb = 14571
+
+    VPACKSSDWZ256rmbk = 14572
+
+    VPACKSSDWZ256rmbkz = 14573
+
+    VPACKSSDWZ256rmk = 14574
+
+    VPACKSSDWZ256rmkz = 14575
+
+    VPACKSSDWZ256rr = 14576
+
+    VPACKSSDWZ256rrk = 14577
+
+    VPACKSSDWZ256rrkz = 14578
+
+    VPACKSSDWZrm = 14579
+
+    VPACKSSDWZrmb = 14580
+
+    VPACKSSDWZrmbk = 14581
+
+    VPACKSSDWZrmbkz = 14582
+
+    VPACKSSDWZrmk = 14583
+
+    VPACKSSDWZrmkz = 14584
+
+    VPACKSSDWZrr = 14585
+
+    VPACKSSDWZrrk = 14586
+
+    VPACKSSDWZrrkz = 14587
+
+    VPACKSSDWrm = 14588
+
+    VPACKSSDWrr = 14589
+
+    VPACKSSWBYrm = 14590
+
+    VPACKSSWBYrr = 14591
+
+    VPACKSSWBZ128rm = 14592
+
+    VPACKSSWBZ128rmk = 14593
+
+    VPACKSSWBZ128rmkz = 14594
+
+    VPACKSSWBZ128rr = 14595
+
+    VPACKSSWBZ128rrk = 14596
+
+    VPACKSSWBZ128rrkz = 14597
+
+    VPACKSSWBZ256rm = 14598
+
+    VPACKSSWBZ256rmk = 14599
+
+    VPACKSSWBZ256rmkz = 14600
+
+    VPACKSSWBZ256rr = 14601
+
+    VPACKSSWBZ256rrk = 14602
+
+    VPACKSSWBZ256rrkz = 14603
+
+    VPACKSSWBZrm = 14604
+
+    VPACKSSWBZrmk = 14605
+
+    VPACKSSWBZrmkz = 14606
+
+    VPACKSSWBZrr = 14607
+
+    VPACKSSWBZrrk = 14608
+
+    VPACKSSWBZrrkz = 14609
+
+    VPACKSSWBrm = 14610
+
+    VPACKSSWBrr = 14611
+
+    VPACKUSDWYrm = 14612
+
+    VPACKUSDWYrr = 14613
+
+    VPACKUSDWZ128rm = 14614
+
+    VPACKUSDWZ128rmb = 14615
+
+    VPACKUSDWZ128rmbk = 14616
+
+    VPACKUSDWZ128rmbkz = 14617
+
+    VPACKUSDWZ128rmk = 14618
+
+    VPACKUSDWZ128rmkz = 14619
+
+    VPACKUSDWZ128rr = 14620
+
+    VPACKUSDWZ128rrk = 14621
+
+    VPACKUSDWZ128rrkz = 14622
+
+    VPACKUSDWZ256rm = 14623
+
+    VPACKUSDWZ256rmb = 14624
+
+    VPACKUSDWZ256rmbk = 14625
+
+    VPACKUSDWZ256rmbkz = 14626
+
+    VPACKUSDWZ256rmk = 14627
+
+    VPACKUSDWZ256rmkz = 14628
+
+    VPACKUSDWZ256rr = 14629
+
+    VPACKUSDWZ256rrk = 14630
+
+    VPACKUSDWZ256rrkz = 14631
+
+    VPACKUSDWZrm = 14632
+
+    VPACKUSDWZrmb = 14633
+
+    VPACKUSDWZrmbk = 14634
+
+    VPACKUSDWZrmbkz = 14635
+
+    VPACKUSDWZrmk = 14636
+
+    VPACKUSDWZrmkz = 14637
+
+    VPACKUSDWZrr = 14638
+
+    VPACKUSDWZrrk = 14639
+
+    VPACKUSDWZrrkz = 14640
+
+    VPACKUSDWrm = 14641
+
+    VPACKUSDWrr = 14642
+
+    VPACKUSWBYrm = 14643
+
+    VPACKUSWBYrr = 14644
+
+    VPACKUSWBZ128rm = 14645
+
+    VPACKUSWBZ128rmk = 14646
+
+    VPACKUSWBZ128rmkz = 14647
+
+    VPACKUSWBZ128rr = 14648
+
+    VPACKUSWBZ128rrk = 14649
+
+    VPACKUSWBZ128rrkz = 14650
+
+    VPACKUSWBZ256rm = 14651
+
+    VPACKUSWBZ256rmk = 14652
+
+    VPACKUSWBZ256rmkz = 14653
+
+    VPACKUSWBZ256rr = 14654
+
+    VPACKUSWBZ256rrk = 14655
+
+    VPACKUSWBZ256rrkz = 14656
+
+    VPACKUSWBZrm = 14657
+
+    VPACKUSWBZrmk = 14658
+
+    VPACKUSWBZrmkz = 14659
+
+    VPACKUSWBZrr = 14660
+
+    VPACKUSWBZrrk = 14661
+
+    VPACKUSWBZrrkz = 14662
+
+    VPACKUSWBrm = 14663
+
+    VPACKUSWBrr = 14664
+
+    VPADDBYrm = 14665
+
+    VPADDBYrr = 14666
+
+    VPADDBZ128rm = 14667
+
+    VPADDBZ128rmk = 14668
+
+    VPADDBZ128rmkz = 14669
+
+    VPADDBZ128rr = 14670
+
+    VPADDBZ128rrk = 14671
+
+    VPADDBZ128rrkz = 14672
+
+    VPADDBZ256rm = 14673
+
+    VPADDBZ256rmk = 14674
+
+    VPADDBZ256rmkz = 14675
+
+    VPADDBZ256rr = 14676
+
+    VPADDBZ256rrk = 14677
+
+    VPADDBZ256rrkz = 14678
+
+    VPADDBZrm = 14679
+
+    VPADDBZrmk = 14680
+
+    VPADDBZrmkz = 14681
+
+    VPADDBZrr = 14682
+
+    VPADDBZrrk = 14683
+
+    VPADDBZrrkz = 14684
+
+    VPADDBrm = 14685
+
+    VPADDBrr = 14686
+
+    VPADDDYrm = 14687
+
+    VPADDDYrr = 14688
+
+    VPADDDZ128rm = 14689
+
+    VPADDDZ128rmb = 14690
+
+    VPADDDZ128rmbk = 14691
+
+    VPADDDZ128rmbkz = 14692
+
+    VPADDDZ128rmk = 14693
+
+    VPADDDZ128rmkz = 14694
+
+    VPADDDZ128rr = 14695
+
+    VPADDDZ128rrk = 14696
+
+    VPADDDZ128rrkz = 14697
+
+    VPADDDZ256rm = 14698
+
+    VPADDDZ256rmb = 14699
+
+    VPADDDZ256rmbk = 14700
+
+    VPADDDZ256rmbkz = 14701
+
+    VPADDDZ256rmk = 14702
+
+    VPADDDZ256rmkz = 14703
+
+    VPADDDZ256rr = 14704
+
+    VPADDDZ256rrk = 14705
+
+    VPADDDZ256rrkz = 14706
+
+    VPADDDZrm = 14707
+
+    VPADDDZrmb = 14708
+
+    VPADDDZrmbk = 14709
+
+    VPADDDZrmbkz = 14710
+
+    VPADDDZrmk = 14711
+
+    VPADDDZrmkz = 14712
+
+    VPADDDZrr = 14713
+
+    VPADDDZrrk = 14714
+
+    VPADDDZrrkz = 14715
+
+    VPADDDrm = 14716
+
+    VPADDDrr = 14717
+
+    VPADDQYrm = 14718
+
+    VPADDQYrr = 14719
+
+    VPADDQZ128rm = 14720
+
+    VPADDQZ128rmb = 14721
+
+    VPADDQZ128rmbk = 14722
+
+    VPADDQZ128rmbkz = 14723
+
+    VPADDQZ128rmk = 14724
+
+    VPADDQZ128rmkz = 14725
+
+    VPADDQZ128rr = 14726
+
+    VPADDQZ128rrk = 14727
+
+    VPADDQZ128rrkz = 14728
+
+    VPADDQZ256rm = 14729
+
+    VPADDQZ256rmb = 14730
+
+    VPADDQZ256rmbk = 14731
+
+    VPADDQZ256rmbkz = 14732
+
+    VPADDQZ256rmk = 14733
+
+    VPADDQZ256rmkz = 14734
+
+    VPADDQZ256rr = 14735
+
+    VPADDQZ256rrk = 14736
+
+    VPADDQZ256rrkz = 14737
+
+    VPADDQZrm = 14738
+
+    VPADDQZrmb = 14739
+
+    VPADDQZrmbk = 14740
+
+    VPADDQZrmbkz = 14741
+
+    VPADDQZrmk = 14742
+
+    VPADDQZrmkz = 14743
+
+    VPADDQZrr = 14744
+
+    VPADDQZrrk = 14745
+
+    VPADDQZrrkz = 14746
+
+    VPADDQrm = 14747
+
+    VPADDQrr = 14748
+
+    VPADDSBYrm = 14749
+
+    VPADDSBYrr = 14750
+
+    VPADDSBZ128rm = 14751
+
+    VPADDSBZ128rmk = 14752
+
+    VPADDSBZ128rmkz = 14753
+
+    VPADDSBZ128rr = 14754
+
+    VPADDSBZ128rrk = 14755
+
+    VPADDSBZ128rrkz = 14756
+
+    VPADDSBZ256rm = 14757
+
+    VPADDSBZ256rmk = 14758
+
+    VPADDSBZ256rmkz = 14759
+
+    VPADDSBZ256rr = 14760
+
+    VPADDSBZ256rrk = 14761
+
+    VPADDSBZ256rrkz = 14762
+
+    VPADDSBZrm = 14763
+
+    VPADDSBZrmk = 14764
+
+    VPADDSBZrmkz = 14765
+
+    VPADDSBZrr = 14766
+
+    VPADDSBZrrk = 14767
+
+    VPADDSBZrrkz = 14768
+
+    VPADDSBrm = 14769
+
+    VPADDSBrr = 14770
+
+    VPADDSWYrm = 14771
+
+    VPADDSWYrr = 14772
+
+    VPADDSWZ128rm = 14773
+
+    VPADDSWZ128rmk = 14774
+
+    VPADDSWZ128rmkz = 14775
+
+    VPADDSWZ128rr = 14776
+
+    VPADDSWZ128rrk = 14777
+
+    VPADDSWZ128rrkz = 14778
+
+    VPADDSWZ256rm = 14779
+
+    VPADDSWZ256rmk = 14780
+
+    VPADDSWZ256rmkz = 14781
+
+    VPADDSWZ256rr = 14782
+
+    VPADDSWZ256rrk = 14783
+
+    VPADDSWZ256rrkz = 14784
+
+    VPADDSWZrm = 14785
+
+    VPADDSWZrmk = 14786
+
+    VPADDSWZrmkz = 14787
+
+    VPADDSWZrr = 14788
+
+    VPADDSWZrrk = 14789
+
+    VPADDSWZrrkz = 14790
+
+    VPADDSWrm = 14791
+
+    VPADDSWrr = 14792
+
+    VPADDUSBYrm = 14793
+
+    VPADDUSBYrr = 14794
+
+    VPADDUSBZ128rm = 14795
+
+    VPADDUSBZ128rmk = 14796
+
+    VPADDUSBZ128rmkz = 14797
+
+    VPADDUSBZ128rr = 14798
+
+    VPADDUSBZ128rrk = 14799
+
+    VPADDUSBZ128rrkz = 14800
+
+    VPADDUSBZ256rm = 14801
+
+    VPADDUSBZ256rmk = 14802
+
+    VPADDUSBZ256rmkz = 14803
+
+    VPADDUSBZ256rr = 14804
+
+    VPADDUSBZ256rrk = 14805
+
+    VPADDUSBZ256rrkz = 14806
+
+    VPADDUSBZrm = 14807
+
+    VPADDUSBZrmk = 14808
+
+    VPADDUSBZrmkz = 14809
+
+    VPADDUSBZrr = 14810
+
+    VPADDUSBZrrk = 14811
+
+    VPADDUSBZrrkz = 14812
+
+    VPADDUSBrm = 14813
+
+    VPADDUSBrr = 14814
+
+    VPADDUSWYrm = 14815
+
+    VPADDUSWYrr = 14816
+
+    VPADDUSWZ128rm = 14817
+
+    VPADDUSWZ128rmk = 14818
+
+    VPADDUSWZ128rmkz = 14819
+
+    VPADDUSWZ128rr = 14820
+
+    VPADDUSWZ128rrk = 14821
+
+    VPADDUSWZ128rrkz = 14822
+
+    VPADDUSWZ256rm = 14823
+
+    VPADDUSWZ256rmk = 14824
+
+    VPADDUSWZ256rmkz = 14825
+
+    VPADDUSWZ256rr = 14826
+
+    VPADDUSWZ256rrk = 14827
+
+    VPADDUSWZ256rrkz = 14828
+
+    VPADDUSWZrm = 14829
+
+    VPADDUSWZrmk = 14830
+
+    VPADDUSWZrmkz = 14831
+
+    VPADDUSWZrr = 14832
+
+    VPADDUSWZrrk = 14833
+
+    VPADDUSWZrrkz = 14834
+
+    VPADDUSWrm = 14835
+
+    VPADDUSWrr = 14836
+
+    VPADDWYrm = 14837
+
+    VPADDWYrr = 14838
+
+    VPADDWZ128rm = 14839
+
+    VPADDWZ128rmk = 14840
+
+    VPADDWZ128rmkz = 14841
+
+    VPADDWZ128rr = 14842
+
+    VPADDWZ128rrk = 14843
+
+    VPADDWZ128rrkz = 14844
+
+    VPADDWZ256rm = 14845
+
+    VPADDWZ256rmk = 14846
+
+    VPADDWZ256rmkz = 14847
+
+    VPADDWZ256rr = 14848
+
+    VPADDWZ256rrk = 14849
+
+    VPADDWZ256rrkz = 14850
+
+    VPADDWZrm = 14851
+
+    VPADDWZrmk = 14852
+
+    VPADDWZrmkz = 14853
+
+    VPADDWZrr = 14854
+
+    VPADDWZrrk = 14855
+
+    VPADDWZrrkz = 14856
+
+    VPADDWrm = 14857
+
+    VPADDWrr = 14858
+
+    VPALIGNRYrmi = 14859
+
+    VPALIGNRYrri = 14860
+
+    VPALIGNRZ128rmi = 14861
+
+    VPALIGNRZ128rmik = 14862
+
+    VPALIGNRZ128rmikz = 14863
+
+    VPALIGNRZ128rri = 14864
+
+    VPALIGNRZ128rrik = 14865
+
+    VPALIGNRZ128rrikz = 14866
+
+    VPALIGNRZ256rmi = 14867
+
+    VPALIGNRZ256rmik = 14868
+
+    VPALIGNRZ256rmikz = 14869
+
+    VPALIGNRZ256rri = 14870
+
+    VPALIGNRZ256rrik = 14871
+
+    VPALIGNRZ256rrikz = 14872
+
+    VPALIGNRZrmi = 14873
+
+    VPALIGNRZrmik = 14874
+
+    VPALIGNRZrmikz = 14875
+
+    VPALIGNRZrri = 14876
+
+    VPALIGNRZrrik = 14877
+
+    VPALIGNRZrrikz = 14878
+
+    VPALIGNRrmi = 14879
+
+    VPALIGNRrri = 14880
+
+    VPANDDZ128rm = 14881
+
+    VPANDDZ128rmb = 14882
+
+    VPANDDZ128rmbk = 14883
+
+    VPANDDZ128rmbkz = 14884
+
+    VPANDDZ128rmk = 14885
+
+    VPANDDZ128rmkz = 14886
+
+    VPANDDZ128rr = 14887
+
+    VPANDDZ128rrk = 14888
+
+    VPANDDZ128rrkz = 14889
+
+    VPANDDZ256rm = 14890
+
+    VPANDDZ256rmb = 14891
+
+    VPANDDZ256rmbk = 14892
+
+    VPANDDZ256rmbkz = 14893
+
+    VPANDDZ256rmk = 14894
+
+    VPANDDZ256rmkz = 14895
+
+    VPANDDZ256rr = 14896
+
+    VPANDDZ256rrk = 14897
+
+    VPANDDZ256rrkz = 14898
+
+    VPANDDZrm = 14899
+
+    VPANDDZrmb = 14900
+
+    VPANDDZrmbk = 14901
+
+    VPANDDZrmbkz = 14902
+
+    VPANDDZrmk = 14903
+
+    VPANDDZrmkz = 14904
+
+    VPANDDZrr = 14905
+
+    VPANDDZrrk = 14906
+
+    VPANDDZrrkz = 14907
+
+    VPANDNDZ128rm = 14908
+
+    VPANDNDZ128rmb = 14909
+
+    VPANDNDZ128rmbk = 14910
+
+    VPANDNDZ128rmbkz = 14911
+
+    VPANDNDZ128rmk = 14912
+
+    VPANDNDZ128rmkz = 14913
+
+    VPANDNDZ128rr = 14914
+
+    VPANDNDZ128rrk = 14915
+
+    VPANDNDZ128rrkz = 14916
+
+    VPANDNDZ256rm = 14917
+
+    VPANDNDZ256rmb = 14918
+
+    VPANDNDZ256rmbk = 14919
+
+    VPANDNDZ256rmbkz = 14920
+
+    VPANDNDZ256rmk = 14921
+
+    VPANDNDZ256rmkz = 14922
+
+    VPANDNDZ256rr = 14923
+
+    VPANDNDZ256rrk = 14924
+
+    VPANDNDZ256rrkz = 14925
+
+    VPANDNDZrm = 14926
+
+    VPANDNDZrmb = 14927
+
+    VPANDNDZrmbk = 14928
+
+    VPANDNDZrmbkz = 14929
+
+    VPANDNDZrmk = 14930
+
+    VPANDNDZrmkz = 14931
+
+    VPANDNDZrr = 14932
+
+    VPANDNDZrrk = 14933
+
+    VPANDNDZrrkz = 14934
+
+    VPANDNQZ128rm = 14935
+
+    VPANDNQZ128rmb = 14936
+
+    VPANDNQZ128rmbk = 14937
+
+    VPANDNQZ128rmbkz = 14938
+
+    VPANDNQZ128rmk = 14939
+
+    VPANDNQZ128rmkz = 14940
+
+    VPANDNQZ128rr = 14941
+
+    VPANDNQZ128rrk = 14942
+
+    VPANDNQZ128rrkz = 14943
+
+    VPANDNQZ256rm = 14944
+
+    VPANDNQZ256rmb = 14945
+
+    VPANDNQZ256rmbk = 14946
+
+    VPANDNQZ256rmbkz = 14947
+
+    VPANDNQZ256rmk = 14948
+
+    VPANDNQZ256rmkz = 14949
+
+    VPANDNQZ256rr = 14950
+
+    VPANDNQZ256rrk = 14951
+
+    VPANDNQZ256rrkz = 14952
+
+    VPANDNQZrm = 14953
+
+    VPANDNQZrmb = 14954
+
+    VPANDNQZrmbk = 14955
+
+    VPANDNQZrmbkz = 14956
+
+    VPANDNQZrmk = 14957
+
+    VPANDNQZrmkz = 14958
+
+    VPANDNQZrr = 14959
+
+    VPANDNQZrrk = 14960
+
+    VPANDNQZrrkz = 14961
+
+    VPANDNYrm = 14962
+
+    VPANDNYrr = 14963
+
+    VPANDNrm = 14964
+
+    VPANDNrr = 14965
+
+    VPANDQZ128rm = 14966
+
+    VPANDQZ128rmb = 14967
+
+    VPANDQZ128rmbk = 14968
+
+    VPANDQZ128rmbkz = 14969
+
+    VPANDQZ128rmk = 14970
+
+    VPANDQZ128rmkz = 14971
+
+    VPANDQZ128rr = 14972
+
+    VPANDQZ128rrk = 14973
+
+    VPANDQZ128rrkz = 14974
+
+    VPANDQZ256rm = 14975
+
+    VPANDQZ256rmb = 14976
+
+    VPANDQZ256rmbk = 14977
+
+    VPANDQZ256rmbkz = 14978
+
+    VPANDQZ256rmk = 14979
+
+    VPANDQZ256rmkz = 14980
+
+    VPANDQZ256rr = 14981
+
+    VPANDQZ256rrk = 14982
+
+    VPANDQZ256rrkz = 14983
+
+    VPANDQZrm = 14984
+
+    VPANDQZrmb = 14985
+
+    VPANDQZrmbk = 14986
+
+    VPANDQZrmbkz = 14987
+
+    VPANDQZrmk = 14988
+
+    VPANDQZrmkz = 14989
+
+    VPANDQZrr = 14990
+
+    VPANDQZrrk = 14991
+
+    VPANDQZrrkz = 14992
+
+    VPANDYrm = 14993
+
+    VPANDYrr = 14994
+
+    VPANDrm = 14995
+
+    VPANDrr = 14996
+
+    VPAVGBYrm = 14997
+
+    VPAVGBYrr = 14998
+
+    VPAVGBZ128rm = 14999
+
+    VPAVGBZ128rmk = 15000
+
+    VPAVGBZ128rmkz = 15001
+
+    VPAVGBZ128rr = 15002
+
+    VPAVGBZ128rrk = 15003
+
+    VPAVGBZ128rrkz = 15004
+
+    VPAVGBZ256rm = 15005
+
+    VPAVGBZ256rmk = 15006
+
+    VPAVGBZ256rmkz = 15007
+
+    VPAVGBZ256rr = 15008
+
+    VPAVGBZ256rrk = 15009
+
+    VPAVGBZ256rrkz = 15010
+
+    VPAVGBZrm = 15011
+
+    VPAVGBZrmk = 15012
+
+    VPAVGBZrmkz = 15013
+
+    VPAVGBZrr = 15014
+
+    VPAVGBZrrk = 15015
+
+    VPAVGBZrrkz = 15016
+
+    VPAVGBrm = 15017
+
+    VPAVGBrr = 15018
+
+    VPAVGWYrm = 15019
+
+    VPAVGWYrr = 15020
+
+    VPAVGWZ128rm = 15021
+
+    VPAVGWZ128rmk = 15022
+
+    VPAVGWZ128rmkz = 15023
+
+    VPAVGWZ128rr = 15024
+
+    VPAVGWZ128rrk = 15025
+
+    VPAVGWZ128rrkz = 15026
+
+    VPAVGWZ256rm = 15027
+
+    VPAVGWZ256rmk = 15028
+
+    VPAVGWZ256rmkz = 15029
+
+    VPAVGWZ256rr = 15030
+
+    VPAVGWZ256rrk = 15031
+
+    VPAVGWZ256rrkz = 15032
+
+    VPAVGWZrm = 15033
+
+    VPAVGWZrmk = 15034
+
+    VPAVGWZrmkz = 15035
+
+    VPAVGWZrr = 15036
+
+    VPAVGWZrrk = 15037
+
+    VPAVGWZrrkz = 15038
+
+    VPAVGWrm = 15039
+
+    VPAVGWrr = 15040
+
+    VPBITREVBZ128rm = 15041
+
+    VPBITREVBZ128rmk = 15042
+
+    VPBITREVBZ128rmkz = 15043
+
+    VPBITREVBZ128rr = 15044
+
+    VPBITREVBZ128rrk = 15045
+
+    VPBITREVBZ128rrkz = 15046
+
+    VPBITREVBZ256rm = 15047
+
+    VPBITREVBZ256rmk = 15048
+
+    VPBITREVBZ256rmkz = 15049
+
+    VPBITREVBZ256rr = 15050
+
+    VPBITREVBZ256rrk = 15051
+
+    VPBITREVBZ256rrkz = 15052
+
+    VPBITREVBZrm = 15053
+
+    VPBITREVBZrmk = 15054
+
+    VPBITREVBZrmkz = 15055
+
+    VPBITREVBZrr = 15056
+
+    VPBITREVBZrrk = 15057
+
+    VPBITREVBZrrkz = 15058
+
+    VPBLENDDYrmi = 15059
+
+    VPBLENDDYrri = 15060
+
+    VPBLENDDrmi = 15061
+
+    VPBLENDDrri = 15062
+
+    VPBLENDMBZ128rm = 15063
+
+    VPBLENDMBZ128rmk = 15064
+
+    VPBLENDMBZ128rmkz = 15065
+
+    VPBLENDMBZ128rr = 15066
+
+    VPBLENDMBZ128rrk = 15067
+
+    VPBLENDMBZ128rrkz = 15068
+
+    VPBLENDMBZ256rm = 15069
+
+    VPBLENDMBZ256rmk = 15070
+
+    VPBLENDMBZ256rmkz = 15071
+
+    VPBLENDMBZ256rr = 15072
+
+    VPBLENDMBZ256rrk = 15073
+
+    VPBLENDMBZ256rrkz = 15074
+
+    VPBLENDMBZrm = 15075
+
+    VPBLENDMBZrmk = 15076
+
+    VPBLENDMBZrmkz = 15077
+
+    VPBLENDMBZrr = 15078
+
+    VPBLENDMBZrrk = 15079
+
+    VPBLENDMBZrrkz = 15080
+
+    VPBLENDMDZ128rm = 15081
+
+    VPBLENDMDZ128rmb = 15082
+
+    VPBLENDMDZ128rmbk = 15083
+
+    VPBLENDMDZ128rmbkz = 15084
+
+    VPBLENDMDZ128rmk = 15085
+
+    VPBLENDMDZ128rmkz = 15086
+
+    VPBLENDMDZ128rr = 15087
+
+    VPBLENDMDZ128rrk = 15088
+
+    VPBLENDMDZ128rrkz = 15089
+
+    VPBLENDMDZ256rm = 15090
+
+    VPBLENDMDZ256rmb = 15091
+
+    VPBLENDMDZ256rmbk = 15092
+
+    VPBLENDMDZ256rmbkz = 15093
+
+    VPBLENDMDZ256rmk = 15094
+
+    VPBLENDMDZ256rmkz = 15095
+
+    VPBLENDMDZ256rr = 15096
+
+    VPBLENDMDZ256rrk = 15097
+
+    VPBLENDMDZ256rrkz = 15098
+
+    VPBLENDMDZrm = 15099
+
+    VPBLENDMDZrmb = 15100
+
+    VPBLENDMDZrmbk = 15101
+
+    VPBLENDMDZrmbkz = 15102
+
+    VPBLENDMDZrmk = 15103
+
+    VPBLENDMDZrmkz = 15104
+
+    VPBLENDMDZrr = 15105
+
+    VPBLENDMDZrrk = 15106
+
+    VPBLENDMDZrrkz = 15107
+
+    VPBLENDMQZ128rm = 15108
+
+    VPBLENDMQZ128rmb = 15109
+
+    VPBLENDMQZ128rmbk = 15110
+
+    VPBLENDMQZ128rmbkz = 15111
+
+    VPBLENDMQZ128rmk = 15112
+
+    VPBLENDMQZ128rmkz = 15113
+
+    VPBLENDMQZ128rr = 15114
+
+    VPBLENDMQZ128rrk = 15115
+
+    VPBLENDMQZ128rrkz = 15116
+
+    VPBLENDMQZ256rm = 15117
+
+    VPBLENDMQZ256rmb = 15118
+
+    VPBLENDMQZ256rmbk = 15119
+
+    VPBLENDMQZ256rmbkz = 15120
+
+    VPBLENDMQZ256rmk = 15121
+
+    VPBLENDMQZ256rmkz = 15122
+
+    VPBLENDMQZ256rr = 15123
+
+    VPBLENDMQZ256rrk = 15124
+
+    VPBLENDMQZ256rrkz = 15125
+
+    VPBLENDMQZrm = 15126
+
+    VPBLENDMQZrmb = 15127
+
+    VPBLENDMQZrmbk = 15128
+
+    VPBLENDMQZrmbkz = 15129
+
+    VPBLENDMQZrmk = 15130
+
+    VPBLENDMQZrmkz = 15131
+
+    VPBLENDMQZrr = 15132
+
+    VPBLENDMQZrrk = 15133
+
+    VPBLENDMQZrrkz = 15134
+
+    VPBLENDMWZ128rm = 15135
+
+    VPBLENDMWZ128rmk = 15136
+
+    VPBLENDMWZ128rmkz = 15137
+
+    VPBLENDMWZ128rr = 15138
+
+    VPBLENDMWZ128rrk = 15139
+
+    VPBLENDMWZ128rrkz = 15140
+
+    VPBLENDMWZ256rm = 15141
+
+    VPBLENDMWZ256rmk = 15142
+
+    VPBLENDMWZ256rmkz = 15143
+
+    VPBLENDMWZ256rr = 15144
+
+    VPBLENDMWZ256rrk = 15145
+
+    VPBLENDMWZ256rrkz = 15146
+
+    VPBLENDMWZrm = 15147
+
+    VPBLENDMWZrmk = 15148
+
+    VPBLENDMWZrmkz = 15149
+
+    VPBLENDMWZrr = 15150
+
+    VPBLENDMWZrrk = 15151
+
+    VPBLENDMWZrrkz = 15152
+
+    VPBLENDVBYrmr = 15153
+
+    VPBLENDVBYrrr = 15154
+
+    VPBLENDVBrmr = 15155
+
+    VPBLENDVBrrr = 15156
+
+    VPBLENDWYrmi = 15157
+
+    VPBLENDWYrri = 15158
+
+    VPBLENDWrmi = 15159
+
+    VPBLENDWrri = 15160
+
+    VPBROADCASTBYrm = 15161
+
+    VPBROADCASTBYrr = 15162
+
+    VPBROADCASTBZ128rm = 15163
+
+    VPBROADCASTBZ128rmk = 15164
+
+    VPBROADCASTBZ128rmkz = 15165
+
+    VPBROADCASTBZ128rr = 15166
+
+    VPBROADCASTBZ128rrk = 15167
+
+    VPBROADCASTBZ128rrkz = 15168
+
+    VPBROADCASTBZ256rm = 15169
+
+    VPBROADCASTBZ256rmk = 15170
+
+    VPBROADCASTBZ256rmkz = 15171
+
+    VPBROADCASTBZ256rr = 15172
+
+    VPBROADCASTBZ256rrk = 15173
+
+    VPBROADCASTBZ256rrkz = 15174
+
+    VPBROADCASTBZrm = 15175
+
+    VPBROADCASTBZrmk = 15176
+
+    VPBROADCASTBZrmkz = 15177
+
+    VPBROADCASTBZrr = 15178
+
+    VPBROADCASTBZrrk = 15179
+
+    VPBROADCASTBZrrkz = 15180
+
+    VPBROADCASTBrZ128rr = 15181
+
+    VPBROADCASTBrZ128rrk = 15182
+
+    VPBROADCASTBrZ128rrkz = 15183
+
+    VPBROADCASTBrZ256rr = 15184
+
+    VPBROADCASTBrZ256rrk = 15185
+
+    VPBROADCASTBrZ256rrkz = 15186
+
+    VPBROADCASTBrZrr = 15187
+
+    VPBROADCASTBrZrrk = 15188
+
+    VPBROADCASTBrZrrkz = 15189
+
+    VPBROADCASTBrm = 15190
+
+    VPBROADCASTBrr = 15191
+
+    VPBROADCASTDYrm = 15192
+
+    VPBROADCASTDYrr = 15193
+
+    VPBROADCASTDZ128rm = 15194
+
+    VPBROADCASTDZ128rmk = 15195
+
+    VPBROADCASTDZ128rmkz = 15196
+
+    VPBROADCASTDZ128rr = 15197
+
+    VPBROADCASTDZ128rrk = 15198
+
+    VPBROADCASTDZ128rrkz = 15199
+
+    VPBROADCASTDZ256rm = 15200
+
+    VPBROADCASTDZ256rmk = 15201
+
+    VPBROADCASTDZ256rmkz = 15202
+
+    VPBROADCASTDZ256rr = 15203
+
+    VPBROADCASTDZ256rrk = 15204
+
+    VPBROADCASTDZ256rrkz = 15205
+
+    VPBROADCASTDZrm = 15206
+
+    VPBROADCASTDZrmk = 15207
+
+    VPBROADCASTDZrmkz = 15208
+
+    VPBROADCASTDZrr = 15209
+
+    VPBROADCASTDZrrk = 15210
+
+    VPBROADCASTDZrrkz = 15211
+
+    VPBROADCASTDrZ128rr = 15212
+
+    VPBROADCASTDrZ128rrk = 15213
+
+    VPBROADCASTDrZ128rrkz = 15214
+
+    VPBROADCASTDrZ256rr = 15215
+
+    VPBROADCASTDrZ256rrk = 15216
+
+    VPBROADCASTDrZ256rrkz = 15217
+
+    VPBROADCASTDrZrr = 15218
+
+    VPBROADCASTDrZrrk = 15219
+
+    VPBROADCASTDrZrrkz = 15220
+
+    VPBROADCASTDrm = 15221
+
+    VPBROADCASTDrr = 15222
+
+    VPBROADCASTMB2QZ128rr = 15223
+
+    VPBROADCASTMB2QZ256rr = 15224
+
+    VPBROADCASTMB2QZrr = 15225
+
+    VPBROADCASTMW2DZ128rr = 15226
+
+    VPBROADCASTMW2DZ256rr = 15227
+
+    VPBROADCASTMW2DZrr = 15228
+
+    VPBROADCASTQYrm = 15229
+
+    VPBROADCASTQYrr = 15230
+
+    VPBROADCASTQZ128rm = 15231
+
+    VPBROADCASTQZ128rmk = 15232
+
+    VPBROADCASTQZ128rmkz = 15233
+
+    VPBROADCASTQZ128rr = 15234
+
+    VPBROADCASTQZ128rrk = 15235
+
+    VPBROADCASTQZ128rrkz = 15236
+
+    VPBROADCASTQZ256rm = 15237
+
+    VPBROADCASTQZ256rmk = 15238
+
+    VPBROADCASTQZ256rmkz = 15239
+
+    VPBROADCASTQZ256rr = 15240
+
+    VPBROADCASTQZ256rrk = 15241
+
+    VPBROADCASTQZ256rrkz = 15242
+
+    VPBROADCASTQZrm = 15243
+
+    VPBROADCASTQZrmk = 15244
+
+    VPBROADCASTQZrmkz = 15245
+
+    VPBROADCASTQZrr = 15246
+
+    VPBROADCASTQZrrk = 15247
+
+    VPBROADCASTQZrrkz = 15248
+
+    VPBROADCASTQrZ128rr = 15249
+
+    VPBROADCASTQrZ128rrk = 15250
+
+    VPBROADCASTQrZ128rrkz = 15251
+
+    VPBROADCASTQrZ256rr = 15252
+
+    VPBROADCASTQrZ256rrk = 15253
+
+    VPBROADCASTQrZ256rrkz = 15254
+
+    VPBROADCASTQrZrr = 15255
+
+    VPBROADCASTQrZrrk = 15256
+
+    VPBROADCASTQrZrrkz = 15257
+
+    VPBROADCASTQrm = 15258
+
+    VPBROADCASTQrr = 15259
+
+    VPBROADCASTWYrm = 15260
+
+    VPBROADCASTWYrr = 15261
+
+    VPBROADCASTWZ128rm = 15262
+
+    VPBROADCASTWZ128rmk = 15263
+
+    VPBROADCASTWZ128rmkz = 15264
+
+    VPBROADCASTWZ128rr = 15265
+
+    VPBROADCASTWZ128rrk = 15266
+
+    VPBROADCASTWZ128rrkz = 15267
+
+    VPBROADCASTWZ256rm = 15268
+
+    VPBROADCASTWZ256rmk = 15269
+
+    VPBROADCASTWZ256rmkz = 15270
+
+    VPBROADCASTWZ256rr = 15271
+
+    VPBROADCASTWZ256rrk = 15272
+
+    VPBROADCASTWZ256rrkz = 15273
+
+    VPBROADCASTWZrm = 15274
+
+    VPBROADCASTWZrmk = 15275
+
+    VPBROADCASTWZrmkz = 15276
+
+    VPBROADCASTWZrr = 15277
+
+    VPBROADCASTWZrrk = 15278
+
+    VPBROADCASTWZrrkz = 15279
+
+    VPBROADCASTWrZ128rr = 15280
+
+    VPBROADCASTWrZ128rrk = 15281
+
+    VPBROADCASTWrZ128rrkz = 15282
+
+    VPBROADCASTWrZ256rr = 15283
+
+    VPBROADCASTWrZ256rrk = 15284
+
+    VPBROADCASTWrZ256rrkz = 15285
+
+    VPBROADCASTWrZrr = 15286
+
+    VPBROADCASTWrZrrk = 15287
+
+    VPBROADCASTWrZrrkz = 15288
+
+    VPBROADCASTWrm = 15289
+
+    VPBROADCASTWrr = 15290
+
+    VPCLMULQDQYrmi = 15291
+
+    VPCLMULQDQYrri = 15292
+
+    VPCLMULQDQZ128rmi = 15293
+
+    VPCLMULQDQZ128rri = 15294
+
+    VPCLMULQDQZ256rmi = 15295
+
+    VPCLMULQDQZ256rri = 15296
+
+    VPCLMULQDQZrmi = 15297
+
+    VPCLMULQDQZrri = 15298
+
+    VPCLMULQDQrmi = 15299
+
+    VPCLMULQDQrri = 15300
+
+    VPCMOVYrmr = 15301
+
+    VPCMOVYrrm = 15302
+
+    VPCMOVYrrr = 15303
+
+    VPCMOVYrrr_REV = 15304
+
+    VPCMOVrmr = 15305
+
+    VPCMOVrrm = 15306
+
+    VPCMOVrrr = 15307
+
+    VPCMOVrrr_REV = 15308
+
+    VPCMPBZ128rmi = 15309
+
+    VPCMPBZ128rmik = 15310
+
+    VPCMPBZ128rri = 15311
+
+    VPCMPBZ128rrik = 15312
+
+    VPCMPBZ256rmi = 15313
+
+    VPCMPBZ256rmik = 15314
+
+    VPCMPBZ256rri = 15315
+
+    VPCMPBZ256rrik = 15316
+
+    VPCMPBZrmi = 15317
+
+    VPCMPBZrmik = 15318
+
+    VPCMPBZrri = 15319
+
+    VPCMPBZrrik = 15320
+
+    VPCMPDZ128rmbi = 15321
+
+    VPCMPDZ128rmbik = 15322
+
+    VPCMPDZ128rmi = 15323
+
+    VPCMPDZ128rmik = 15324
+
+    VPCMPDZ128rri = 15325
+
+    VPCMPDZ128rrik = 15326
+
+    VPCMPDZ256rmbi = 15327
+
+    VPCMPDZ256rmbik = 15328
+
+    VPCMPDZ256rmi = 15329
+
+    VPCMPDZ256rmik = 15330
+
+    VPCMPDZ256rri = 15331
+
+    VPCMPDZ256rrik = 15332
+
+    VPCMPDZrmbi = 15333
+
+    VPCMPDZrmbik = 15334
+
+    VPCMPDZrmi = 15335
+
+    VPCMPDZrmik = 15336
+
+    VPCMPDZrri = 15337
+
+    VPCMPDZrrik = 15338
+
+    VPCMPEQBYrm = 15339
+
+    VPCMPEQBYrr = 15340
+
+    VPCMPEQBZ128rm = 15341
+
+    VPCMPEQBZ128rmk = 15342
+
+    VPCMPEQBZ128rr = 15343
+
+    VPCMPEQBZ128rrk = 15344
+
+    VPCMPEQBZ256rm = 15345
+
+    VPCMPEQBZ256rmk = 15346
+
+    VPCMPEQBZ256rr = 15347
+
+    VPCMPEQBZ256rrk = 15348
+
+    VPCMPEQBZrm = 15349
+
+    VPCMPEQBZrmk = 15350
+
+    VPCMPEQBZrr = 15351
+
+    VPCMPEQBZrrk = 15352
+
+    VPCMPEQBrm = 15353
+
+    VPCMPEQBrr = 15354
+
+    VPCMPEQDYrm = 15355
+
+    VPCMPEQDYrr = 15356
+
+    VPCMPEQDZ128rm = 15357
+
+    VPCMPEQDZ128rmb = 15358
+
+    VPCMPEQDZ128rmbk = 15359
+
+    VPCMPEQDZ128rmk = 15360
+
+    VPCMPEQDZ128rr = 15361
+
+    VPCMPEQDZ128rrk = 15362
+
+    VPCMPEQDZ256rm = 15363
+
+    VPCMPEQDZ256rmb = 15364
+
+    VPCMPEQDZ256rmbk = 15365
+
+    VPCMPEQDZ256rmk = 15366
+
+    VPCMPEQDZ256rr = 15367
+
+    VPCMPEQDZ256rrk = 15368
+
+    VPCMPEQDZrm = 15369
+
+    VPCMPEQDZrmb = 15370
+
+    VPCMPEQDZrmbk = 15371
+
+    VPCMPEQDZrmk = 15372
+
+    VPCMPEQDZrr = 15373
+
+    VPCMPEQDZrrk = 15374
+
+    VPCMPEQDrm = 15375
+
+    VPCMPEQDrr = 15376
+
+    VPCMPEQQYrm = 15377
+
+    VPCMPEQQYrr = 15378
+
+    VPCMPEQQZ128rm = 15379
+
+    VPCMPEQQZ128rmb = 15380
+
+    VPCMPEQQZ128rmbk = 15381
+
+    VPCMPEQQZ128rmk = 15382
+
+    VPCMPEQQZ128rr = 15383
+
+    VPCMPEQQZ128rrk = 15384
+
+    VPCMPEQQZ256rm = 15385
+
+    VPCMPEQQZ256rmb = 15386
+
+    VPCMPEQQZ256rmbk = 15387
+
+    VPCMPEQQZ256rmk = 15388
+
+    VPCMPEQQZ256rr = 15389
+
+    VPCMPEQQZ256rrk = 15390
+
+    VPCMPEQQZrm = 15391
+
+    VPCMPEQQZrmb = 15392
+
+    VPCMPEQQZrmbk = 15393
+
+    VPCMPEQQZrmk = 15394
+
+    VPCMPEQQZrr = 15395
+
+    VPCMPEQQZrrk = 15396
+
+    VPCMPEQQrm = 15397
+
+    VPCMPEQQrr = 15398
+
+    VPCMPEQWYrm = 15399
+
+    VPCMPEQWYrr = 15400
+
+    VPCMPEQWZ128rm = 15401
+
+    VPCMPEQWZ128rmk = 15402
+
+    VPCMPEQWZ128rr = 15403
+
+    VPCMPEQWZ128rrk = 15404
+
+    VPCMPEQWZ256rm = 15405
+
+    VPCMPEQWZ256rmk = 15406
+
+    VPCMPEQWZ256rr = 15407
+
+    VPCMPEQWZ256rrk = 15408
+
+    VPCMPEQWZrm = 15409
+
+    VPCMPEQWZrmk = 15410
+
+    VPCMPEQWZrr = 15411
+
+    VPCMPEQWZrrk = 15412
+
+    VPCMPEQWrm = 15413
+
+    VPCMPEQWrr = 15414
+
+    VPCMPESTRIQrmi = 15415
+
+    VPCMPESTRIQrri = 15416
+
+    VPCMPESTRIrmi = 15417
+
+    VPCMPESTRIrri = 15418
+
+    VPCMPESTRMQrmi = 15419
+
+    VPCMPESTRMQrri = 15420
+
+    VPCMPESTRMrmi = 15421
+
+    VPCMPESTRMrri = 15422
+
+    VPCMPGTBYrm = 15423
+
+    VPCMPGTBYrr = 15424
+
+    VPCMPGTBZ128rm = 15425
+
+    VPCMPGTBZ128rmk = 15426
+
+    VPCMPGTBZ128rr = 15427
+
+    VPCMPGTBZ128rrk = 15428
+
+    VPCMPGTBZ256rm = 15429
+
+    VPCMPGTBZ256rmk = 15430
+
+    VPCMPGTBZ256rr = 15431
+
+    VPCMPGTBZ256rrk = 15432
+
+    VPCMPGTBZrm = 15433
+
+    VPCMPGTBZrmk = 15434
+
+    VPCMPGTBZrr = 15435
+
+    VPCMPGTBZrrk = 15436
+
+    VPCMPGTBrm = 15437
+
+    VPCMPGTBrr = 15438
+
+    VPCMPGTDYrm = 15439
+
+    VPCMPGTDYrr = 15440
+
+    VPCMPGTDZ128rm = 15441
+
+    VPCMPGTDZ128rmb = 15442
+
+    VPCMPGTDZ128rmbk = 15443
+
+    VPCMPGTDZ128rmk = 15444
+
+    VPCMPGTDZ128rr = 15445
+
+    VPCMPGTDZ128rrk = 15446
+
+    VPCMPGTDZ256rm = 15447
+
+    VPCMPGTDZ256rmb = 15448
+
+    VPCMPGTDZ256rmbk = 15449
+
+    VPCMPGTDZ256rmk = 15450
+
+    VPCMPGTDZ256rr = 15451
+
+    VPCMPGTDZ256rrk = 15452
+
+    VPCMPGTDZrm = 15453
+
+    VPCMPGTDZrmb = 15454
+
+    VPCMPGTDZrmbk = 15455
+
+    VPCMPGTDZrmk = 15456
+
+    VPCMPGTDZrr = 15457
+
+    VPCMPGTDZrrk = 15458
+
+    VPCMPGTDrm = 15459
+
+    VPCMPGTDrr = 15460
+
+    VPCMPGTQYrm = 15461
+
+    VPCMPGTQYrr = 15462
+
+    VPCMPGTQZ128rm = 15463
+
+    VPCMPGTQZ128rmb = 15464
+
+    VPCMPGTQZ128rmbk = 15465
+
+    VPCMPGTQZ128rmk = 15466
+
+    VPCMPGTQZ128rr = 15467
+
+    VPCMPGTQZ128rrk = 15468
+
+    VPCMPGTQZ256rm = 15469
+
+    VPCMPGTQZ256rmb = 15470
+
+    VPCMPGTQZ256rmbk = 15471
+
+    VPCMPGTQZ256rmk = 15472
+
+    VPCMPGTQZ256rr = 15473
+
+    VPCMPGTQZ256rrk = 15474
+
+    VPCMPGTQZrm = 15475
+
+    VPCMPGTQZrmb = 15476
+
+    VPCMPGTQZrmbk = 15477
+
+    VPCMPGTQZrmk = 15478
+
+    VPCMPGTQZrr = 15479
+
+    VPCMPGTQZrrk = 15480
+
+    VPCMPGTQrm = 15481
+
+    VPCMPGTQrr = 15482
+
+    VPCMPGTWYrm = 15483
+
+    VPCMPGTWYrr = 15484
+
+    VPCMPGTWZ128rm = 15485
+
+    VPCMPGTWZ128rmk = 15486
+
+    VPCMPGTWZ128rr = 15487
+
+    VPCMPGTWZ128rrk = 15488
+
+    VPCMPGTWZ256rm = 15489
+
+    VPCMPGTWZ256rmk = 15490
+
+    VPCMPGTWZ256rr = 15491
+
+    VPCMPGTWZ256rrk = 15492
+
+    VPCMPGTWZrm = 15493
+
+    VPCMPGTWZrmk = 15494
+
+    VPCMPGTWZrr = 15495
+
+    VPCMPGTWZrrk = 15496
+
+    VPCMPGTWrm = 15497
+
+    VPCMPGTWrr = 15498
+
+    VPCMPISTRIrmi = 15499
+
+    VPCMPISTRIrri = 15500
+
+    VPCMPISTRMrmi = 15501
+
+    VPCMPISTRMrri = 15502
+
+    VPCMPQZ128rmbi = 15503
+
+    VPCMPQZ128rmbik = 15504
+
+    VPCMPQZ128rmi = 15505
+
+    VPCMPQZ128rmik = 15506
+
+    VPCMPQZ128rri = 15507
+
+    VPCMPQZ128rrik = 15508
+
+    VPCMPQZ256rmbi = 15509
+
+    VPCMPQZ256rmbik = 15510
+
+    VPCMPQZ256rmi = 15511
+
+    VPCMPQZ256rmik = 15512
+
+    VPCMPQZ256rri = 15513
+
+    VPCMPQZ256rrik = 15514
+
+    VPCMPQZrmbi = 15515
+
+    VPCMPQZrmbik = 15516
+
+    VPCMPQZrmi = 15517
+
+    VPCMPQZrmik = 15518
+
+    VPCMPQZrri = 15519
+
+    VPCMPQZrrik = 15520
+
+    VPCMPUBZ128rmi = 15521
+
+    VPCMPUBZ128rmik = 15522
+
+    VPCMPUBZ128rri = 15523
+
+    VPCMPUBZ128rrik = 15524
+
+    VPCMPUBZ256rmi = 15525
+
+    VPCMPUBZ256rmik = 15526
+
+    VPCMPUBZ256rri = 15527
+
+    VPCMPUBZ256rrik = 15528
+
+    VPCMPUBZrmi = 15529
+
+    VPCMPUBZrmik = 15530
+
+    VPCMPUBZrri = 15531
+
+    VPCMPUBZrrik = 15532
+
+    VPCMPUDZ128rmbi = 15533
+
+    VPCMPUDZ128rmbik = 15534
+
+    VPCMPUDZ128rmi = 15535
+
+    VPCMPUDZ128rmik = 15536
+
+    VPCMPUDZ128rri = 15537
+
+    VPCMPUDZ128rrik = 15538
+
+    VPCMPUDZ256rmbi = 15539
+
+    VPCMPUDZ256rmbik = 15540
+
+    VPCMPUDZ256rmi = 15541
+
+    VPCMPUDZ256rmik = 15542
+
+    VPCMPUDZ256rri = 15543
+
+    VPCMPUDZ256rrik = 15544
+
+    VPCMPUDZrmbi = 15545
+
+    VPCMPUDZrmbik = 15546
+
+    VPCMPUDZrmi = 15547
+
+    VPCMPUDZrmik = 15548
+
+    VPCMPUDZrri = 15549
+
+    VPCMPUDZrrik = 15550
+
+    VPCMPUQZ128rmbi = 15551
+
+    VPCMPUQZ128rmbik = 15552
+
+    VPCMPUQZ128rmi = 15553
+
+    VPCMPUQZ128rmik = 15554
+
+    VPCMPUQZ128rri = 15555
+
+    VPCMPUQZ128rrik = 15556
+
+    VPCMPUQZ256rmbi = 15557
+
+    VPCMPUQZ256rmbik = 15558
+
+    VPCMPUQZ256rmi = 15559
+
+    VPCMPUQZ256rmik = 15560
+
+    VPCMPUQZ256rri = 15561
+
+    VPCMPUQZ256rrik = 15562
+
+    VPCMPUQZrmbi = 15563
+
+    VPCMPUQZrmbik = 15564
+
+    VPCMPUQZrmi = 15565
+
+    VPCMPUQZrmik = 15566
+
+    VPCMPUQZrri = 15567
+
+    VPCMPUQZrrik = 15568
+
+    VPCMPUWZ128rmi = 15569
+
+    VPCMPUWZ128rmik = 15570
+
+    VPCMPUWZ128rri = 15571
+
+    VPCMPUWZ128rrik = 15572
+
+    VPCMPUWZ256rmi = 15573
+
+    VPCMPUWZ256rmik = 15574
+
+    VPCMPUWZ256rri = 15575
+
+    VPCMPUWZ256rrik = 15576
+
+    VPCMPUWZrmi = 15577
+
+    VPCMPUWZrmik = 15578
+
+    VPCMPUWZrri = 15579
+
+    VPCMPUWZrrik = 15580
+
+    VPCMPWZ128rmi = 15581
+
+    VPCMPWZ128rmik = 15582
+
+    VPCMPWZ128rri = 15583
+
+    VPCMPWZ128rrik = 15584
+
+    VPCMPWZ256rmi = 15585
+
+    VPCMPWZ256rmik = 15586
+
+    VPCMPWZ256rri = 15587
+
+    VPCMPWZ256rrik = 15588
+
+    VPCMPWZrmi = 15589
+
+    VPCMPWZrmik = 15590
+
+    VPCMPWZrri = 15591
+
+    VPCMPWZrrik = 15592
+
+    VPCOMBmi = 15593
+
+    VPCOMBri = 15594
+
+    VPCOMDmi = 15595
+
+    VPCOMDri = 15596
+
+    VPCOMPRESSBZ128mr = 15597
+
+    VPCOMPRESSBZ128mrk = 15598
+
+    VPCOMPRESSBZ128rr = 15599
+
+    VPCOMPRESSBZ128rrk = 15600
+
+    VPCOMPRESSBZ128rrkz = 15601
+
+    VPCOMPRESSBZ256mr = 15602
+
+    VPCOMPRESSBZ256mrk = 15603
+
+    VPCOMPRESSBZ256rr = 15604
+
+    VPCOMPRESSBZ256rrk = 15605
+
+    VPCOMPRESSBZ256rrkz = 15606
+
+    VPCOMPRESSBZmr = 15607
+
+    VPCOMPRESSBZmrk = 15608
+
+    VPCOMPRESSBZrr = 15609
+
+    VPCOMPRESSBZrrk = 15610
+
+    VPCOMPRESSBZrrkz = 15611
+
+    VPCOMPRESSDZ128mr = 15612
+
+    VPCOMPRESSDZ128mrk = 15613
+
+    VPCOMPRESSDZ128rr = 15614
+
+    VPCOMPRESSDZ128rrk = 15615
+
+    VPCOMPRESSDZ128rrkz = 15616
+
+    VPCOMPRESSDZ256mr = 15617
+
+    VPCOMPRESSDZ256mrk = 15618
+
+    VPCOMPRESSDZ256rr = 15619
+
+    VPCOMPRESSDZ256rrk = 15620
+
+    VPCOMPRESSDZ256rrkz = 15621
+
+    VPCOMPRESSDZmr = 15622
+
+    VPCOMPRESSDZmrk = 15623
+
+    VPCOMPRESSDZrr = 15624
+
+    VPCOMPRESSDZrrk = 15625
+
+    VPCOMPRESSDZrrkz = 15626
+
+    VPCOMPRESSQZ128mr = 15627
+
+    VPCOMPRESSQZ128mrk = 15628
+
+    VPCOMPRESSQZ128rr = 15629
+
+    VPCOMPRESSQZ128rrk = 15630
+
+    VPCOMPRESSQZ128rrkz = 15631
+
+    VPCOMPRESSQZ256mr = 15632
+
+    VPCOMPRESSQZ256mrk = 15633
+
+    VPCOMPRESSQZ256rr = 15634
+
+    VPCOMPRESSQZ256rrk = 15635
+
+    VPCOMPRESSQZ256rrkz = 15636
+
+    VPCOMPRESSQZmr = 15637
+
+    VPCOMPRESSQZmrk = 15638
+
+    VPCOMPRESSQZrr = 15639
+
+    VPCOMPRESSQZrrk = 15640
+
+    VPCOMPRESSQZrrkz = 15641
+
+    VPCOMPRESSWZ128mr = 15642
+
+    VPCOMPRESSWZ128mrk = 15643
+
+    VPCOMPRESSWZ128rr = 15644
+
+    VPCOMPRESSWZ128rrk = 15645
+
+    VPCOMPRESSWZ128rrkz = 15646
+
+    VPCOMPRESSWZ256mr = 15647
+
+    VPCOMPRESSWZ256mrk = 15648
+
+    VPCOMPRESSWZ256rr = 15649
+
+    VPCOMPRESSWZ256rrk = 15650
+
+    VPCOMPRESSWZ256rrkz = 15651
+
+    VPCOMPRESSWZmr = 15652
+
+    VPCOMPRESSWZmrk = 15653
+
+    VPCOMPRESSWZrr = 15654
+
+    VPCOMPRESSWZrrk = 15655
+
+    VPCOMPRESSWZrrkz = 15656
+
+    VPCOMQmi = 15657
+
+    VPCOMQri = 15658
+
+    VPCOMUBmi = 15659
+
+    VPCOMUBri = 15660
+
+    VPCOMUDmi = 15661
+
+    VPCOMUDri = 15662
+
+    VPCOMUQmi = 15663
+
+    VPCOMUQri = 15664
+
+    VPCOMUWmi = 15665
+
+    VPCOMUWri = 15666
+
+    VPCOMWmi = 15667
+
+    VPCOMWri = 15668
+
+    VPCONFLICTDZ128rm = 15669
+
+    VPCONFLICTDZ128rmb = 15670
+
+    VPCONFLICTDZ128rmbk = 15671
+
+    VPCONFLICTDZ128rmbkz = 15672
+
+    VPCONFLICTDZ128rmk = 15673
+
+    VPCONFLICTDZ128rmkz = 15674
+
+    VPCONFLICTDZ128rr = 15675
+
+    VPCONFLICTDZ128rrk = 15676
+
+    VPCONFLICTDZ128rrkz = 15677
+
+    VPCONFLICTDZ256rm = 15678
+
+    VPCONFLICTDZ256rmb = 15679
+
+    VPCONFLICTDZ256rmbk = 15680
+
+    VPCONFLICTDZ256rmbkz = 15681
+
+    VPCONFLICTDZ256rmk = 15682
+
+    VPCONFLICTDZ256rmkz = 15683
+
+    VPCONFLICTDZ256rr = 15684
+
+    VPCONFLICTDZ256rrk = 15685
+
+    VPCONFLICTDZ256rrkz = 15686
+
+    VPCONFLICTDZrm = 15687
+
+    VPCONFLICTDZrmb = 15688
+
+    VPCONFLICTDZrmbk = 15689
+
+    VPCONFLICTDZrmbkz = 15690
+
+    VPCONFLICTDZrmk = 15691
+
+    VPCONFLICTDZrmkz = 15692
+
+    VPCONFLICTDZrr = 15693
+
+    VPCONFLICTDZrrk = 15694
+
+    VPCONFLICTDZrrkz = 15695
+
+    VPCONFLICTQZ128rm = 15696
+
+    VPCONFLICTQZ128rmb = 15697
+
+    VPCONFLICTQZ128rmbk = 15698
+
+    VPCONFLICTQZ128rmbkz = 15699
+
+    VPCONFLICTQZ128rmk = 15700
+
+    VPCONFLICTQZ128rmkz = 15701
+
+    VPCONFLICTQZ128rr = 15702
+
+    VPCONFLICTQZ128rrk = 15703
+
+    VPCONFLICTQZ128rrkz = 15704
+
+    VPCONFLICTQZ256rm = 15705
+
+    VPCONFLICTQZ256rmb = 15706
+
+    VPCONFLICTQZ256rmbk = 15707
+
+    VPCONFLICTQZ256rmbkz = 15708
+
+    VPCONFLICTQZ256rmk = 15709
+
+    VPCONFLICTQZ256rmkz = 15710
+
+    VPCONFLICTQZ256rr = 15711
+
+    VPCONFLICTQZ256rrk = 15712
+
+    VPCONFLICTQZ256rrkz = 15713
+
+    VPCONFLICTQZrm = 15714
+
+    VPCONFLICTQZrmb = 15715
+
+    VPCONFLICTQZrmbk = 15716
+
+    VPCONFLICTQZrmbkz = 15717
+
+    VPCONFLICTQZrmk = 15718
+
+    VPCONFLICTQZrmkz = 15719
+
+    VPCONFLICTQZrr = 15720
+
+    VPCONFLICTQZrrk = 15721
+
+    VPCONFLICTQZrrkz = 15722
+
+    VPDPBSSDSYrm = 15723
+
+    VPDPBSSDSYrr = 15724
+
+    VPDPBSSDSZ128rm = 15725
+
+    VPDPBSSDSZ128rmb = 15726
+
+    VPDPBSSDSZ128rmbk = 15727
+
+    VPDPBSSDSZ128rmbkz = 15728
+
+    VPDPBSSDSZ128rmk = 15729
+
+    VPDPBSSDSZ128rmkz = 15730
+
+    VPDPBSSDSZ128rr = 15731
+
+    VPDPBSSDSZ128rrk = 15732
+
+    VPDPBSSDSZ128rrkz = 15733
+
+    VPDPBSSDSZ256rm = 15734
+
+    VPDPBSSDSZ256rmb = 15735
+
+    VPDPBSSDSZ256rmbk = 15736
+
+    VPDPBSSDSZ256rmbkz = 15737
+
+    VPDPBSSDSZ256rmk = 15738
+
+    VPDPBSSDSZ256rmkz = 15739
+
+    VPDPBSSDSZ256rr = 15740
+
+    VPDPBSSDSZ256rrk = 15741
+
+    VPDPBSSDSZ256rrkz = 15742
+
+    VPDPBSSDSZrm = 15743
+
+    VPDPBSSDSZrmb = 15744
+
+    VPDPBSSDSZrmbk = 15745
+
+    VPDPBSSDSZrmbkz = 15746
+
+    VPDPBSSDSZrmk = 15747
+
+    VPDPBSSDSZrmkz = 15748
+
+    VPDPBSSDSZrr = 15749
+
+    VPDPBSSDSZrrk = 15750
+
+    VPDPBSSDSZrrkz = 15751
+
+    VPDPBSSDSrm = 15752
+
+    VPDPBSSDSrr = 15753
+
+    VPDPBSSDYrm = 15754
+
+    VPDPBSSDYrr = 15755
+
+    VPDPBSSDZ128rm = 15756
+
+    VPDPBSSDZ128rmb = 15757
+
+    VPDPBSSDZ128rmbk = 15758
+
+    VPDPBSSDZ128rmbkz = 15759
+
+    VPDPBSSDZ128rmk = 15760
+
+    VPDPBSSDZ128rmkz = 15761
+
+    VPDPBSSDZ128rr = 15762
+
+    VPDPBSSDZ128rrk = 15763
+
+    VPDPBSSDZ128rrkz = 15764
+
+    VPDPBSSDZ256rm = 15765
+
+    VPDPBSSDZ256rmb = 15766
+
+    VPDPBSSDZ256rmbk = 15767
+
+    VPDPBSSDZ256rmbkz = 15768
+
+    VPDPBSSDZ256rmk = 15769
+
+    VPDPBSSDZ256rmkz = 15770
+
+    VPDPBSSDZ256rr = 15771
+
+    VPDPBSSDZ256rrk = 15772
+
+    VPDPBSSDZ256rrkz = 15773
+
+    VPDPBSSDZrm = 15774
+
+    VPDPBSSDZrmb = 15775
+
+    VPDPBSSDZrmbk = 15776
+
+    VPDPBSSDZrmbkz = 15777
+
+    VPDPBSSDZrmk = 15778
+
+    VPDPBSSDZrmkz = 15779
+
+    VPDPBSSDZrr = 15780
+
+    VPDPBSSDZrrk = 15781
+
+    VPDPBSSDZrrkz = 15782
+
+    VPDPBSSDrm = 15783
+
+    VPDPBSSDrr = 15784
+
+    VPDPBSUDSYrm = 15785
+
+    VPDPBSUDSYrr = 15786
+
+    VPDPBSUDSZ128rm = 15787
+
+    VPDPBSUDSZ128rmb = 15788
+
+    VPDPBSUDSZ128rmbk = 15789
+
+    VPDPBSUDSZ128rmbkz = 15790
+
+    VPDPBSUDSZ128rmk = 15791
+
+    VPDPBSUDSZ128rmkz = 15792
+
+    VPDPBSUDSZ128rr = 15793
+
+    VPDPBSUDSZ128rrk = 15794
+
+    VPDPBSUDSZ128rrkz = 15795
+
+    VPDPBSUDSZ256rm = 15796
+
+    VPDPBSUDSZ256rmb = 15797
+
+    VPDPBSUDSZ256rmbk = 15798
+
+    VPDPBSUDSZ256rmbkz = 15799
+
+    VPDPBSUDSZ256rmk = 15800
+
+    VPDPBSUDSZ256rmkz = 15801
+
+    VPDPBSUDSZ256rr = 15802
+
+    VPDPBSUDSZ256rrk = 15803
+
+    VPDPBSUDSZ256rrkz = 15804
+
+    VPDPBSUDSZrm = 15805
+
+    VPDPBSUDSZrmb = 15806
+
+    VPDPBSUDSZrmbk = 15807
+
+    VPDPBSUDSZrmbkz = 15808
+
+    VPDPBSUDSZrmk = 15809
+
+    VPDPBSUDSZrmkz = 15810
+
+    VPDPBSUDSZrr = 15811
+
+    VPDPBSUDSZrrk = 15812
+
+    VPDPBSUDSZrrkz = 15813
+
+    VPDPBSUDSrm = 15814
+
+    VPDPBSUDSrr = 15815
+
+    VPDPBSUDYrm = 15816
+
+    VPDPBSUDYrr = 15817
+
+    VPDPBSUDZ128rm = 15818
+
+    VPDPBSUDZ128rmb = 15819
+
+    VPDPBSUDZ128rmbk = 15820
+
+    VPDPBSUDZ128rmbkz = 15821
+
+    VPDPBSUDZ128rmk = 15822
+
+    VPDPBSUDZ128rmkz = 15823
+
+    VPDPBSUDZ128rr = 15824
+
+    VPDPBSUDZ128rrk = 15825
+
+    VPDPBSUDZ128rrkz = 15826
+
+    VPDPBSUDZ256rm = 15827
+
+    VPDPBSUDZ256rmb = 15828
+
+    VPDPBSUDZ256rmbk = 15829
+
+    VPDPBSUDZ256rmbkz = 15830
+
+    VPDPBSUDZ256rmk = 15831
+
+    VPDPBSUDZ256rmkz = 15832
+
+    VPDPBSUDZ256rr = 15833
+
+    VPDPBSUDZ256rrk = 15834
+
+    VPDPBSUDZ256rrkz = 15835
+
+    VPDPBSUDZrm = 15836
+
+    VPDPBSUDZrmb = 15837
+
+    VPDPBSUDZrmbk = 15838
+
+    VPDPBSUDZrmbkz = 15839
+
+    VPDPBSUDZrmk = 15840
+
+    VPDPBSUDZrmkz = 15841
+
+    VPDPBSUDZrr = 15842
+
+    VPDPBSUDZrrk = 15843
+
+    VPDPBSUDZrrkz = 15844
+
+    VPDPBSUDrm = 15845
+
+    VPDPBSUDrr = 15846
+
+    VPDPBUSDSYrm = 15847
+
+    VPDPBUSDSYrr = 15848
+
+    VPDPBUSDSZ128rm = 15849
+
+    VPDPBUSDSZ128rmb = 15850
+
+    VPDPBUSDSZ128rmbk = 15851
+
+    VPDPBUSDSZ128rmbkz = 15852
+
+    VPDPBUSDSZ128rmk = 15853
+
+    VPDPBUSDSZ128rmkz = 15854
+
+    VPDPBUSDSZ128rr = 15855
+
+    VPDPBUSDSZ128rrk = 15856
+
+    VPDPBUSDSZ128rrkz = 15857
+
+    VPDPBUSDSZ256rm = 15858
+
+    VPDPBUSDSZ256rmb = 15859
+
+    VPDPBUSDSZ256rmbk = 15860
+
+    VPDPBUSDSZ256rmbkz = 15861
+
+    VPDPBUSDSZ256rmk = 15862
+
+    VPDPBUSDSZ256rmkz = 15863
+
+    VPDPBUSDSZ256rr = 15864
+
+    VPDPBUSDSZ256rrk = 15865
+
+    VPDPBUSDSZ256rrkz = 15866
+
+    VPDPBUSDSZrm = 15867
+
+    VPDPBUSDSZrmb = 15868
+
+    VPDPBUSDSZrmbk = 15869
+
+    VPDPBUSDSZrmbkz = 15870
+
+    VPDPBUSDSZrmk = 15871
+
+    VPDPBUSDSZrmkz = 15872
+
+    VPDPBUSDSZrr = 15873
+
+    VPDPBUSDSZrrk = 15874
+
+    VPDPBUSDSZrrkz = 15875
+
+    VPDPBUSDSrm = 15876
+
+    VPDPBUSDSrr = 15877
+
+    VPDPBUSDYrm = 15878
+
+    VPDPBUSDYrr = 15879
+
+    VPDPBUSDZ128rm = 15880
+
+    VPDPBUSDZ128rmb = 15881
+
+    VPDPBUSDZ128rmbk = 15882
+
+    VPDPBUSDZ128rmbkz = 15883
+
+    VPDPBUSDZ128rmk = 15884
+
+    VPDPBUSDZ128rmkz = 15885
+
+    VPDPBUSDZ128rr = 15886
+
+    VPDPBUSDZ128rrk = 15887
+
+    VPDPBUSDZ128rrkz = 15888
+
+    VPDPBUSDZ256rm = 15889
+
+    VPDPBUSDZ256rmb = 15890
+
+    VPDPBUSDZ256rmbk = 15891
+
+    VPDPBUSDZ256rmbkz = 15892
+
+    VPDPBUSDZ256rmk = 15893
+
+    VPDPBUSDZ256rmkz = 15894
+
+    VPDPBUSDZ256rr = 15895
+
+    VPDPBUSDZ256rrk = 15896
+
+    VPDPBUSDZ256rrkz = 15897
+
+    VPDPBUSDZrm = 15898
+
+    VPDPBUSDZrmb = 15899
+
+    VPDPBUSDZrmbk = 15900
+
+    VPDPBUSDZrmbkz = 15901
+
+    VPDPBUSDZrmk = 15902
+
+    VPDPBUSDZrmkz = 15903
+
+    VPDPBUSDZrr = 15904
+
+    VPDPBUSDZrrk = 15905
+
+    VPDPBUSDZrrkz = 15906
+
+    VPDPBUSDrm = 15907
+
+    VPDPBUSDrr = 15908
+
+    VPDPBUUDSYrm = 15909
+
+    VPDPBUUDSYrr = 15910
+
+    VPDPBUUDSZ128rm = 15911
+
+    VPDPBUUDSZ128rmb = 15912
+
+    VPDPBUUDSZ128rmbk = 15913
+
+    VPDPBUUDSZ128rmbkz = 15914
+
+    VPDPBUUDSZ128rmk = 15915
+
+    VPDPBUUDSZ128rmkz = 15916
+
+    VPDPBUUDSZ128rr = 15917
+
+    VPDPBUUDSZ128rrk = 15918
+
+    VPDPBUUDSZ128rrkz = 15919
+
+    VPDPBUUDSZ256rm = 15920
+
+    VPDPBUUDSZ256rmb = 15921
+
+    VPDPBUUDSZ256rmbk = 15922
+
+    VPDPBUUDSZ256rmbkz = 15923
+
+    VPDPBUUDSZ256rmk = 15924
+
+    VPDPBUUDSZ256rmkz = 15925
+
+    VPDPBUUDSZ256rr = 15926
+
+    VPDPBUUDSZ256rrk = 15927
+
+    VPDPBUUDSZ256rrkz = 15928
+
+    VPDPBUUDSZrm = 15929
+
+    VPDPBUUDSZrmb = 15930
+
+    VPDPBUUDSZrmbk = 15931
+
+    VPDPBUUDSZrmbkz = 15932
+
+    VPDPBUUDSZrmk = 15933
+
+    VPDPBUUDSZrmkz = 15934
+
+    VPDPBUUDSZrr = 15935
+
+    VPDPBUUDSZrrk = 15936
+
+    VPDPBUUDSZrrkz = 15937
+
+    VPDPBUUDSrm = 15938
+
+    VPDPBUUDSrr = 15939
+
+    VPDPBUUDYrm = 15940
+
+    VPDPBUUDYrr = 15941
+
+    VPDPBUUDZ128rm = 15942
+
+    VPDPBUUDZ128rmb = 15943
+
+    VPDPBUUDZ128rmbk = 15944
+
+    VPDPBUUDZ128rmbkz = 15945
+
+    VPDPBUUDZ128rmk = 15946
+
+    VPDPBUUDZ128rmkz = 15947
+
+    VPDPBUUDZ128rr = 15948
+
+    VPDPBUUDZ128rrk = 15949
+
+    VPDPBUUDZ128rrkz = 15950
+
+    VPDPBUUDZ256rm = 15951
+
+    VPDPBUUDZ256rmb = 15952
+
+    VPDPBUUDZ256rmbk = 15953
+
+    VPDPBUUDZ256rmbkz = 15954
+
+    VPDPBUUDZ256rmk = 15955
+
+    VPDPBUUDZ256rmkz = 15956
+
+    VPDPBUUDZ256rr = 15957
+
+    VPDPBUUDZ256rrk = 15958
+
+    VPDPBUUDZ256rrkz = 15959
+
+    VPDPBUUDZrm = 15960
+
+    VPDPBUUDZrmb = 15961
+
+    VPDPBUUDZrmbk = 15962
+
+    VPDPBUUDZrmbkz = 15963
+
+    VPDPBUUDZrmk = 15964
+
+    VPDPBUUDZrmkz = 15965
+
+    VPDPBUUDZrr = 15966
+
+    VPDPBUUDZrrk = 15967
+
+    VPDPBUUDZrrkz = 15968
+
+    VPDPBUUDrm = 15969
+
+    VPDPBUUDrr = 15970
+
+    VPDPWSSDSYrm = 15971
+
+    VPDPWSSDSYrr = 15972
+
+    VPDPWSSDSZ128rm = 15973
+
+    VPDPWSSDSZ128rmb = 15974
+
+    VPDPWSSDSZ128rmbk = 15975
+
+    VPDPWSSDSZ128rmbkz = 15976
+
+    VPDPWSSDSZ128rmk = 15977
+
+    VPDPWSSDSZ128rmkz = 15978
+
+    VPDPWSSDSZ128rr = 15979
+
+    VPDPWSSDSZ128rrk = 15980
+
+    VPDPWSSDSZ128rrkz = 15981
+
+    VPDPWSSDSZ256rm = 15982
+
+    VPDPWSSDSZ256rmb = 15983
+
+    VPDPWSSDSZ256rmbk = 15984
+
+    VPDPWSSDSZ256rmbkz = 15985
+
+    VPDPWSSDSZ256rmk = 15986
+
+    VPDPWSSDSZ256rmkz = 15987
+
+    VPDPWSSDSZ256rr = 15988
+
+    VPDPWSSDSZ256rrk = 15989
+
+    VPDPWSSDSZ256rrkz = 15990
+
+    VPDPWSSDSZrm = 15991
+
+    VPDPWSSDSZrmb = 15992
+
+    VPDPWSSDSZrmbk = 15993
+
+    VPDPWSSDSZrmbkz = 15994
+
+    VPDPWSSDSZrmk = 15995
+
+    VPDPWSSDSZrmkz = 15996
+
+    VPDPWSSDSZrr = 15997
+
+    VPDPWSSDSZrrk = 15998
+
+    VPDPWSSDSZrrkz = 15999
+
+    VPDPWSSDSrm = 16000
+
+    VPDPWSSDSrr = 16001
+
+    VPDPWSSDYrm = 16002
+
+    VPDPWSSDYrr = 16003
+
+    VPDPWSSDZ128rm = 16004
+
+    VPDPWSSDZ128rmb = 16005
+
+    VPDPWSSDZ128rmbk = 16006
+
+    VPDPWSSDZ128rmbkz = 16007
+
+    VPDPWSSDZ128rmk = 16008
+
+    VPDPWSSDZ128rmkz = 16009
+
+    VPDPWSSDZ128rr = 16010
+
+    VPDPWSSDZ128rrk = 16011
+
+    VPDPWSSDZ128rrkz = 16012
+
+    VPDPWSSDZ256rm = 16013
+
+    VPDPWSSDZ256rmb = 16014
+
+    VPDPWSSDZ256rmbk = 16015
+
+    VPDPWSSDZ256rmbkz = 16016
+
+    VPDPWSSDZ256rmk = 16017
+
+    VPDPWSSDZ256rmkz = 16018
+
+    VPDPWSSDZ256rr = 16019
+
+    VPDPWSSDZ256rrk = 16020
+
+    VPDPWSSDZ256rrkz = 16021
+
+    VPDPWSSDZrm = 16022
+
+    VPDPWSSDZrmb = 16023
+
+    VPDPWSSDZrmbk = 16024
+
+    VPDPWSSDZrmbkz = 16025
+
+    VPDPWSSDZrmk = 16026
+
+    VPDPWSSDZrmkz = 16027
+
+    VPDPWSSDZrr = 16028
+
+    VPDPWSSDZrrk = 16029
+
+    VPDPWSSDZrrkz = 16030
+
+    VPDPWSSDrm = 16031
+
+    VPDPWSSDrr = 16032
+
+    VPDPWSUDSYrm = 16033
+
+    VPDPWSUDSYrr = 16034
+
+    VPDPWSUDSZ128rm = 16035
+
+    VPDPWSUDSZ128rmb = 16036
+
+    VPDPWSUDSZ128rmbk = 16037
+
+    VPDPWSUDSZ128rmbkz = 16038
+
+    VPDPWSUDSZ128rmk = 16039
+
+    VPDPWSUDSZ128rmkz = 16040
+
+    VPDPWSUDSZ128rr = 16041
+
+    VPDPWSUDSZ128rrk = 16042
+
+    VPDPWSUDSZ128rrkz = 16043
+
+    VPDPWSUDSZ256rm = 16044
+
+    VPDPWSUDSZ256rmb = 16045
+
+    VPDPWSUDSZ256rmbk = 16046
+
+    VPDPWSUDSZ256rmbkz = 16047
+
+    VPDPWSUDSZ256rmk = 16048
+
+    VPDPWSUDSZ256rmkz = 16049
+
+    VPDPWSUDSZ256rr = 16050
+
+    VPDPWSUDSZ256rrk = 16051
+
+    VPDPWSUDSZ256rrkz = 16052
+
+    VPDPWSUDSZrm = 16053
+
+    VPDPWSUDSZrmb = 16054
+
+    VPDPWSUDSZrmbk = 16055
+
+    VPDPWSUDSZrmbkz = 16056
+
+    VPDPWSUDSZrmk = 16057
+
+    VPDPWSUDSZrmkz = 16058
+
+    VPDPWSUDSZrr = 16059
+
+    VPDPWSUDSZrrk = 16060
+
+    VPDPWSUDSZrrkz = 16061
+
+    VPDPWSUDSrm = 16062
+
+    VPDPWSUDSrr = 16063
+
+    VPDPWSUDYrm = 16064
+
+    VPDPWSUDYrr = 16065
+
+    VPDPWSUDZ128rm = 16066
+
+    VPDPWSUDZ128rmb = 16067
+
+    VPDPWSUDZ128rmbk = 16068
+
+    VPDPWSUDZ128rmbkz = 16069
+
+    VPDPWSUDZ128rmk = 16070
+
+    VPDPWSUDZ128rmkz = 16071
+
+    VPDPWSUDZ128rr = 16072
+
+    VPDPWSUDZ128rrk = 16073
+
+    VPDPWSUDZ128rrkz = 16074
+
+    VPDPWSUDZ256rm = 16075
+
+    VPDPWSUDZ256rmb = 16076
+
+    VPDPWSUDZ256rmbk = 16077
+
+    VPDPWSUDZ256rmbkz = 16078
+
+    VPDPWSUDZ256rmk = 16079
+
+    VPDPWSUDZ256rmkz = 16080
+
+    VPDPWSUDZ256rr = 16081
+
+    VPDPWSUDZ256rrk = 16082
+
+    VPDPWSUDZ256rrkz = 16083
+
+    VPDPWSUDZrm = 16084
+
+    VPDPWSUDZrmb = 16085
+
+    VPDPWSUDZrmbk = 16086
+
+    VPDPWSUDZrmbkz = 16087
+
+    VPDPWSUDZrmk = 16088
+
+    VPDPWSUDZrmkz = 16089
+
+    VPDPWSUDZrr = 16090
+
+    VPDPWSUDZrrk = 16091
+
+    VPDPWSUDZrrkz = 16092
+
+    VPDPWSUDrm = 16093
+
+    VPDPWSUDrr = 16094
+
+    VPDPWUSDSYrm = 16095
+
+    VPDPWUSDSYrr = 16096
+
+    VPDPWUSDSZ128rm = 16097
+
+    VPDPWUSDSZ128rmb = 16098
+
+    VPDPWUSDSZ128rmbk = 16099
+
+    VPDPWUSDSZ128rmbkz = 16100
+
+    VPDPWUSDSZ128rmk = 16101
+
+    VPDPWUSDSZ128rmkz = 16102
+
+    VPDPWUSDSZ128rr = 16103
+
+    VPDPWUSDSZ128rrk = 16104
+
+    VPDPWUSDSZ128rrkz = 16105
+
+    VPDPWUSDSZ256rm = 16106
+
+    VPDPWUSDSZ256rmb = 16107
+
+    VPDPWUSDSZ256rmbk = 16108
+
+    VPDPWUSDSZ256rmbkz = 16109
+
+    VPDPWUSDSZ256rmk = 16110
+
+    VPDPWUSDSZ256rmkz = 16111
+
+    VPDPWUSDSZ256rr = 16112
+
+    VPDPWUSDSZ256rrk = 16113
+
+    VPDPWUSDSZ256rrkz = 16114
+
+    VPDPWUSDSZrm = 16115
+
+    VPDPWUSDSZrmb = 16116
+
+    VPDPWUSDSZrmbk = 16117
+
+    VPDPWUSDSZrmbkz = 16118
+
+    VPDPWUSDSZrmk = 16119
+
+    VPDPWUSDSZrmkz = 16120
+
+    VPDPWUSDSZrr = 16121
+
+    VPDPWUSDSZrrk = 16122
+
+    VPDPWUSDSZrrkz = 16123
+
+    VPDPWUSDSrm = 16124
+
+    VPDPWUSDSrr = 16125
+
+    VPDPWUSDYrm = 16126
+
+    VPDPWUSDYrr = 16127
+
+    VPDPWUSDZ128rm = 16128
+
+    VPDPWUSDZ128rmb = 16129
+
+    VPDPWUSDZ128rmbk = 16130
+
+    VPDPWUSDZ128rmbkz = 16131
+
+    VPDPWUSDZ128rmk = 16132
+
+    VPDPWUSDZ128rmkz = 16133
+
+    VPDPWUSDZ128rr = 16134
+
+    VPDPWUSDZ128rrk = 16135
+
+    VPDPWUSDZ128rrkz = 16136
+
+    VPDPWUSDZ256rm = 16137
+
+    VPDPWUSDZ256rmb = 16138
+
+    VPDPWUSDZ256rmbk = 16139
+
+    VPDPWUSDZ256rmbkz = 16140
+
+    VPDPWUSDZ256rmk = 16141
+
+    VPDPWUSDZ256rmkz = 16142
+
+    VPDPWUSDZ256rr = 16143
+
+    VPDPWUSDZ256rrk = 16144
+
+    VPDPWUSDZ256rrkz = 16145
+
+    VPDPWUSDZrm = 16146
+
+    VPDPWUSDZrmb = 16147
+
+    VPDPWUSDZrmbk = 16148
+
+    VPDPWUSDZrmbkz = 16149
+
+    VPDPWUSDZrmk = 16150
+
+    VPDPWUSDZrmkz = 16151
+
+    VPDPWUSDZrr = 16152
+
+    VPDPWUSDZrrk = 16153
+
+    VPDPWUSDZrrkz = 16154
+
+    VPDPWUSDrm = 16155
+
+    VPDPWUSDrr = 16156
+
+    VPDPWUUDSYrm = 16157
+
+    VPDPWUUDSYrr = 16158
+
+    VPDPWUUDSZ128rm = 16159
+
+    VPDPWUUDSZ128rmb = 16160
+
+    VPDPWUUDSZ128rmbk = 16161
+
+    VPDPWUUDSZ128rmbkz = 16162
+
+    VPDPWUUDSZ128rmk = 16163
+
+    VPDPWUUDSZ128rmkz = 16164
+
+    VPDPWUUDSZ128rr = 16165
+
+    VPDPWUUDSZ128rrk = 16166
+
+    VPDPWUUDSZ128rrkz = 16167
+
+    VPDPWUUDSZ256rm = 16168
+
+    VPDPWUUDSZ256rmb = 16169
+
+    VPDPWUUDSZ256rmbk = 16170
+
+    VPDPWUUDSZ256rmbkz = 16171
+
+    VPDPWUUDSZ256rmk = 16172
+
+    VPDPWUUDSZ256rmkz = 16173
+
+    VPDPWUUDSZ256rr = 16174
+
+    VPDPWUUDSZ256rrk = 16175
+
+    VPDPWUUDSZ256rrkz = 16176
+
+    VPDPWUUDSZrm = 16177
+
+    VPDPWUUDSZrmb = 16178
+
+    VPDPWUUDSZrmbk = 16179
+
+    VPDPWUUDSZrmbkz = 16180
+
+    VPDPWUUDSZrmk = 16181
+
+    VPDPWUUDSZrmkz = 16182
+
+    VPDPWUUDSZrr = 16183
+
+    VPDPWUUDSZrrk = 16184
+
+    VPDPWUUDSZrrkz = 16185
+
+    VPDPWUUDSrm = 16186
+
+    VPDPWUUDSrr = 16187
+
+    VPDPWUUDYrm = 16188
+
+    VPDPWUUDYrr = 16189
+
+    VPDPWUUDZ128rm = 16190
+
+    VPDPWUUDZ128rmb = 16191
+
+    VPDPWUUDZ128rmbk = 16192
+
+    VPDPWUUDZ128rmbkz = 16193
+
+    VPDPWUUDZ128rmk = 16194
+
+    VPDPWUUDZ128rmkz = 16195
+
+    VPDPWUUDZ128rr = 16196
+
+    VPDPWUUDZ128rrk = 16197
+
+    VPDPWUUDZ128rrkz = 16198
+
+    VPDPWUUDZ256rm = 16199
+
+    VPDPWUUDZ256rmb = 16200
+
+    VPDPWUUDZ256rmbk = 16201
+
+    VPDPWUUDZ256rmbkz = 16202
+
+    VPDPWUUDZ256rmk = 16203
+
+    VPDPWUUDZ256rmkz = 16204
+
+    VPDPWUUDZ256rr = 16205
+
+    VPDPWUUDZ256rrk = 16206
+
+    VPDPWUUDZ256rrkz = 16207
+
+    VPDPWUUDZrm = 16208
+
+    VPDPWUUDZrmb = 16209
+
+    VPDPWUUDZrmbk = 16210
+
+    VPDPWUUDZrmbkz = 16211
+
+    VPDPWUUDZrmk = 16212
+
+    VPDPWUUDZrmkz = 16213
+
+    VPDPWUUDZrr = 16214
+
+    VPDPWUUDZrrk = 16215
+
+    VPDPWUUDZrrkz = 16216
+
+    VPDPWUUDrm = 16217
+
+    VPDPWUUDrr = 16218
+
+    VPERM2F128rmi = 16219
+
+    VPERM2F128rri = 16220
+
+    VPERM2I128rmi = 16221
+
+    VPERM2I128rri = 16222
+
+    VPERMBZ128rm = 16223
+
+    VPERMBZ128rmk = 16224
+
+    VPERMBZ128rmkz = 16225
+
+    VPERMBZ128rr = 16226
+
+    VPERMBZ128rrk = 16227
+
+    VPERMBZ128rrkz = 16228
+
+    VPERMBZ256rm = 16229
+
+    VPERMBZ256rmk = 16230
+
+    VPERMBZ256rmkz = 16231
+
+    VPERMBZ256rr = 16232
+
+    VPERMBZ256rrk = 16233
+
+    VPERMBZ256rrkz = 16234
+
+    VPERMBZrm = 16235
+
+    VPERMBZrmk = 16236
+
+    VPERMBZrmkz = 16237
+
+    VPERMBZrr = 16238
+
+    VPERMBZrrk = 16239
+
+    VPERMBZrrkz = 16240
+
+    VPERMDYrm = 16241
+
+    VPERMDYrr = 16242
+
+    VPERMDZ256rm = 16243
+
+    VPERMDZ256rmb = 16244
+
+    VPERMDZ256rmbk = 16245
+
+    VPERMDZ256rmbkz = 16246
+
+    VPERMDZ256rmk = 16247
+
+    VPERMDZ256rmkz = 16248
+
+    VPERMDZ256rr = 16249
+
+    VPERMDZ256rrk = 16250
+
+    VPERMDZ256rrkz = 16251
+
+    VPERMDZrm = 16252
+
+    VPERMDZrmb = 16253
+
+    VPERMDZrmbk = 16254
+
+    VPERMDZrmbkz = 16255
+
+    VPERMDZrmk = 16256
+
+    VPERMDZrmkz = 16257
+
+    VPERMDZrr = 16258
+
+    VPERMDZrrk = 16259
+
+    VPERMDZrrkz = 16260
+
+    VPERMI2BZ128rm = 16261
+
+    VPERMI2BZ128rmk = 16262
+
+    VPERMI2BZ128rmkz = 16263
+
+    VPERMI2BZ128rr = 16264
+
+    VPERMI2BZ128rrk = 16265
+
+    VPERMI2BZ128rrkz = 16266
+
+    VPERMI2BZ256rm = 16267
+
+    VPERMI2BZ256rmk = 16268
+
+    VPERMI2BZ256rmkz = 16269
+
+    VPERMI2BZ256rr = 16270
+
+    VPERMI2BZ256rrk = 16271
+
+    VPERMI2BZ256rrkz = 16272
+
+    VPERMI2BZrm = 16273
+
+    VPERMI2BZrmk = 16274
+
+    VPERMI2BZrmkz = 16275
+
+    VPERMI2BZrr = 16276
+
+    VPERMI2BZrrk = 16277
+
+    VPERMI2BZrrkz = 16278
+
+    VPERMI2DZ128rm = 16279
+
+    VPERMI2DZ128rmb = 16280
+
+    VPERMI2DZ128rmbk = 16281
+
+    VPERMI2DZ128rmbkz = 16282
+
+    VPERMI2DZ128rmk = 16283
+
+    VPERMI2DZ128rmkz = 16284
+
+    VPERMI2DZ128rr = 16285
+
+    VPERMI2DZ128rrk = 16286
+
+    VPERMI2DZ128rrkz = 16287
+
+    VPERMI2DZ256rm = 16288
+
+    VPERMI2DZ256rmb = 16289
+
+    VPERMI2DZ256rmbk = 16290
+
+    VPERMI2DZ256rmbkz = 16291
+
+    VPERMI2DZ256rmk = 16292
+
+    VPERMI2DZ256rmkz = 16293
+
+    VPERMI2DZ256rr = 16294
+
+    VPERMI2DZ256rrk = 16295
+
+    VPERMI2DZ256rrkz = 16296
+
+    VPERMI2DZrm = 16297
+
+    VPERMI2DZrmb = 16298
+
+    VPERMI2DZrmbk = 16299
+
+    VPERMI2DZrmbkz = 16300
+
+    VPERMI2DZrmk = 16301
+
+    VPERMI2DZrmkz = 16302
+
+    VPERMI2DZrr = 16303
+
+    VPERMI2DZrrk = 16304
+
+    VPERMI2DZrrkz = 16305
+
+    VPERMI2PDZ128rm = 16306
+
+    VPERMI2PDZ128rmb = 16307
+
+    VPERMI2PDZ128rmbk = 16308
+
+    VPERMI2PDZ128rmbkz = 16309
+
+    VPERMI2PDZ128rmk = 16310
+
+    VPERMI2PDZ128rmkz = 16311
+
+    VPERMI2PDZ128rr = 16312
+
+    VPERMI2PDZ128rrk = 16313
+
+    VPERMI2PDZ128rrkz = 16314
+
+    VPERMI2PDZ256rm = 16315
+
+    VPERMI2PDZ256rmb = 16316
+
+    VPERMI2PDZ256rmbk = 16317
+
+    VPERMI2PDZ256rmbkz = 16318
+
+    VPERMI2PDZ256rmk = 16319
+
+    VPERMI2PDZ256rmkz = 16320
+
+    VPERMI2PDZ256rr = 16321
+
+    VPERMI2PDZ256rrk = 16322
+
+    VPERMI2PDZ256rrkz = 16323
+
+    VPERMI2PDZrm = 16324
+
+    VPERMI2PDZrmb = 16325
+
+    VPERMI2PDZrmbk = 16326
+
+    VPERMI2PDZrmbkz = 16327
+
+    VPERMI2PDZrmk = 16328
+
+    VPERMI2PDZrmkz = 16329
+
+    VPERMI2PDZrr = 16330
+
+    VPERMI2PDZrrk = 16331
+
+    VPERMI2PDZrrkz = 16332
+
+    VPERMI2PSZ128rm = 16333
+
+    VPERMI2PSZ128rmb = 16334
+
+    VPERMI2PSZ128rmbk = 16335
+
+    VPERMI2PSZ128rmbkz = 16336
+
+    VPERMI2PSZ128rmk = 16337
+
+    VPERMI2PSZ128rmkz = 16338
+
+    VPERMI2PSZ128rr = 16339
+
+    VPERMI2PSZ128rrk = 16340
+
+    VPERMI2PSZ128rrkz = 16341
+
+    VPERMI2PSZ256rm = 16342
+
+    VPERMI2PSZ256rmb = 16343
+
+    VPERMI2PSZ256rmbk = 16344
+
+    VPERMI2PSZ256rmbkz = 16345
+
+    VPERMI2PSZ256rmk = 16346
+
+    VPERMI2PSZ256rmkz = 16347
+
+    VPERMI2PSZ256rr = 16348
+
+    VPERMI2PSZ256rrk = 16349
+
+    VPERMI2PSZ256rrkz = 16350
+
+    VPERMI2PSZrm = 16351
+
+    VPERMI2PSZrmb = 16352
+
+    VPERMI2PSZrmbk = 16353
+
+    VPERMI2PSZrmbkz = 16354
+
+    VPERMI2PSZrmk = 16355
+
+    VPERMI2PSZrmkz = 16356
+
+    VPERMI2PSZrr = 16357
+
+    VPERMI2PSZrrk = 16358
+
+    VPERMI2PSZrrkz = 16359
+
+    VPERMI2QZ128rm = 16360
+
+    VPERMI2QZ128rmb = 16361
+
+    VPERMI2QZ128rmbk = 16362
+
+    VPERMI2QZ128rmbkz = 16363
+
+    VPERMI2QZ128rmk = 16364
+
+    VPERMI2QZ128rmkz = 16365
+
+    VPERMI2QZ128rr = 16366
+
+    VPERMI2QZ128rrk = 16367
+
+    VPERMI2QZ128rrkz = 16368
+
+    VPERMI2QZ256rm = 16369
+
+    VPERMI2QZ256rmb = 16370
+
+    VPERMI2QZ256rmbk = 16371
+
+    VPERMI2QZ256rmbkz = 16372
+
+    VPERMI2QZ256rmk = 16373
+
+    VPERMI2QZ256rmkz = 16374
+
+    VPERMI2QZ256rr = 16375
+
+    VPERMI2QZ256rrk = 16376
+
+    VPERMI2QZ256rrkz = 16377
+
+    VPERMI2QZrm = 16378
+
+    VPERMI2QZrmb = 16379
+
+    VPERMI2QZrmbk = 16380
+
+    VPERMI2QZrmbkz = 16381
+
+    VPERMI2QZrmk = 16382
+
+    VPERMI2QZrmkz = 16383
+
+    VPERMI2QZrr = 16384
+
+    VPERMI2QZrrk = 16385
+
+    VPERMI2QZrrkz = 16386
+
+    VPERMI2WZ128rm = 16387
+
+    VPERMI2WZ128rmk = 16388
+
+    VPERMI2WZ128rmkz = 16389
+
+    VPERMI2WZ128rr = 16390
+
+    VPERMI2WZ128rrk = 16391
+
+    VPERMI2WZ128rrkz = 16392
+
+    VPERMI2WZ256rm = 16393
+
+    VPERMI2WZ256rmk = 16394
+
+    VPERMI2WZ256rmkz = 16395
+
+    VPERMI2WZ256rr = 16396
+
+    VPERMI2WZ256rrk = 16397
+
+    VPERMI2WZ256rrkz = 16398
+
+    VPERMI2WZrm = 16399
+
+    VPERMI2WZrmk = 16400
+
+    VPERMI2WZrmkz = 16401
+
+    VPERMI2WZrr = 16402
+
+    VPERMI2WZrrk = 16403
+
+    VPERMI2WZrrkz = 16404
+
+    VPERMIL2PDYmr = 16405
+
+    VPERMIL2PDYrm = 16406
+
+    VPERMIL2PDYrr = 16407
+
+    VPERMIL2PDYrr_REV = 16408
+
+    VPERMIL2PDmr = 16409
+
+    VPERMIL2PDrm = 16410
+
+    VPERMIL2PDrr = 16411
+
+    VPERMIL2PDrr_REV = 16412
+
+    VPERMIL2PSYmr = 16413
+
+    VPERMIL2PSYrm = 16414
+
+    VPERMIL2PSYrr = 16415
+
+    VPERMIL2PSYrr_REV = 16416
+
+    VPERMIL2PSmr = 16417
+
+    VPERMIL2PSrm = 16418
+
+    VPERMIL2PSrr = 16419
+
+    VPERMIL2PSrr_REV = 16420
+
+    VPERMILPDYmi = 16421
+
+    VPERMILPDYri = 16422
+
+    VPERMILPDYrm = 16423
+
+    VPERMILPDYrr = 16424
+
+    VPERMILPDZ128mbi = 16425
+
+    VPERMILPDZ128mbik = 16426
+
+    VPERMILPDZ128mbikz = 16427
+
+    VPERMILPDZ128mi = 16428
+
+    VPERMILPDZ128mik = 16429
+
+    VPERMILPDZ128mikz = 16430
+
+    VPERMILPDZ128ri = 16431
+
+    VPERMILPDZ128rik = 16432
+
+    VPERMILPDZ128rikz = 16433
+
+    VPERMILPDZ128rm = 16434
+
+    VPERMILPDZ128rmb = 16435
+
+    VPERMILPDZ128rmbk = 16436
+
+    VPERMILPDZ128rmbkz = 16437
+
+    VPERMILPDZ128rmk = 16438
+
+    VPERMILPDZ128rmkz = 16439
+
+    VPERMILPDZ128rr = 16440
+
+    VPERMILPDZ128rrk = 16441
+
+    VPERMILPDZ128rrkz = 16442
+
+    VPERMILPDZ256mbi = 16443
+
+    VPERMILPDZ256mbik = 16444
+
+    VPERMILPDZ256mbikz = 16445
+
+    VPERMILPDZ256mi = 16446
+
+    VPERMILPDZ256mik = 16447
+
+    VPERMILPDZ256mikz = 16448
+
+    VPERMILPDZ256ri = 16449
+
+    VPERMILPDZ256rik = 16450
+
+    VPERMILPDZ256rikz = 16451
+
+    VPERMILPDZ256rm = 16452
+
+    VPERMILPDZ256rmb = 16453
+
+    VPERMILPDZ256rmbk = 16454
+
+    VPERMILPDZ256rmbkz = 16455
+
+    VPERMILPDZ256rmk = 16456
+
+    VPERMILPDZ256rmkz = 16457
+
+    VPERMILPDZ256rr = 16458
+
+    VPERMILPDZ256rrk = 16459
+
+    VPERMILPDZ256rrkz = 16460
+
+    VPERMILPDZmbi = 16461
+
+    VPERMILPDZmbik = 16462
+
+    VPERMILPDZmbikz = 16463
+
+    VPERMILPDZmi = 16464
+
+    VPERMILPDZmik = 16465
+
+    VPERMILPDZmikz = 16466
+
+    VPERMILPDZri = 16467
+
+    VPERMILPDZrik = 16468
+
+    VPERMILPDZrikz = 16469
+
+    VPERMILPDZrm = 16470
+
+    VPERMILPDZrmb = 16471
+
+    VPERMILPDZrmbk = 16472
+
+    VPERMILPDZrmbkz = 16473
+
+    VPERMILPDZrmk = 16474
+
+    VPERMILPDZrmkz = 16475
+
+    VPERMILPDZrr = 16476
+
+    VPERMILPDZrrk = 16477
+
+    VPERMILPDZrrkz = 16478
+
+    VPERMILPDmi = 16479
+
+    VPERMILPDri = 16480
+
+    VPERMILPDrm = 16481
+
+    VPERMILPDrr = 16482
+
+    VPERMILPSYmi = 16483
+
+    VPERMILPSYri = 16484
+
+    VPERMILPSYrm = 16485
+
+    VPERMILPSYrr = 16486
+
+    VPERMILPSZ128mbi = 16487
+
+    VPERMILPSZ128mbik = 16488
+
+    VPERMILPSZ128mbikz = 16489
+
+    VPERMILPSZ128mi = 16490
+
+    VPERMILPSZ128mik = 16491
+
+    VPERMILPSZ128mikz = 16492
+
+    VPERMILPSZ128ri = 16493
+
+    VPERMILPSZ128rik = 16494
+
+    VPERMILPSZ128rikz = 16495
+
+    VPERMILPSZ128rm = 16496
+
+    VPERMILPSZ128rmb = 16497
+
+    VPERMILPSZ128rmbk = 16498
+
+    VPERMILPSZ128rmbkz = 16499
+
+    VPERMILPSZ128rmk = 16500
+
+    VPERMILPSZ128rmkz = 16501
+
+    VPERMILPSZ128rr = 16502
+
+    VPERMILPSZ128rrk = 16503
+
+    VPERMILPSZ128rrkz = 16504
+
+    VPERMILPSZ256mbi = 16505
+
+    VPERMILPSZ256mbik = 16506
+
+    VPERMILPSZ256mbikz = 16507
+
+    VPERMILPSZ256mi = 16508
+
+    VPERMILPSZ256mik = 16509
+
+    VPERMILPSZ256mikz = 16510
+
+    VPERMILPSZ256ri = 16511
+
+    VPERMILPSZ256rik = 16512
+
+    VPERMILPSZ256rikz = 16513
+
+    VPERMILPSZ256rm = 16514
+
+    VPERMILPSZ256rmb = 16515
+
+    VPERMILPSZ256rmbk = 16516
+
+    VPERMILPSZ256rmbkz = 16517
+
+    VPERMILPSZ256rmk = 16518
+
+    VPERMILPSZ256rmkz = 16519
+
+    VPERMILPSZ256rr = 16520
+
+    VPERMILPSZ256rrk = 16521
+
+    VPERMILPSZ256rrkz = 16522
+
+    VPERMILPSZmbi = 16523
+
+    VPERMILPSZmbik = 16524
+
+    VPERMILPSZmbikz = 16525
+
+    VPERMILPSZmi = 16526
+
+    VPERMILPSZmik = 16527
+
+    VPERMILPSZmikz = 16528
+
+    VPERMILPSZri = 16529
+
+    VPERMILPSZrik = 16530
+
+    VPERMILPSZrikz = 16531
+
+    VPERMILPSZrm = 16532
+
+    VPERMILPSZrmb = 16533
+
+    VPERMILPSZrmbk = 16534
+
+    VPERMILPSZrmbkz = 16535
+
+    VPERMILPSZrmk = 16536
+
+    VPERMILPSZrmkz = 16537
+
+    VPERMILPSZrr = 16538
+
+    VPERMILPSZrrk = 16539
+
+    VPERMILPSZrrkz = 16540
+
+    VPERMILPSmi = 16541
+
+    VPERMILPSri = 16542
+
+    VPERMILPSrm = 16543
+
+    VPERMILPSrr = 16544
+
+    VPERMPDYmi = 16545
+
+    VPERMPDYri = 16546
+
+    VPERMPDZ256mbi = 16547
+
+    VPERMPDZ256mbik = 16548
+
+    VPERMPDZ256mbikz = 16549
+
+    VPERMPDZ256mi = 16550
+
+    VPERMPDZ256mik = 16551
+
+    VPERMPDZ256mikz = 16552
+
+    VPERMPDZ256ri = 16553
+
+    VPERMPDZ256rik = 16554
+
+    VPERMPDZ256rikz = 16555
+
+    VPERMPDZ256rm = 16556
+
+    VPERMPDZ256rmb = 16557
+
+    VPERMPDZ256rmbk = 16558
+
+    VPERMPDZ256rmbkz = 16559
+
+    VPERMPDZ256rmk = 16560
+
+    VPERMPDZ256rmkz = 16561
+
+    VPERMPDZ256rr = 16562
+
+    VPERMPDZ256rrk = 16563
+
+    VPERMPDZ256rrkz = 16564
+
+    VPERMPDZmbi = 16565
+
+    VPERMPDZmbik = 16566
+
+    VPERMPDZmbikz = 16567
+
+    VPERMPDZmi = 16568
+
+    VPERMPDZmik = 16569
+
+    VPERMPDZmikz = 16570
+
+    VPERMPDZri = 16571
+
+    VPERMPDZrik = 16572
+
+    VPERMPDZrikz = 16573
+
+    VPERMPDZrm = 16574
+
+    VPERMPDZrmb = 16575
+
+    VPERMPDZrmbk = 16576
+
+    VPERMPDZrmbkz = 16577
+
+    VPERMPDZrmk = 16578
+
+    VPERMPDZrmkz = 16579
+
+    VPERMPDZrr = 16580
+
+    VPERMPDZrrk = 16581
+
+    VPERMPDZrrkz = 16582
+
+    VPERMPSYrm = 16583
+
+    VPERMPSYrr = 16584
+
+    VPERMPSZ256rm = 16585
+
+    VPERMPSZ256rmb = 16586
+
+    VPERMPSZ256rmbk = 16587
+
+    VPERMPSZ256rmbkz = 16588
+
+    VPERMPSZ256rmk = 16589
+
+    VPERMPSZ256rmkz = 16590
+
+    VPERMPSZ256rr = 16591
+
+    VPERMPSZ256rrk = 16592
+
+    VPERMPSZ256rrkz = 16593
+
+    VPERMPSZrm = 16594
+
+    VPERMPSZrmb = 16595
+
+    VPERMPSZrmbk = 16596
+
+    VPERMPSZrmbkz = 16597
+
+    VPERMPSZrmk = 16598
+
+    VPERMPSZrmkz = 16599
+
+    VPERMPSZrr = 16600
+
+    VPERMPSZrrk = 16601
+
+    VPERMPSZrrkz = 16602
+
+    VPERMQYmi = 16603
+
+    VPERMQYri = 16604
+
+    VPERMQZ256mbi = 16605
+
+    VPERMQZ256mbik = 16606
+
+    VPERMQZ256mbikz = 16607
+
+    VPERMQZ256mi = 16608
+
+    VPERMQZ256mik = 16609
+
+    VPERMQZ256mikz = 16610
+
+    VPERMQZ256ri = 16611
+
+    VPERMQZ256rik = 16612
+
+    VPERMQZ256rikz = 16613
+
+    VPERMQZ256rm = 16614
+
+    VPERMQZ256rmb = 16615
+
+    VPERMQZ256rmbk = 16616
+
+    VPERMQZ256rmbkz = 16617
+
+    VPERMQZ256rmk = 16618
+
+    VPERMQZ256rmkz = 16619
+
+    VPERMQZ256rr = 16620
+
+    VPERMQZ256rrk = 16621
+
+    VPERMQZ256rrkz = 16622
+
+    VPERMQZmbi = 16623
+
+    VPERMQZmbik = 16624
+
+    VPERMQZmbikz = 16625
+
+    VPERMQZmi = 16626
+
+    VPERMQZmik = 16627
+
+    VPERMQZmikz = 16628
+
+    VPERMQZri = 16629
+
+    VPERMQZrik = 16630
+
+    VPERMQZrikz = 16631
+
+    VPERMQZrm = 16632
+
+    VPERMQZrmb = 16633
+
+    VPERMQZrmbk = 16634
+
+    VPERMQZrmbkz = 16635
+
+    VPERMQZrmk = 16636
+
+    VPERMQZrmkz = 16637
+
+    VPERMQZrr = 16638
+
+    VPERMQZrrk = 16639
+
+    VPERMQZrrkz = 16640
+
+    VPERMT2BZ128rm = 16641
+
+    VPERMT2BZ128rmk = 16642
+
+    VPERMT2BZ128rmkz = 16643
+
+    VPERMT2BZ128rr = 16644
+
+    VPERMT2BZ128rrk = 16645
+
+    VPERMT2BZ128rrkz = 16646
+
+    VPERMT2BZ256rm = 16647
+
+    VPERMT2BZ256rmk = 16648
+
+    VPERMT2BZ256rmkz = 16649
+
+    VPERMT2BZ256rr = 16650
+
+    VPERMT2BZ256rrk = 16651
+
+    VPERMT2BZ256rrkz = 16652
+
+    VPERMT2BZrm = 16653
+
+    VPERMT2BZrmk = 16654
+
+    VPERMT2BZrmkz = 16655
+
+    VPERMT2BZrr = 16656
+
+    VPERMT2BZrrk = 16657
+
+    VPERMT2BZrrkz = 16658
+
+    VPERMT2DZ128rm = 16659
+
+    VPERMT2DZ128rmb = 16660
+
+    VPERMT2DZ128rmbk = 16661
+
+    VPERMT2DZ128rmbkz = 16662
+
+    VPERMT2DZ128rmk = 16663
+
+    VPERMT2DZ128rmkz = 16664
+
+    VPERMT2DZ128rr = 16665
+
+    VPERMT2DZ128rrk = 16666
+
+    VPERMT2DZ128rrkz = 16667
+
+    VPERMT2DZ256rm = 16668
+
+    VPERMT2DZ256rmb = 16669
+
+    VPERMT2DZ256rmbk = 16670
+
+    VPERMT2DZ256rmbkz = 16671
+
+    VPERMT2DZ256rmk = 16672
+
+    VPERMT2DZ256rmkz = 16673
+
+    VPERMT2DZ256rr = 16674
+
+    VPERMT2DZ256rrk = 16675
+
+    VPERMT2DZ256rrkz = 16676
+
+    VPERMT2DZrm = 16677
+
+    VPERMT2DZrmb = 16678
+
+    VPERMT2DZrmbk = 16679
+
+    VPERMT2DZrmbkz = 16680
+
+    VPERMT2DZrmk = 16681
+
+    VPERMT2DZrmkz = 16682
+
+    VPERMT2DZrr = 16683
+
+    VPERMT2DZrrk = 16684
+
+    VPERMT2DZrrkz = 16685
+
+    VPERMT2PDZ128rm = 16686
+
+    VPERMT2PDZ128rmb = 16687
+
+    VPERMT2PDZ128rmbk = 16688
+
+    VPERMT2PDZ128rmbkz = 16689
+
+    VPERMT2PDZ128rmk = 16690
+
+    VPERMT2PDZ128rmkz = 16691
+
+    VPERMT2PDZ128rr = 16692
+
+    VPERMT2PDZ128rrk = 16693
+
+    VPERMT2PDZ128rrkz = 16694
+
+    VPERMT2PDZ256rm = 16695
+
+    VPERMT2PDZ256rmb = 16696
+
+    VPERMT2PDZ256rmbk = 16697
+
+    VPERMT2PDZ256rmbkz = 16698
+
+    VPERMT2PDZ256rmk = 16699
+
+    VPERMT2PDZ256rmkz = 16700
+
+    VPERMT2PDZ256rr = 16701
+
+    VPERMT2PDZ256rrk = 16702
+
+    VPERMT2PDZ256rrkz = 16703
+
+    VPERMT2PDZrm = 16704
+
+    VPERMT2PDZrmb = 16705
+
+    VPERMT2PDZrmbk = 16706
+
+    VPERMT2PDZrmbkz = 16707
+
+    VPERMT2PDZrmk = 16708
+
+    VPERMT2PDZrmkz = 16709
+
+    VPERMT2PDZrr = 16710
+
+    VPERMT2PDZrrk = 16711
+
+    VPERMT2PDZrrkz = 16712
+
+    VPERMT2PSZ128rm = 16713
+
+    VPERMT2PSZ128rmb = 16714
+
+    VPERMT2PSZ128rmbk = 16715
+
+    VPERMT2PSZ128rmbkz = 16716
+
+    VPERMT2PSZ128rmk = 16717
+
+    VPERMT2PSZ128rmkz = 16718
+
+    VPERMT2PSZ128rr = 16719
+
+    VPERMT2PSZ128rrk = 16720
+
+    VPERMT2PSZ128rrkz = 16721
+
+    VPERMT2PSZ256rm = 16722
+
+    VPERMT2PSZ256rmb = 16723
+
+    VPERMT2PSZ256rmbk = 16724
+
+    VPERMT2PSZ256rmbkz = 16725
+
+    VPERMT2PSZ256rmk = 16726
+
+    VPERMT2PSZ256rmkz = 16727
+
+    VPERMT2PSZ256rr = 16728
+
+    VPERMT2PSZ256rrk = 16729
+
+    VPERMT2PSZ256rrkz = 16730
+
+    VPERMT2PSZrm = 16731
+
+    VPERMT2PSZrmb = 16732
+
+    VPERMT2PSZrmbk = 16733
+
+    VPERMT2PSZrmbkz = 16734
+
+    VPERMT2PSZrmk = 16735
+
+    VPERMT2PSZrmkz = 16736
+
+    VPERMT2PSZrr = 16737
+
+    VPERMT2PSZrrk = 16738
+
+    VPERMT2PSZrrkz = 16739
+
+    VPERMT2QZ128rm = 16740
+
+    VPERMT2QZ128rmb = 16741
+
+    VPERMT2QZ128rmbk = 16742
+
+    VPERMT2QZ128rmbkz = 16743
+
+    VPERMT2QZ128rmk = 16744
+
+    VPERMT2QZ128rmkz = 16745
+
+    VPERMT2QZ128rr = 16746
+
+    VPERMT2QZ128rrk = 16747
+
+    VPERMT2QZ128rrkz = 16748
+
+    VPERMT2QZ256rm = 16749
+
+    VPERMT2QZ256rmb = 16750
+
+    VPERMT2QZ256rmbk = 16751
+
+    VPERMT2QZ256rmbkz = 16752
+
+    VPERMT2QZ256rmk = 16753
+
+    VPERMT2QZ256rmkz = 16754
+
+    VPERMT2QZ256rr = 16755
+
+    VPERMT2QZ256rrk = 16756
+
+    VPERMT2QZ256rrkz = 16757
+
+    VPERMT2QZrm = 16758
+
+    VPERMT2QZrmb = 16759
+
+    VPERMT2QZrmbk = 16760
+
+    VPERMT2QZrmbkz = 16761
+
+    VPERMT2QZrmk = 16762
+
+    VPERMT2QZrmkz = 16763
+
+    VPERMT2QZrr = 16764
+
+    VPERMT2QZrrk = 16765
+
+    VPERMT2QZrrkz = 16766
+
+    VPERMT2WZ128rm = 16767
+
+    VPERMT2WZ128rmk = 16768
+
+    VPERMT2WZ128rmkz = 16769
+
+    VPERMT2WZ128rr = 16770
+
+    VPERMT2WZ128rrk = 16771
+
+    VPERMT2WZ128rrkz = 16772
+
+    VPERMT2WZ256rm = 16773
+
+    VPERMT2WZ256rmk = 16774
+
+    VPERMT2WZ256rmkz = 16775
+
+    VPERMT2WZ256rr = 16776
+
+    VPERMT2WZ256rrk = 16777
+
+    VPERMT2WZ256rrkz = 16778
+
+    VPERMT2WZrm = 16779
+
+    VPERMT2WZrmk = 16780
+
+    VPERMT2WZrmkz = 16781
+
+    VPERMT2WZrr = 16782
+
+    VPERMT2WZrrk = 16783
+
+    VPERMT2WZrrkz = 16784
+
+    VPERMWZ128rm = 16785
+
+    VPERMWZ128rmk = 16786
+
+    VPERMWZ128rmkz = 16787
+
+    VPERMWZ128rr = 16788
+
+    VPERMWZ128rrk = 16789
+
+    VPERMWZ128rrkz = 16790
+
+    VPERMWZ256rm = 16791
+
+    VPERMWZ256rmk = 16792
+
+    VPERMWZ256rmkz = 16793
+
+    VPERMWZ256rr = 16794
+
+    VPERMWZ256rrk = 16795
+
+    VPERMWZ256rrkz = 16796
+
+    VPERMWZrm = 16797
+
+    VPERMWZrmk = 16798
+
+    VPERMWZrmkz = 16799
+
+    VPERMWZrr = 16800
+
+    VPERMWZrrk = 16801
+
+    VPERMWZrrkz = 16802
+
+    VPEXPANDBZ128rm = 16803
+
+    VPEXPANDBZ128rmk = 16804
+
+    VPEXPANDBZ128rmkz = 16805
+
+    VPEXPANDBZ128rr = 16806
+
+    VPEXPANDBZ128rrk = 16807
+
+    VPEXPANDBZ128rrkz = 16808
+
+    VPEXPANDBZ256rm = 16809
+
+    VPEXPANDBZ256rmk = 16810
+
+    VPEXPANDBZ256rmkz = 16811
+
+    VPEXPANDBZ256rr = 16812
+
+    VPEXPANDBZ256rrk = 16813
+
+    VPEXPANDBZ256rrkz = 16814
+
+    VPEXPANDBZrm = 16815
+
+    VPEXPANDBZrmk = 16816
+
+    VPEXPANDBZrmkz = 16817
+
+    VPEXPANDBZrr = 16818
+
+    VPEXPANDBZrrk = 16819
+
+    VPEXPANDBZrrkz = 16820
+
+    VPEXPANDDZ128rm = 16821
+
+    VPEXPANDDZ128rmk = 16822
+
+    VPEXPANDDZ128rmkz = 16823
+
+    VPEXPANDDZ128rr = 16824
+
+    VPEXPANDDZ128rrk = 16825
+
+    VPEXPANDDZ128rrkz = 16826
+
+    VPEXPANDDZ256rm = 16827
+
+    VPEXPANDDZ256rmk = 16828
+
+    VPEXPANDDZ256rmkz = 16829
+
+    VPEXPANDDZ256rr = 16830
+
+    VPEXPANDDZ256rrk = 16831
+
+    VPEXPANDDZ256rrkz = 16832
+
+    VPEXPANDDZrm = 16833
+
+    VPEXPANDDZrmk = 16834
+
+    VPEXPANDDZrmkz = 16835
+
+    VPEXPANDDZrr = 16836
+
+    VPEXPANDDZrrk = 16837
+
+    VPEXPANDDZrrkz = 16838
+
+    VPEXPANDQZ128rm = 16839
+
+    VPEXPANDQZ128rmk = 16840
+
+    VPEXPANDQZ128rmkz = 16841
+
+    VPEXPANDQZ128rr = 16842
+
+    VPEXPANDQZ128rrk = 16843
+
+    VPEXPANDQZ128rrkz = 16844
+
+    VPEXPANDQZ256rm = 16845
+
+    VPEXPANDQZ256rmk = 16846
+
+    VPEXPANDQZ256rmkz = 16847
+
+    VPEXPANDQZ256rr = 16848
+
+    VPEXPANDQZ256rrk = 16849
+
+    VPEXPANDQZ256rrkz = 16850
+
+    VPEXPANDQZrm = 16851
+
+    VPEXPANDQZrmk = 16852
+
+    VPEXPANDQZrmkz = 16853
+
+    VPEXPANDQZrr = 16854
+
+    VPEXPANDQZrrk = 16855
+
+    VPEXPANDQZrrkz = 16856
+
+    VPEXPANDWZ128rm = 16857
+
+    VPEXPANDWZ128rmk = 16858
+
+    VPEXPANDWZ128rmkz = 16859
+
+    VPEXPANDWZ128rr = 16860
+
+    VPEXPANDWZ128rrk = 16861
+
+    VPEXPANDWZ128rrkz = 16862
+
+    VPEXPANDWZ256rm = 16863
+
+    VPEXPANDWZ256rmk = 16864
+
+    VPEXPANDWZ256rmkz = 16865
+
+    VPEXPANDWZ256rr = 16866
+
+    VPEXPANDWZ256rrk = 16867
+
+    VPEXPANDWZ256rrkz = 16868
+
+    VPEXPANDWZrm = 16869
+
+    VPEXPANDWZrmk = 16870
+
+    VPEXPANDWZrmkz = 16871
+
+    VPEXPANDWZrr = 16872
+
+    VPEXPANDWZrrk = 16873
+
+    VPEXPANDWZrrkz = 16874
+
+    VPEXTRBZmri = 16875
+
+    VPEXTRBZrri = 16876
+
+    VPEXTRBmri = 16877
+
+    VPEXTRBrri = 16878
+
+    VPEXTRDZmri = 16879
+
+    VPEXTRDZrri = 16880
+
+    VPEXTRDmri = 16881
+
+    VPEXTRDrri = 16882
+
+    VPEXTRQZmri = 16883
+
+    VPEXTRQZrri = 16884
+
+    VPEXTRQmri = 16885
+
+    VPEXTRQrri = 16886
+
+    VPEXTRWZmri = 16887
+
+    VPEXTRWZrri = 16888
+
+    VPEXTRWZrri_REV = 16889
+
+    VPEXTRWmri = 16890
+
+    VPEXTRWrri = 16891
+
+    VPEXTRWrri_REV = 16892
+
+    VPGATHERDDYrm = 16893
+
+    VPGATHERDDZ128rm = 16894
+
+    VPGATHERDDZ256rm = 16895
+
+    VPGATHERDDZrm = 16896
+
+    VPGATHERDDrm = 16897
+
+    VPGATHERDQYrm = 16898
+
+    VPGATHERDQZ128rm = 16899
+
+    VPGATHERDQZ256rm = 16900
+
+    VPGATHERDQZrm = 16901
+
+    VPGATHERDQrm = 16902
+
+    VPGATHERQDYrm = 16903
+
+    VPGATHERQDZ128rm = 16904
+
+    VPGATHERQDZ256rm = 16905
+
+    VPGATHERQDZrm = 16906
+
+    VPGATHERQDrm = 16907
+
+    VPGATHERQQYrm = 16908
+
+    VPGATHERQQZ128rm = 16909
+
+    VPGATHERQQZ256rm = 16910
+
+    VPGATHERQQZrm = 16911
+
+    VPGATHERQQrm = 16912
+
+    VPHADDBDrm = 16913
+
+    VPHADDBDrr = 16914
+
+    VPHADDBQrm = 16915
+
+    VPHADDBQrr = 16916
+
+    VPHADDBWrm = 16917
+
+    VPHADDBWrr = 16918
+
+    VPHADDDQrm = 16919
+
+    VPHADDDQrr = 16920
+
+    VPHADDDYrm = 16921
+
+    VPHADDDYrr = 16922
+
+    VPHADDDrm = 16923
+
+    VPHADDDrr = 16924
+
+    VPHADDSWYrm = 16925
+
+    VPHADDSWYrr = 16926
+
+    VPHADDSWrm = 16927
+
+    VPHADDSWrr = 16928
+
+    VPHADDUBDrm = 16929
+
+    VPHADDUBDrr = 16930
+
+    VPHADDUBQrm = 16931
+
+    VPHADDUBQrr = 16932
+
+    VPHADDUBWrm = 16933
+
+    VPHADDUBWrr = 16934
+
+    VPHADDUDQrm = 16935
+
+    VPHADDUDQrr = 16936
+
+    VPHADDUWDrm = 16937
+
+    VPHADDUWDrr = 16938
+
+    VPHADDUWQrm = 16939
+
+    VPHADDUWQrr = 16940
+
+    VPHADDWDrm = 16941
+
+    VPHADDWDrr = 16942
+
+    VPHADDWQrm = 16943
+
+    VPHADDWQrr = 16944
+
+    VPHADDWYrm = 16945
+
+    VPHADDWYrr = 16946
+
+    VPHADDWrm = 16947
+
+    VPHADDWrr = 16948
+
+    VPHMINPOSUWrm = 16949
+
+    VPHMINPOSUWrr = 16950
+
+    VPHSUBBWrm = 16951
+
+    VPHSUBBWrr = 16952
+
+    VPHSUBDQrm = 16953
+
+    VPHSUBDQrr = 16954
+
+    VPHSUBDYrm = 16955
+
+    VPHSUBDYrr = 16956
+
+    VPHSUBDrm = 16957
+
+    VPHSUBDrr = 16958
+
+    VPHSUBSWYrm = 16959
+
+    VPHSUBSWYrr = 16960
+
+    VPHSUBSWrm = 16961
+
+    VPHSUBSWrr = 16962
+
+    VPHSUBWDrm = 16963
+
+    VPHSUBWDrr = 16964
+
+    VPHSUBWYrm = 16965
+
+    VPHSUBWYrr = 16966
+
+    VPHSUBWrm = 16967
+
+    VPHSUBWrr = 16968
+
+    VPINSRBZrmi = 16969
+
+    VPINSRBZrri = 16970
+
+    VPINSRBrmi = 16971
+
+    VPINSRBrri = 16972
+
+    VPINSRDZrmi = 16973
+
+    VPINSRDZrri = 16974
+
+    VPINSRDrmi = 16975
+
+    VPINSRDrri = 16976
+
+    VPINSRQZrmi = 16977
+
+    VPINSRQZrri = 16978
+
+    VPINSRQrmi = 16979
+
+    VPINSRQrri = 16980
+
+    VPINSRWZrmi = 16981
+
+    VPINSRWZrri = 16982
+
+    VPINSRWrmi = 16983
+
+    VPINSRWrri = 16984
+
+    VPLZCNTDZ128rm = 16985
+
+    VPLZCNTDZ128rmb = 16986
+
+    VPLZCNTDZ128rmbk = 16987
+
+    VPLZCNTDZ128rmbkz = 16988
+
+    VPLZCNTDZ128rmk = 16989
+
+    VPLZCNTDZ128rmkz = 16990
+
+    VPLZCNTDZ128rr = 16991
+
+    VPLZCNTDZ128rrk = 16992
+
+    VPLZCNTDZ128rrkz = 16993
+
+    VPLZCNTDZ256rm = 16994
+
+    VPLZCNTDZ256rmb = 16995
+
+    VPLZCNTDZ256rmbk = 16996
+
+    VPLZCNTDZ256rmbkz = 16997
+
+    VPLZCNTDZ256rmk = 16998
+
+    VPLZCNTDZ256rmkz = 16999
+
+    VPLZCNTDZ256rr = 17000
+
+    VPLZCNTDZ256rrk = 17001
+
+    VPLZCNTDZ256rrkz = 17002
+
+    VPLZCNTDZrm = 17003
+
+    VPLZCNTDZrmb = 17004
+
+    VPLZCNTDZrmbk = 17005
+
+    VPLZCNTDZrmbkz = 17006
+
+    VPLZCNTDZrmk = 17007
+
+    VPLZCNTDZrmkz = 17008
+
+    VPLZCNTDZrr = 17009
+
+    VPLZCNTDZrrk = 17010
+
+    VPLZCNTDZrrkz = 17011
+
+    VPLZCNTQZ128rm = 17012
+
+    VPLZCNTQZ128rmb = 17013
+
+    VPLZCNTQZ128rmbk = 17014
+
+    VPLZCNTQZ128rmbkz = 17015
+
+    VPLZCNTQZ128rmk = 17016
+
+    VPLZCNTQZ128rmkz = 17017
+
+    VPLZCNTQZ128rr = 17018
+
+    VPLZCNTQZ128rrk = 17019
+
+    VPLZCNTQZ128rrkz = 17020
+
+    VPLZCNTQZ256rm = 17021
+
+    VPLZCNTQZ256rmb = 17022
+
+    VPLZCNTQZ256rmbk = 17023
+
+    VPLZCNTQZ256rmbkz = 17024
+
+    VPLZCNTQZ256rmk = 17025
+
+    VPLZCNTQZ256rmkz = 17026
+
+    VPLZCNTQZ256rr = 17027
+
+    VPLZCNTQZ256rrk = 17028
+
+    VPLZCNTQZ256rrkz = 17029
+
+    VPLZCNTQZrm = 17030
+
+    VPLZCNTQZrmb = 17031
+
+    VPLZCNTQZrmbk = 17032
+
+    VPLZCNTQZrmbkz = 17033
+
+    VPLZCNTQZrmk = 17034
+
+    VPLZCNTQZrmkz = 17035
+
+    VPLZCNTQZrr = 17036
+
+    VPLZCNTQZrrk = 17037
+
+    VPLZCNTQZrrkz = 17038
+
+    VPMACSDDrm = 17039
+
+    VPMACSDDrr = 17040
+
+    VPMACSDQHrm = 17041
+
+    VPMACSDQHrr = 17042
+
+    VPMACSDQLrm = 17043
+
+    VPMACSDQLrr = 17044
+
+    VPMACSSDDrm = 17045
+
+    VPMACSSDDrr = 17046
+
+    VPMACSSDQHrm = 17047
+
+    VPMACSSDQHrr = 17048
+
+    VPMACSSDQLrm = 17049
+
+    VPMACSSDQLrr = 17050
+
+    VPMACSSWDrm = 17051
+
+    VPMACSSWDrr = 17052
+
+    VPMACSSWWrm = 17053
+
+    VPMACSSWWrr = 17054
+
+    VPMACSWDrm = 17055
+
+    VPMACSWDrr = 17056
+
+    VPMACSWWrm = 17057
+
+    VPMACSWWrr = 17058
+
+    VPMADCSSWDrm = 17059
+
+    VPMADCSSWDrr = 17060
+
+    VPMADCSWDrm = 17061
+
+    VPMADCSWDrr = 17062
+
+    VPMADD52HUQYrm = 17063
+
+    VPMADD52HUQYrr = 17064
+
+    VPMADD52HUQZ128m = 17065
+
+    VPMADD52HUQZ128mb = 17066
+
+    VPMADD52HUQZ128mbk = 17067
+
+    VPMADD52HUQZ128mbkz = 17068
+
+    VPMADD52HUQZ128mk = 17069
+
+    VPMADD52HUQZ128mkz = 17070
+
+    VPMADD52HUQZ128r = 17071
+
+    VPMADD52HUQZ128rk = 17072
+
+    VPMADD52HUQZ128rkz = 17073
+
+    VPMADD52HUQZ256m = 17074
+
+    VPMADD52HUQZ256mb = 17075
+
+    VPMADD52HUQZ256mbk = 17076
+
+    VPMADD52HUQZ256mbkz = 17077
+
+    VPMADD52HUQZ256mk = 17078
+
+    VPMADD52HUQZ256mkz = 17079
+
+    VPMADD52HUQZ256r = 17080
+
+    VPMADD52HUQZ256rk = 17081
+
+    VPMADD52HUQZ256rkz = 17082
+
+    VPMADD52HUQZm = 17083
+
+    VPMADD52HUQZmb = 17084
+
+    VPMADD52HUQZmbk = 17085
+
+    VPMADD52HUQZmbkz = 17086
+
+    VPMADD52HUQZmk = 17087
+
+    VPMADD52HUQZmkz = 17088
+
+    VPMADD52HUQZr = 17089
+
+    VPMADD52HUQZrk = 17090
+
+    VPMADD52HUQZrkz = 17091
+
+    VPMADD52HUQrm = 17092
+
+    VPMADD52HUQrr = 17093
+
+    VPMADD52LUQYrm = 17094
+
+    VPMADD52LUQYrr = 17095
+
+    VPMADD52LUQZ128m = 17096
+
+    VPMADD52LUQZ128mb = 17097
+
+    VPMADD52LUQZ128mbk = 17098
+
+    VPMADD52LUQZ128mbkz = 17099
+
+    VPMADD52LUQZ128mk = 17100
+
+    VPMADD52LUQZ128mkz = 17101
+
+    VPMADD52LUQZ128r = 17102
+
+    VPMADD52LUQZ128rk = 17103
+
+    VPMADD52LUQZ128rkz = 17104
+
+    VPMADD52LUQZ256m = 17105
+
+    VPMADD52LUQZ256mb = 17106
+
+    VPMADD52LUQZ256mbk = 17107
+
+    VPMADD52LUQZ256mbkz = 17108
+
+    VPMADD52LUQZ256mk = 17109
+
+    VPMADD52LUQZ256mkz = 17110
+
+    VPMADD52LUQZ256r = 17111
+
+    VPMADD52LUQZ256rk = 17112
+
+    VPMADD52LUQZ256rkz = 17113
+
+    VPMADD52LUQZm = 17114
+
+    VPMADD52LUQZmb = 17115
+
+    VPMADD52LUQZmbk = 17116
+
+    VPMADD52LUQZmbkz = 17117
+
+    VPMADD52LUQZmk = 17118
+
+    VPMADD52LUQZmkz = 17119
+
+    VPMADD52LUQZr = 17120
+
+    VPMADD52LUQZrk = 17121
+
+    VPMADD52LUQZrkz = 17122
+
+    VPMADD52LUQrm = 17123
+
+    VPMADD52LUQrr = 17124
+
+    VPMADDUBSWYrm = 17125
+
+    VPMADDUBSWYrr = 17126
+
+    VPMADDUBSWZ128rm = 17127
+
+    VPMADDUBSWZ128rmk = 17128
+
+    VPMADDUBSWZ128rmkz = 17129
+
+    VPMADDUBSWZ128rr = 17130
+
+    VPMADDUBSWZ128rrk = 17131
+
+    VPMADDUBSWZ128rrkz = 17132
+
+    VPMADDUBSWZ256rm = 17133
+
+    VPMADDUBSWZ256rmk = 17134
+
+    VPMADDUBSWZ256rmkz = 17135
+
+    VPMADDUBSWZ256rr = 17136
+
+    VPMADDUBSWZ256rrk = 17137
+
+    VPMADDUBSWZ256rrkz = 17138
+
+    VPMADDUBSWZrm = 17139
+
+    VPMADDUBSWZrmk = 17140
+
+    VPMADDUBSWZrmkz = 17141
+
+    VPMADDUBSWZrr = 17142
+
+    VPMADDUBSWZrrk = 17143
+
+    VPMADDUBSWZrrkz = 17144
+
+    VPMADDUBSWrm = 17145
+
+    VPMADDUBSWrr = 17146
+
+    VPMADDWDYrm = 17147
+
+    VPMADDWDYrr = 17148
+
+    VPMADDWDZ128rm = 17149
+
+    VPMADDWDZ128rmk = 17150
+
+    VPMADDWDZ128rmkz = 17151
+
+    VPMADDWDZ128rr = 17152
+
+    VPMADDWDZ128rrk = 17153
+
+    VPMADDWDZ128rrkz = 17154
+
+    VPMADDWDZ256rm = 17155
+
+    VPMADDWDZ256rmk = 17156
+
+    VPMADDWDZ256rmkz = 17157
+
+    VPMADDWDZ256rr = 17158
+
+    VPMADDWDZ256rrk = 17159
+
+    VPMADDWDZ256rrkz = 17160
+
+    VPMADDWDZrm = 17161
+
+    VPMADDWDZrmk = 17162
+
+    VPMADDWDZrmkz = 17163
+
+    VPMADDWDZrr = 17164
+
+    VPMADDWDZrrk = 17165
+
+    VPMADDWDZrrkz = 17166
+
+    VPMADDWDrm = 17167
+
+    VPMADDWDrr = 17168
+
+    VPMASKMOVDYmr = 17169
+
+    VPMASKMOVDYrm = 17170
+
+    VPMASKMOVDmr = 17171
+
+    VPMASKMOVDrm = 17172
+
+    VPMASKMOVQYmr = 17173
+
+    VPMASKMOVQYrm = 17174
+
+    VPMASKMOVQmr = 17175
+
+    VPMASKMOVQrm = 17176
+
+    VPMAXSBYrm = 17177
+
+    VPMAXSBYrr = 17178
+
+    VPMAXSBZ128rm = 17179
+
+    VPMAXSBZ128rmk = 17180
+
+    VPMAXSBZ128rmkz = 17181
+
+    VPMAXSBZ128rr = 17182
+
+    VPMAXSBZ128rrk = 17183
+
+    VPMAXSBZ128rrkz = 17184
+
+    VPMAXSBZ256rm = 17185
+
+    VPMAXSBZ256rmk = 17186
+
+    VPMAXSBZ256rmkz = 17187
+
+    VPMAXSBZ256rr = 17188
+
+    VPMAXSBZ256rrk = 17189
+
+    VPMAXSBZ256rrkz = 17190
+
+    VPMAXSBZrm = 17191
+
+    VPMAXSBZrmk = 17192
+
+    VPMAXSBZrmkz = 17193
+
+    VPMAXSBZrr = 17194
+
+    VPMAXSBZrrk = 17195
+
+    VPMAXSBZrrkz = 17196
+
+    VPMAXSBrm = 17197
+
+    VPMAXSBrr = 17198
+
+    VPMAXSDYrm = 17199
+
+    VPMAXSDYrr = 17200
+
+    VPMAXSDZ128rm = 17201
+
+    VPMAXSDZ128rmb = 17202
+
+    VPMAXSDZ128rmbk = 17203
+
+    VPMAXSDZ128rmbkz = 17204
+
+    VPMAXSDZ128rmk = 17205
+
+    VPMAXSDZ128rmkz = 17206
+
+    VPMAXSDZ128rr = 17207
+
+    VPMAXSDZ128rrk = 17208
+
+    VPMAXSDZ128rrkz = 17209
+
+    VPMAXSDZ256rm = 17210
+
+    VPMAXSDZ256rmb = 17211
+
+    VPMAXSDZ256rmbk = 17212
+
+    VPMAXSDZ256rmbkz = 17213
+
+    VPMAXSDZ256rmk = 17214
+
+    VPMAXSDZ256rmkz = 17215
+
+    VPMAXSDZ256rr = 17216
+
+    VPMAXSDZ256rrk = 17217
+
+    VPMAXSDZ256rrkz = 17218
+
+    VPMAXSDZrm = 17219
+
+    VPMAXSDZrmb = 17220
+
+    VPMAXSDZrmbk = 17221
+
+    VPMAXSDZrmbkz = 17222
+
+    VPMAXSDZrmk = 17223
+
+    VPMAXSDZrmkz = 17224
+
+    VPMAXSDZrr = 17225
+
+    VPMAXSDZrrk = 17226
+
+    VPMAXSDZrrkz = 17227
+
+    VPMAXSDrm = 17228
+
+    VPMAXSDrr = 17229
+
+    VPMAXSQZ128rm = 17230
+
+    VPMAXSQZ128rmb = 17231
+
+    VPMAXSQZ128rmbk = 17232
+
+    VPMAXSQZ128rmbkz = 17233
+
+    VPMAXSQZ128rmk = 17234
+
+    VPMAXSQZ128rmkz = 17235
+
+    VPMAXSQZ128rr = 17236
+
+    VPMAXSQZ128rrk = 17237
+
+    VPMAXSQZ128rrkz = 17238
+
+    VPMAXSQZ256rm = 17239
+
+    VPMAXSQZ256rmb = 17240
+
+    VPMAXSQZ256rmbk = 17241
+
+    VPMAXSQZ256rmbkz = 17242
+
+    VPMAXSQZ256rmk = 17243
+
+    VPMAXSQZ256rmkz = 17244
+
+    VPMAXSQZ256rr = 17245
+
+    VPMAXSQZ256rrk = 17246
+
+    VPMAXSQZ256rrkz = 17247
+
+    VPMAXSQZrm = 17248
+
+    VPMAXSQZrmb = 17249
+
+    VPMAXSQZrmbk = 17250
+
+    VPMAXSQZrmbkz = 17251
+
+    VPMAXSQZrmk = 17252
+
+    VPMAXSQZrmkz = 17253
+
+    VPMAXSQZrr = 17254
+
+    VPMAXSQZrrk = 17255
+
+    VPMAXSQZrrkz = 17256
+
+    VPMAXSWYrm = 17257
+
+    VPMAXSWYrr = 17258
+
+    VPMAXSWZ128rm = 17259
+
+    VPMAXSWZ128rmk = 17260
+
+    VPMAXSWZ128rmkz = 17261
+
+    VPMAXSWZ128rr = 17262
+
+    VPMAXSWZ128rrk = 17263
+
+    VPMAXSWZ128rrkz = 17264
+
+    VPMAXSWZ256rm = 17265
+
+    VPMAXSWZ256rmk = 17266
+
+    VPMAXSWZ256rmkz = 17267
+
+    VPMAXSWZ256rr = 17268
+
+    VPMAXSWZ256rrk = 17269
+
+    VPMAXSWZ256rrkz = 17270
+
+    VPMAXSWZrm = 17271
+
+    VPMAXSWZrmk = 17272
+
+    VPMAXSWZrmkz = 17273
+
+    VPMAXSWZrr = 17274
+
+    VPMAXSWZrrk = 17275
+
+    VPMAXSWZrrkz = 17276
+
+    VPMAXSWrm = 17277
+
+    VPMAXSWrr = 17278
+
+    VPMAXUBYrm = 17279
+
+    VPMAXUBYrr = 17280
+
+    VPMAXUBZ128rm = 17281
+
+    VPMAXUBZ128rmk = 17282
+
+    VPMAXUBZ128rmkz = 17283
+
+    VPMAXUBZ128rr = 17284
+
+    VPMAXUBZ128rrk = 17285
+
+    VPMAXUBZ128rrkz = 17286
+
+    VPMAXUBZ256rm = 17287
+
+    VPMAXUBZ256rmk = 17288
+
+    VPMAXUBZ256rmkz = 17289
+
+    VPMAXUBZ256rr = 17290
+
+    VPMAXUBZ256rrk = 17291
+
+    VPMAXUBZ256rrkz = 17292
+
+    VPMAXUBZrm = 17293
+
+    VPMAXUBZrmk = 17294
+
+    VPMAXUBZrmkz = 17295
+
+    VPMAXUBZrr = 17296
+
+    VPMAXUBZrrk = 17297
+
+    VPMAXUBZrrkz = 17298
+
+    VPMAXUBrm = 17299
+
+    VPMAXUBrr = 17300
+
+    VPMAXUDYrm = 17301
+
+    VPMAXUDYrr = 17302
+
+    VPMAXUDZ128rm = 17303
+
+    VPMAXUDZ128rmb = 17304
+
+    VPMAXUDZ128rmbk = 17305
+
+    VPMAXUDZ128rmbkz = 17306
+
+    VPMAXUDZ128rmk = 17307
+
+    VPMAXUDZ128rmkz = 17308
+
+    VPMAXUDZ128rr = 17309
+
+    VPMAXUDZ128rrk = 17310
+
+    VPMAXUDZ128rrkz = 17311
+
+    VPMAXUDZ256rm = 17312
+
+    VPMAXUDZ256rmb = 17313
+
+    VPMAXUDZ256rmbk = 17314
+
+    VPMAXUDZ256rmbkz = 17315
+
+    VPMAXUDZ256rmk = 17316
+
+    VPMAXUDZ256rmkz = 17317
+
+    VPMAXUDZ256rr = 17318
+
+    VPMAXUDZ256rrk = 17319
+
+    VPMAXUDZ256rrkz = 17320
+
+    VPMAXUDZrm = 17321
+
+    VPMAXUDZrmb = 17322
+
+    VPMAXUDZrmbk = 17323
+
+    VPMAXUDZrmbkz = 17324
+
+    VPMAXUDZrmk = 17325
+
+    VPMAXUDZrmkz = 17326
+
+    VPMAXUDZrr = 17327
+
+    VPMAXUDZrrk = 17328
+
+    VPMAXUDZrrkz = 17329
+
+    VPMAXUDrm = 17330
+
+    VPMAXUDrr = 17331
+
+    VPMAXUQZ128rm = 17332
+
+    VPMAXUQZ128rmb = 17333
+
+    VPMAXUQZ128rmbk = 17334
+
+    VPMAXUQZ128rmbkz = 17335
+
+    VPMAXUQZ128rmk = 17336
+
+    VPMAXUQZ128rmkz = 17337
+
+    VPMAXUQZ128rr = 17338
+
+    VPMAXUQZ128rrk = 17339
+
+    VPMAXUQZ128rrkz = 17340
+
+    VPMAXUQZ256rm = 17341
+
+    VPMAXUQZ256rmb = 17342
+
+    VPMAXUQZ256rmbk = 17343
+
+    VPMAXUQZ256rmbkz = 17344
+
+    VPMAXUQZ256rmk = 17345
+
+    VPMAXUQZ256rmkz = 17346
+
+    VPMAXUQZ256rr = 17347
+
+    VPMAXUQZ256rrk = 17348
+
+    VPMAXUQZ256rrkz = 17349
+
+    VPMAXUQZrm = 17350
+
+    VPMAXUQZrmb = 17351
+
+    VPMAXUQZrmbk = 17352
+
+    VPMAXUQZrmbkz = 17353
+
+    VPMAXUQZrmk = 17354
+
+    VPMAXUQZrmkz = 17355
+
+    VPMAXUQZrr = 17356
+
+    VPMAXUQZrrk = 17357
+
+    VPMAXUQZrrkz = 17358
+
+    VPMAXUWYrm = 17359
+
+    VPMAXUWYrr = 17360
+
+    VPMAXUWZ128rm = 17361
+
+    VPMAXUWZ128rmk = 17362
+
+    VPMAXUWZ128rmkz = 17363
+
+    VPMAXUWZ128rr = 17364
+
+    VPMAXUWZ128rrk = 17365
+
+    VPMAXUWZ128rrkz = 17366
+
+    VPMAXUWZ256rm = 17367
+
+    VPMAXUWZ256rmk = 17368
+
+    VPMAXUWZ256rmkz = 17369
+
+    VPMAXUWZ256rr = 17370
+
+    VPMAXUWZ256rrk = 17371
+
+    VPMAXUWZ256rrkz = 17372
+
+    VPMAXUWZrm = 17373
+
+    VPMAXUWZrmk = 17374
+
+    VPMAXUWZrmkz = 17375
+
+    VPMAXUWZrr = 17376
+
+    VPMAXUWZrrk = 17377
+
+    VPMAXUWZrrkz = 17378
+
+    VPMAXUWrm = 17379
+
+    VPMAXUWrr = 17380
+
+    VPMINSBYrm = 17381
+
+    VPMINSBYrr = 17382
+
+    VPMINSBZ128rm = 17383
+
+    VPMINSBZ128rmk = 17384
+
+    VPMINSBZ128rmkz = 17385
+
+    VPMINSBZ128rr = 17386
+
+    VPMINSBZ128rrk = 17387
+
+    VPMINSBZ128rrkz = 17388
+
+    VPMINSBZ256rm = 17389
+
+    VPMINSBZ256rmk = 17390
+
+    VPMINSBZ256rmkz = 17391
+
+    VPMINSBZ256rr = 17392
+
+    VPMINSBZ256rrk = 17393
+
+    VPMINSBZ256rrkz = 17394
+
+    VPMINSBZrm = 17395
+
+    VPMINSBZrmk = 17396
+
+    VPMINSBZrmkz = 17397
+
+    VPMINSBZrr = 17398
+
+    VPMINSBZrrk = 17399
+
+    VPMINSBZrrkz = 17400
+
+    VPMINSBrm = 17401
+
+    VPMINSBrr = 17402
+
+    VPMINSDYrm = 17403
+
+    VPMINSDYrr = 17404
+
+    VPMINSDZ128rm = 17405
+
+    VPMINSDZ128rmb = 17406
+
+    VPMINSDZ128rmbk = 17407
+
+    VPMINSDZ128rmbkz = 17408
+
+    VPMINSDZ128rmk = 17409
+
+    VPMINSDZ128rmkz = 17410
+
+    VPMINSDZ128rr = 17411
+
+    VPMINSDZ128rrk = 17412
+
+    VPMINSDZ128rrkz = 17413
+
+    VPMINSDZ256rm = 17414
+
+    VPMINSDZ256rmb = 17415
+
+    VPMINSDZ256rmbk = 17416
+
+    VPMINSDZ256rmbkz = 17417
+
+    VPMINSDZ256rmk = 17418
+
+    VPMINSDZ256rmkz = 17419
+
+    VPMINSDZ256rr = 17420
+
+    VPMINSDZ256rrk = 17421
+
+    VPMINSDZ256rrkz = 17422
+
+    VPMINSDZrm = 17423
+
+    VPMINSDZrmb = 17424
+
+    VPMINSDZrmbk = 17425
+
+    VPMINSDZrmbkz = 17426
+
+    VPMINSDZrmk = 17427
+
+    VPMINSDZrmkz = 17428
+
+    VPMINSDZrr = 17429
+
+    VPMINSDZrrk = 17430
+
+    VPMINSDZrrkz = 17431
+
+    VPMINSDrm = 17432
+
+    VPMINSDrr = 17433
+
+    VPMINSQZ128rm = 17434
+
+    VPMINSQZ128rmb = 17435
+
+    VPMINSQZ128rmbk = 17436
+
+    VPMINSQZ128rmbkz = 17437
+
+    VPMINSQZ128rmk = 17438
+
+    VPMINSQZ128rmkz = 17439
+
+    VPMINSQZ128rr = 17440
+
+    VPMINSQZ128rrk = 17441
+
+    VPMINSQZ128rrkz = 17442
+
+    VPMINSQZ256rm = 17443
+
+    VPMINSQZ256rmb = 17444
+
+    VPMINSQZ256rmbk = 17445
+
+    VPMINSQZ256rmbkz = 17446
+
+    VPMINSQZ256rmk = 17447
+
+    VPMINSQZ256rmkz = 17448
+
+    VPMINSQZ256rr = 17449
+
+    VPMINSQZ256rrk = 17450
+
+    VPMINSQZ256rrkz = 17451
+
+    VPMINSQZrm = 17452
+
+    VPMINSQZrmb = 17453
+
+    VPMINSQZrmbk = 17454
+
+    VPMINSQZrmbkz = 17455
+
+    VPMINSQZrmk = 17456
+
+    VPMINSQZrmkz = 17457
+
+    VPMINSQZrr = 17458
+
+    VPMINSQZrrk = 17459
+
+    VPMINSQZrrkz = 17460
+
+    VPMINSWYrm = 17461
+
+    VPMINSWYrr = 17462
+
+    VPMINSWZ128rm = 17463
+
+    VPMINSWZ128rmk = 17464
+
+    VPMINSWZ128rmkz = 17465
+
+    VPMINSWZ128rr = 17466
+
+    VPMINSWZ128rrk = 17467
+
+    VPMINSWZ128rrkz = 17468
+
+    VPMINSWZ256rm = 17469
+
+    VPMINSWZ256rmk = 17470
+
+    VPMINSWZ256rmkz = 17471
+
+    VPMINSWZ256rr = 17472
+
+    VPMINSWZ256rrk = 17473
+
+    VPMINSWZ256rrkz = 17474
+
+    VPMINSWZrm = 17475
+
+    VPMINSWZrmk = 17476
+
+    VPMINSWZrmkz = 17477
+
+    VPMINSWZrr = 17478
+
+    VPMINSWZrrk = 17479
+
+    VPMINSWZrrkz = 17480
+
+    VPMINSWrm = 17481
+
+    VPMINSWrr = 17482
+
+    VPMINUBYrm = 17483
+
+    VPMINUBYrr = 17484
+
+    VPMINUBZ128rm = 17485
+
+    VPMINUBZ128rmk = 17486
+
+    VPMINUBZ128rmkz = 17487
+
+    VPMINUBZ128rr = 17488
+
+    VPMINUBZ128rrk = 17489
+
+    VPMINUBZ128rrkz = 17490
+
+    VPMINUBZ256rm = 17491
+
+    VPMINUBZ256rmk = 17492
+
+    VPMINUBZ256rmkz = 17493
+
+    VPMINUBZ256rr = 17494
+
+    VPMINUBZ256rrk = 17495
+
+    VPMINUBZ256rrkz = 17496
+
+    VPMINUBZrm = 17497
+
+    VPMINUBZrmk = 17498
+
+    VPMINUBZrmkz = 17499
+
+    VPMINUBZrr = 17500
+
+    VPMINUBZrrk = 17501
+
+    VPMINUBZrrkz = 17502
+
+    VPMINUBrm = 17503
+
+    VPMINUBrr = 17504
+
+    VPMINUDYrm = 17505
+
+    VPMINUDYrr = 17506
+
+    VPMINUDZ128rm = 17507
+
+    VPMINUDZ128rmb = 17508
+
+    VPMINUDZ128rmbk = 17509
+
+    VPMINUDZ128rmbkz = 17510
+
+    VPMINUDZ128rmk = 17511
+
+    VPMINUDZ128rmkz = 17512
+
+    VPMINUDZ128rr = 17513
+
+    VPMINUDZ128rrk = 17514
+
+    VPMINUDZ128rrkz = 17515
+
+    VPMINUDZ256rm = 17516
+
+    VPMINUDZ256rmb = 17517
+
+    VPMINUDZ256rmbk = 17518
+
+    VPMINUDZ256rmbkz = 17519
+
+    VPMINUDZ256rmk = 17520
+
+    VPMINUDZ256rmkz = 17521
+
+    VPMINUDZ256rr = 17522
+
+    VPMINUDZ256rrk = 17523
+
+    VPMINUDZ256rrkz = 17524
+
+    VPMINUDZrm = 17525
+
+    VPMINUDZrmb = 17526
+
+    VPMINUDZrmbk = 17527
+
+    VPMINUDZrmbkz = 17528
+
+    VPMINUDZrmk = 17529
+
+    VPMINUDZrmkz = 17530
+
+    VPMINUDZrr = 17531
+
+    VPMINUDZrrk = 17532
+
+    VPMINUDZrrkz = 17533
+
+    VPMINUDrm = 17534
+
+    VPMINUDrr = 17535
+
+    VPMINUQZ128rm = 17536
+
+    VPMINUQZ128rmb = 17537
+
+    VPMINUQZ128rmbk = 17538
+
+    VPMINUQZ128rmbkz = 17539
+
+    VPMINUQZ128rmk = 17540
+
+    VPMINUQZ128rmkz = 17541
+
+    VPMINUQZ128rr = 17542
+
+    VPMINUQZ128rrk = 17543
+
+    VPMINUQZ128rrkz = 17544
+
+    VPMINUQZ256rm = 17545
+
+    VPMINUQZ256rmb = 17546
+
+    VPMINUQZ256rmbk = 17547
+
+    VPMINUQZ256rmbkz = 17548
+
+    VPMINUQZ256rmk = 17549
+
+    VPMINUQZ256rmkz = 17550
+
+    VPMINUQZ256rr = 17551
+
+    VPMINUQZ256rrk = 17552
+
+    VPMINUQZ256rrkz = 17553
+
+    VPMINUQZrm = 17554
+
+    VPMINUQZrmb = 17555
+
+    VPMINUQZrmbk = 17556
+
+    VPMINUQZrmbkz = 17557
+
+    VPMINUQZrmk = 17558
+
+    VPMINUQZrmkz = 17559
+
+    VPMINUQZrr = 17560
+
+    VPMINUQZrrk = 17561
+
+    VPMINUQZrrkz = 17562
+
+    VPMINUWYrm = 17563
+
+    VPMINUWYrr = 17564
+
+    VPMINUWZ128rm = 17565
+
+    VPMINUWZ128rmk = 17566
+
+    VPMINUWZ128rmkz = 17567
+
+    VPMINUWZ128rr = 17568
+
+    VPMINUWZ128rrk = 17569
+
+    VPMINUWZ128rrkz = 17570
+
+    VPMINUWZ256rm = 17571
+
+    VPMINUWZ256rmk = 17572
+
+    VPMINUWZ256rmkz = 17573
+
+    VPMINUWZ256rr = 17574
+
+    VPMINUWZ256rrk = 17575
+
+    VPMINUWZ256rrkz = 17576
+
+    VPMINUWZrm = 17577
+
+    VPMINUWZrmk = 17578
+
+    VPMINUWZrmkz = 17579
+
+    VPMINUWZrr = 17580
+
+    VPMINUWZrrk = 17581
+
+    VPMINUWZrrkz = 17582
+
+    VPMINUWrm = 17583
+
+    VPMINUWrr = 17584
+
+    VPMOVB2MZ128kr = 17585
+
+    VPMOVB2MZ256kr = 17586
+
+    VPMOVB2MZkr = 17587
+
+    VPMOVD2MZ128kr = 17588
+
+    VPMOVD2MZ256kr = 17589
+
+    VPMOVD2MZkr = 17590
+
+    VPMOVDBZ128mr = 17591
+
+    VPMOVDBZ128mrk = 17592
+
+    VPMOVDBZ128rr = 17593
+
+    VPMOVDBZ128rrk = 17594
+
+    VPMOVDBZ128rrkz = 17595
+
+    VPMOVDBZ256mr = 17596
+
+    VPMOVDBZ256mrk = 17597
+
+    VPMOVDBZ256rr = 17598
+
+    VPMOVDBZ256rrk = 17599
+
+    VPMOVDBZ256rrkz = 17600
+
+    VPMOVDBZmr = 17601
+
+    VPMOVDBZmrk = 17602
+
+    VPMOVDBZrr = 17603
+
+    VPMOVDBZrrk = 17604
+
+    VPMOVDBZrrkz = 17605
+
+    VPMOVDWZ128mr = 17606
+
+    VPMOVDWZ128mrk = 17607
+
+    VPMOVDWZ128rr = 17608
+
+    VPMOVDWZ128rrk = 17609
+
+    VPMOVDWZ128rrkz = 17610
+
+    VPMOVDWZ256mr = 17611
+
+    VPMOVDWZ256mrk = 17612
+
+    VPMOVDWZ256rr = 17613
+
+    VPMOVDWZ256rrk = 17614
+
+    VPMOVDWZ256rrkz = 17615
+
+    VPMOVDWZmr = 17616
+
+    VPMOVDWZmrk = 17617
+
+    VPMOVDWZrr = 17618
+
+    VPMOVDWZrrk = 17619
+
+    VPMOVDWZrrkz = 17620
+
+    VPMOVM2BZ128rk = 17621
+
+    VPMOVM2BZ256rk = 17622
+
+    VPMOVM2BZrk = 17623
+
+    VPMOVM2DZ128rk = 17624
+
+    VPMOVM2DZ256rk = 17625
+
+    VPMOVM2DZrk = 17626
+
+    VPMOVM2QZ128rk = 17627
+
+    VPMOVM2QZ256rk = 17628
+
+    VPMOVM2QZrk = 17629
+
+    VPMOVM2WZ128rk = 17630
+
+    VPMOVM2WZ256rk = 17631
+
+    VPMOVM2WZrk = 17632
+
+    VPMOVMSKBYrr = 17633
+
+    VPMOVMSKBrr = 17634
+
+    VPMOVQ2MZ128kr = 17635
+
+    VPMOVQ2MZ256kr = 17636
+
+    VPMOVQ2MZkr = 17637
+
+    VPMOVQBZ128mr = 17638
+
+    VPMOVQBZ128mrk = 17639
+
+    VPMOVQBZ128rr = 17640
+
+    VPMOVQBZ128rrk = 17641
+
+    VPMOVQBZ128rrkz = 17642
+
+    VPMOVQBZ256mr = 17643
+
+    VPMOVQBZ256mrk = 17644
+
+    VPMOVQBZ256rr = 17645
+
+    VPMOVQBZ256rrk = 17646
+
+    VPMOVQBZ256rrkz = 17647
+
+    VPMOVQBZmr = 17648
+
+    VPMOVQBZmrk = 17649
+
+    VPMOVQBZrr = 17650
+
+    VPMOVQBZrrk = 17651
+
+    VPMOVQBZrrkz = 17652
+
+    VPMOVQDZ128mr = 17653
+
+    VPMOVQDZ128mrk = 17654
+
+    VPMOVQDZ128rr = 17655
+
+    VPMOVQDZ128rrk = 17656
+
+    VPMOVQDZ128rrkz = 17657
+
+    VPMOVQDZ256mr = 17658
+
+    VPMOVQDZ256mrk = 17659
+
+    VPMOVQDZ256rr = 17660
+
+    VPMOVQDZ256rrk = 17661
+
+    VPMOVQDZ256rrkz = 17662
+
+    VPMOVQDZmr = 17663
+
+    VPMOVQDZmrk = 17664
+
+    VPMOVQDZrr = 17665
+
+    VPMOVQDZrrk = 17666
+
+    VPMOVQDZrrkz = 17667
+
+    VPMOVQWZ128mr = 17668
+
+    VPMOVQWZ128mrk = 17669
+
+    VPMOVQWZ128rr = 17670
+
+    VPMOVQWZ128rrk = 17671
+
+    VPMOVQWZ128rrkz = 17672
+
+    VPMOVQWZ256mr = 17673
+
+    VPMOVQWZ256mrk = 17674
+
+    VPMOVQWZ256rr = 17675
+
+    VPMOVQWZ256rrk = 17676
+
+    VPMOVQWZ256rrkz = 17677
+
+    VPMOVQWZmr = 17678
+
+    VPMOVQWZmrk = 17679
+
+    VPMOVQWZrr = 17680
+
+    VPMOVQWZrrk = 17681
+
+    VPMOVQWZrrkz = 17682
+
+    VPMOVSDBZ128mr = 17683
+
+    VPMOVSDBZ128mrk = 17684
+
+    VPMOVSDBZ128rr = 17685
+
+    VPMOVSDBZ128rrk = 17686
+
+    VPMOVSDBZ128rrkz = 17687
+
+    VPMOVSDBZ256mr = 17688
+
+    VPMOVSDBZ256mrk = 17689
+
+    VPMOVSDBZ256rr = 17690
+
+    VPMOVSDBZ256rrk = 17691
+
+    VPMOVSDBZ256rrkz = 17692
+
+    VPMOVSDBZmr = 17693
+
+    VPMOVSDBZmrk = 17694
+
+    VPMOVSDBZrr = 17695
+
+    VPMOVSDBZrrk = 17696
+
+    VPMOVSDBZrrkz = 17697
+
+    VPMOVSDWZ128mr = 17698
+
+    VPMOVSDWZ128mrk = 17699
+
+    VPMOVSDWZ128rr = 17700
+
+    VPMOVSDWZ128rrk = 17701
+
+    VPMOVSDWZ128rrkz = 17702
+
+    VPMOVSDWZ256mr = 17703
+
+    VPMOVSDWZ256mrk = 17704
+
+    VPMOVSDWZ256rr = 17705
+
+    VPMOVSDWZ256rrk = 17706
+
+    VPMOVSDWZ256rrkz = 17707
+
+    VPMOVSDWZmr = 17708
+
+    VPMOVSDWZmrk = 17709
+
+    VPMOVSDWZrr = 17710
+
+    VPMOVSDWZrrk = 17711
+
+    VPMOVSDWZrrkz = 17712
+
+    VPMOVSQBZ128mr = 17713
+
+    VPMOVSQBZ128mrk = 17714
+
+    VPMOVSQBZ128rr = 17715
+
+    VPMOVSQBZ128rrk = 17716
+
+    VPMOVSQBZ128rrkz = 17717
+
+    VPMOVSQBZ256mr = 17718
+
+    VPMOVSQBZ256mrk = 17719
+
+    VPMOVSQBZ256rr = 17720
+
+    VPMOVSQBZ256rrk = 17721
+
+    VPMOVSQBZ256rrkz = 17722
+
+    VPMOVSQBZmr = 17723
+
+    VPMOVSQBZmrk = 17724
+
+    VPMOVSQBZrr = 17725
+
+    VPMOVSQBZrrk = 17726
+
+    VPMOVSQBZrrkz = 17727
+
+    VPMOVSQDZ128mr = 17728
+
+    VPMOVSQDZ128mrk = 17729
+
+    VPMOVSQDZ128rr = 17730
+
+    VPMOVSQDZ128rrk = 17731
+
+    VPMOVSQDZ128rrkz = 17732
+
+    VPMOVSQDZ256mr = 17733
+
+    VPMOVSQDZ256mrk = 17734
+
+    VPMOVSQDZ256rr = 17735
+
+    VPMOVSQDZ256rrk = 17736
+
+    VPMOVSQDZ256rrkz = 17737
+
+    VPMOVSQDZmr = 17738
+
+    VPMOVSQDZmrk = 17739
+
+    VPMOVSQDZrr = 17740
+
+    VPMOVSQDZrrk = 17741
+
+    VPMOVSQDZrrkz = 17742
+
+    VPMOVSQWZ128mr = 17743
+
+    VPMOVSQWZ128mrk = 17744
+
+    VPMOVSQWZ128rr = 17745
+
+    VPMOVSQWZ128rrk = 17746
+
+    VPMOVSQWZ128rrkz = 17747
+
+    VPMOVSQWZ256mr = 17748
+
+    VPMOVSQWZ256mrk = 17749
+
+    VPMOVSQWZ256rr = 17750
+
+    VPMOVSQWZ256rrk = 17751
+
+    VPMOVSQWZ256rrkz = 17752
+
+    VPMOVSQWZmr = 17753
+
+    VPMOVSQWZmrk = 17754
+
+    VPMOVSQWZrr = 17755
+
+    VPMOVSQWZrrk = 17756
+
+    VPMOVSQWZrrkz = 17757
+
+    VPMOVSWBZ128mr = 17758
+
+    VPMOVSWBZ128mrk = 17759
+
+    VPMOVSWBZ128rr = 17760
+
+    VPMOVSWBZ128rrk = 17761
+
+    VPMOVSWBZ128rrkz = 17762
+
+    VPMOVSWBZ256mr = 17763
+
+    VPMOVSWBZ256mrk = 17764
+
+    VPMOVSWBZ256rr = 17765
+
+    VPMOVSWBZ256rrk = 17766
+
+    VPMOVSWBZ256rrkz = 17767
+
+    VPMOVSWBZmr = 17768
+
+    VPMOVSWBZmrk = 17769
+
+    VPMOVSWBZrr = 17770
+
+    VPMOVSWBZrrk = 17771
+
+    VPMOVSWBZrrkz = 17772
+
+    VPMOVSXBDYrm = 17773
+
+    VPMOVSXBDYrr = 17774
+
+    VPMOVSXBDZ128rm = 17775
+
+    VPMOVSXBDZ128rmk = 17776
+
+    VPMOVSXBDZ128rmkz = 17777
+
+    VPMOVSXBDZ128rr = 17778
+
+    VPMOVSXBDZ128rrk = 17779
+
+    VPMOVSXBDZ128rrkz = 17780
+
+    VPMOVSXBDZ256rm = 17781
+
+    VPMOVSXBDZ256rmk = 17782
+
+    VPMOVSXBDZ256rmkz = 17783
+
+    VPMOVSXBDZ256rr = 17784
+
+    VPMOVSXBDZ256rrk = 17785
+
+    VPMOVSXBDZ256rrkz = 17786
+
+    VPMOVSXBDZrm = 17787
+
+    VPMOVSXBDZrmk = 17788
+
+    VPMOVSXBDZrmkz = 17789
+
+    VPMOVSXBDZrr = 17790
+
+    VPMOVSXBDZrrk = 17791
+
+    VPMOVSXBDZrrkz = 17792
+
+    VPMOVSXBDrm = 17793
+
+    VPMOVSXBDrr = 17794
+
+    VPMOVSXBQYrm = 17795
+
+    VPMOVSXBQYrr = 17796
+
+    VPMOVSXBQZ128rm = 17797
+
+    VPMOVSXBQZ128rmk = 17798
+
+    VPMOVSXBQZ128rmkz = 17799
+
+    VPMOVSXBQZ128rr = 17800
+
+    VPMOVSXBQZ128rrk = 17801
+
+    VPMOVSXBQZ128rrkz = 17802
+
+    VPMOVSXBQZ256rm = 17803
+
+    VPMOVSXBQZ256rmk = 17804
+
+    VPMOVSXBQZ256rmkz = 17805
+
+    VPMOVSXBQZ256rr = 17806
+
+    VPMOVSXBQZ256rrk = 17807
+
+    VPMOVSXBQZ256rrkz = 17808
+
+    VPMOVSXBQZrm = 17809
+
+    VPMOVSXBQZrmk = 17810
+
+    VPMOVSXBQZrmkz = 17811
+
+    VPMOVSXBQZrr = 17812
+
+    VPMOVSXBQZrrk = 17813
+
+    VPMOVSXBQZrrkz = 17814
+
+    VPMOVSXBQrm = 17815
+
+    VPMOVSXBQrr = 17816
+
+    VPMOVSXBWYrm = 17817
+
+    VPMOVSXBWYrr = 17818
+
+    VPMOVSXBWZ128rm = 17819
+
+    VPMOVSXBWZ128rmk = 17820
+
+    VPMOVSXBWZ128rmkz = 17821
+
+    VPMOVSXBWZ128rr = 17822
+
+    VPMOVSXBWZ128rrk = 17823
+
+    VPMOVSXBWZ128rrkz = 17824
+
+    VPMOVSXBWZ256rm = 17825
+
+    VPMOVSXBWZ256rmk = 17826
+
+    VPMOVSXBWZ256rmkz = 17827
+
+    VPMOVSXBWZ256rr = 17828
+
+    VPMOVSXBWZ256rrk = 17829
+
+    VPMOVSXBWZ256rrkz = 17830
+
+    VPMOVSXBWZrm = 17831
+
+    VPMOVSXBWZrmk = 17832
+
+    VPMOVSXBWZrmkz = 17833
+
+    VPMOVSXBWZrr = 17834
+
+    VPMOVSXBWZrrk = 17835
+
+    VPMOVSXBWZrrkz = 17836
+
+    VPMOVSXBWrm = 17837
+
+    VPMOVSXBWrr = 17838
+
+    VPMOVSXDQYrm = 17839
+
+    VPMOVSXDQYrr = 17840
+
+    VPMOVSXDQZ128rm = 17841
+
+    VPMOVSXDQZ128rmk = 17842
+
+    VPMOVSXDQZ128rmkz = 17843
+
+    VPMOVSXDQZ128rr = 17844
+
+    VPMOVSXDQZ128rrk = 17845
+
+    VPMOVSXDQZ128rrkz = 17846
+
+    VPMOVSXDQZ256rm = 17847
+
+    VPMOVSXDQZ256rmk = 17848
+
+    VPMOVSXDQZ256rmkz = 17849
+
+    VPMOVSXDQZ256rr = 17850
+
+    VPMOVSXDQZ256rrk = 17851
+
+    VPMOVSXDQZ256rrkz = 17852
+
+    VPMOVSXDQZrm = 17853
+
+    VPMOVSXDQZrmk = 17854
+
+    VPMOVSXDQZrmkz = 17855
+
+    VPMOVSXDQZrr = 17856
+
+    VPMOVSXDQZrrk = 17857
+
+    VPMOVSXDQZrrkz = 17858
+
+    VPMOVSXDQrm = 17859
+
+    VPMOVSXDQrr = 17860
+
+    VPMOVSXWDYrm = 17861
+
+    VPMOVSXWDYrr = 17862
+
+    VPMOVSXWDZ128rm = 17863
+
+    VPMOVSXWDZ128rmk = 17864
+
+    VPMOVSXWDZ128rmkz = 17865
+
+    VPMOVSXWDZ128rr = 17866
+
+    VPMOVSXWDZ128rrk = 17867
+
+    VPMOVSXWDZ128rrkz = 17868
+
+    VPMOVSXWDZ256rm = 17869
+
+    VPMOVSXWDZ256rmk = 17870
+
+    VPMOVSXWDZ256rmkz = 17871
+
+    VPMOVSXWDZ256rr = 17872
+
+    VPMOVSXWDZ256rrk = 17873
+
+    VPMOVSXWDZ256rrkz = 17874
+
+    VPMOVSXWDZrm = 17875
+
+    VPMOVSXWDZrmk = 17876
+
+    VPMOVSXWDZrmkz = 17877
+
+    VPMOVSXWDZrr = 17878
+
+    VPMOVSXWDZrrk = 17879
+
+    VPMOVSXWDZrrkz = 17880
+
+    VPMOVSXWDrm = 17881
+
+    VPMOVSXWDrr = 17882
+
+    VPMOVSXWQYrm = 17883
+
+    VPMOVSXWQYrr = 17884
+
+    VPMOVSXWQZ128rm = 17885
+
+    VPMOVSXWQZ128rmk = 17886
+
+    VPMOVSXWQZ128rmkz = 17887
+
+    VPMOVSXWQZ128rr = 17888
+
+    VPMOVSXWQZ128rrk = 17889
+
+    VPMOVSXWQZ128rrkz = 17890
+
+    VPMOVSXWQZ256rm = 17891
+
+    VPMOVSXWQZ256rmk = 17892
+
+    VPMOVSXWQZ256rmkz = 17893
+
+    VPMOVSXWQZ256rr = 17894
+
+    VPMOVSXWQZ256rrk = 17895
+
+    VPMOVSXWQZ256rrkz = 17896
+
+    VPMOVSXWQZrm = 17897
+
+    VPMOVSXWQZrmk = 17898
+
+    VPMOVSXWQZrmkz = 17899
+
+    VPMOVSXWQZrr = 17900
+
+    VPMOVSXWQZrrk = 17901
+
+    VPMOVSXWQZrrkz = 17902
+
+    VPMOVSXWQrm = 17903
+
+    VPMOVSXWQrr = 17904
+
+    VPMOVUSDBZ128mr = 17905
+
+    VPMOVUSDBZ128mrk = 17906
+
+    VPMOVUSDBZ128rr = 17907
+
+    VPMOVUSDBZ128rrk = 17908
+
+    VPMOVUSDBZ128rrkz = 17909
+
+    VPMOVUSDBZ256mr = 17910
+
+    VPMOVUSDBZ256mrk = 17911
+
+    VPMOVUSDBZ256rr = 17912
+
+    VPMOVUSDBZ256rrk = 17913
+
+    VPMOVUSDBZ256rrkz = 17914
+
+    VPMOVUSDBZmr = 17915
+
+    VPMOVUSDBZmrk = 17916
+
+    VPMOVUSDBZrr = 17917
+
+    VPMOVUSDBZrrk = 17918
+
+    VPMOVUSDBZrrkz = 17919
+
+    VPMOVUSDWZ128mr = 17920
+
+    VPMOVUSDWZ128mrk = 17921
+
+    VPMOVUSDWZ128rr = 17922
+
+    VPMOVUSDWZ128rrk = 17923
+
+    VPMOVUSDWZ128rrkz = 17924
+
+    VPMOVUSDWZ256mr = 17925
+
+    VPMOVUSDWZ256mrk = 17926
+
+    VPMOVUSDWZ256rr = 17927
+
+    VPMOVUSDWZ256rrk = 17928
+
+    VPMOVUSDWZ256rrkz = 17929
+
+    VPMOVUSDWZmr = 17930
+
+    VPMOVUSDWZmrk = 17931
+
+    VPMOVUSDWZrr = 17932
+
+    VPMOVUSDWZrrk = 17933
+
+    VPMOVUSDWZrrkz = 17934
+
+    VPMOVUSQBZ128mr = 17935
+
+    VPMOVUSQBZ128mrk = 17936
+
+    VPMOVUSQBZ128rr = 17937
+
+    VPMOVUSQBZ128rrk = 17938
+
+    VPMOVUSQBZ128rrkz = 17939
+
+    VPMOVUSQBZ256mr = 17940
+
+    VPMOVUSQBZ256mrk = 17941
+
+    VPMOVUSQBZ256rr = 17942
+
+    VPMOVUSQBZ256rrk = 17943
+
+    VPMOVUSQBZ256rrkz = 17944
+
+    VPMOVUSQBZmr = 17945
+
+    VPMOVUSQBZmrk = 17946
+
+    VPMOVUSQBZrr = 17947
+
+    VPMOVUSQBZrrk = 17948
+
+    VPMOVUSQBZrrkz = 17949
+
+    VPMOVUSQDZ128mr = 17950
+
+    VPMOVUSQDZ128mrk = 17951
+
+    VPMOVUSQDZ128rr = 17952
+
+    VPMOVUSQDZ128rrk = 17953
+
+    VPMOVUSQDZ128rrkz = 17954
+
+    VPMOVUSQDZ256mr = 17955
+
+    VPMOVUSQDZ256mrk = 17956
+
+    VPMOVUSQDZ256rr = 17957
+
+    VPMOVUSQDZ256rrk = 17958
+
+    VPMOVUSQDZ256rrkz = 17959
+
+    VPMOVUSQDZmr = 17960
+
+    VPMOVUSQDZmrk = 17961
+
+    VPMOVUSQDZrr = 17962
+
+    VPMOVUSQDZrrk = 17963
+
+    VPMOVUSQDZrrkz = 17964
+
+    VPMOVUSQWZ128mr = 17965
+
+    VPMOVUSQWZ128mrk = 17966
+
+    VPMOVUSQWZ128rr = 17967
+
+    VPMOVUSQWZ128rrk = 17968
+
+    VPMOVUSQWZ128rrkz = 17969
+
+    VPMOVUSQWZ256mr = 17970
+
+    VPMOVUSQWZ256mrk = 17971
+
+    VPMOVUSQWZ256rr = 17972
+
+    VPMOVUSQWZ256rrk = 17973
+
+    VPMOVUSQWZ256rrkz = 17974
+
+    VPMOVUSQWZmr = 17975
+
+    VPMOVUSQWZmrk = 17976
+
+    VPMOVUSQWZrr = 17977
+
+    VPMOVUSQWZrrk = 17978
+
+    VPMOVUSQWZrrkz = 17979
+
+    VPMOVUSWBZ128mr = 17980
+
+    VPMOVUSWBZ128mrk = 17981
+
+    VPMOVUSWBZ128rr = 17982
+
+    VPMOVUSWBZ128rrk = 17983
+
+    VPMOVUSWBZ128rrkz = 17984
+
+    VPMOVUSWBZ256mr = 17985
+
+    VPMOVUSWBZ256mrk = 17986
+
+    VPMOVUSWBZ256rr = 17987
+
+    VPMOVUSWBZ256rrk = 17988
+
+    VPMOVUSWBZ256rrkz = 17989
+
+    VPMOVUSWBZmr = 17990
+
+    VPMOVUSWBZmrk = 17991
+
+    VPMOVUSWBZrr = 17992
+
+    VPMOVUSWBZrrk = 17993
+
+    VPMOVUSWBZrrkz = 17994
+
+    VPMOVW2MZ128kr = 17995
+
+    VPMOVW2MZ256kr = 17996
+
+    VPMOVW2MZkr = 17997
+
+    VPMOVWBZ128mr = 17998
+
+    VPMOVWBZ128mrk = 17999
+
+    VPMOVWBZ128rr = 18000
+
+    VPMOVWBZ128rrk = 18001
+
+    VPMOVWBZ128rrkz = 18002
+
+    VPMOVWBZ256mr = 18003
+
+    VPMOVWBZ256mrk = 18004
+
+    VPMOVWBZ256rr = 18005
+
+    VPMOVWBZ256rrk = 18006
+
+    VPMOVWBZ256rrkz = 18007
+
+    VPMOVWBZmr = 18008
+
+    VPMOVWBZmrk = 18009
+
+    VPMOVWBZrr = 18010
+
+    VPMOVWBZrrk = 18011
+
+    VPMOVWBZrrkz = 18012
+
+    VPMOVZXBDYrm = 18013
+
+    VPMOVZXBDYrr = 18014
+
+    VPMOVZXBDZ128rm = 18015
+
+    VPMOVZXBDZ128rmk = 18016
+
+    VPMOVZXBDZ128rmkz = 18017
+
+    VPMOVZXBDZ128rr = 18018
+
+    VPMOVZXBDZ128rrk = 18019
+
+    VPMOVZXBDZ128rrkz = 18020
+
+    VPMOVZXBDZ256rm = 18021
+
+    VPMOVZXBDZ256rmk = 18022
+
+    VPMOVZXBDZ256rmkz = 18023
+
+    VPMOVZXBDZ256rr = 18024
+
+    VPMOVZXBDZ256rrk = 18025
+
+    VPMOVZXBDZ256rrkz = 18026
+
+    VPMOVZXBDZrm = 18027
+
+    VPMOVZXBDZrmk = 18028
+
+    VPMOVZXBDZrmkz = 18029
+
+    VPMOVZXBDZrr = 18030
+
+    VPMOVZXBDZrrk = 18031
+
+    VPMOVZXBDZrrkz = 18032
+
+    VPMOVZXBDrm = 18033
+
+    VPMOVZXBDrr = 18034
+
+    VPMOVZXBQYrm = 18035
+
+    VPMOVZXBQYrr = 18036
+
+    VPMOVZXBQZ128rm = 18037
+
+    VPMOVZXBQZ128rmk = 18038
+
+    VPMOVZXBQZ128rmkz = 18039
+
+    VPMOVZXBQZ128rr = 18040
+
+    VPMOVZXBQZ128rrk = 18041
+
+    VPMOVZXBQZ128rrkz = 18042
+
+    VPMOVZXBQZ256rm = 18043
+
+    VPMOVZXBQZ256rmk = 18044
+
+    VPMOVZXBQZ256rmkz = 18045
+
+    VPMOVZXBQZ256rr = 18046
+
+    VPMOVZXBQZ256rrk = 18047
+
+    VPMOVZXBQZ256rrkz = 18048
+
+    VPMOVZXBQZrm = 18049
+
+    VPMOVZXBQZrmk = 18050
+
+    VPMOVZXBQZrmkz = 18051
+
+    VPMOVZXBQZrr = 18052
+
+    VPMOVZXBQZrrk = 18053
+
+    VPMOVZXBQZrrkz = 18054
+
+    VPMOVZXBQrm = 18055
+
+    VPMOVZXBQrr = 18056
+
+    VPMOVZXBWYrm = 18057
+
+    VPMOVZXBWYrr = 18058
+
+    VPMOVZXBWZ128rm = 18059
+
+    VPMOVZXBWZ128rmk = 18060
+
+    VPMOVZXBWZ128rmkz = 18061
+
+    VPMOVZXBWZ128rr = 18062
+
+    VPMOVZXBWZ128rrk = 18063
+
+    VPMOVZXBWZ128rrkz = 18064
+
+    VPMOVZXBWZ256rm = 18065
+
+    VPMOVZXBWZ256rmk = 18066
+
+    VPMOVZXBWZ256rmkz = 18067
+
+    VPMOVZXBWZ256rr = 18068
+
+    VPMOVZXBWZ256rrk = 18069
+
+    VPMOVZXBWZ256rrkz = 18070
+
+    VPMOVZXBWZrm = 18071
+
+    VPMOVZXBWZrmk = 18072
+
+    VPMOVZXBWZrmkz = 18073
+
+    VPMOVZXBWZrr = 18074
+
+    VPMOVZXBWZrrk = 18075
+
+    VPMOVZXBWZrrkz = 18076
+
+    VPMOVZXBWrm = 18077
+
+    VPMOVZXBWrr = 18078
+
+    VPMOVZXDQYrm = 18079
+
+    VPMOVZXDQYrr = 18080
+
+    VPMOVZXDQZ128rm = 18081
+
+    VPMOVZXDQZ128rmk = 18082
+
+    VPMOVZXDQZ128rmkz = 18083
+
+    VPMOVZXDQZ128rr = 18084
+
+    VPMOVZXDQZ128rrk = 18085
+
+    VPMOVZXDQZ128rrkz = 18086
+
+    VPMOVZXDQZ256rm = 18087
+
+    VPMOVZXDQZ256rmk = 18088
+
+    VPMOVZXDQZ256rmkz = 18089
+
+    VPMOVZXDQZ256rr = 18090
+
+    VPMOVZXDQZ256rrk = 18091
+
+    VPMOVZXDQZ256rrkz = 18092
+
+    VPMOVZXDQZrm = 18093
+
+    VPMOVZXDQZrmk = 18094
+
+    VPMOVZXDQZrmkz = 18095
+
+    VPMOVZXDQZrr = 18096
+
+    VPMOVZXDQZrrk = 18097
+
+    VPMOVZXDQZrrkz = 18098
+
+    VPMOVZXDQrm = 18099
+
+    VPMOVZXDQrr = 18100
+
+    VPMOVZXWDYrm = 18101
+
+    VPMOVZXWDYrr = 18102
+
+    VPMOVZXWDZ128rm = 18103
+
+    VPMOVZXWDZ128rmk = 18104
+
+    VPMOVZXWDZ128rmkz = 18105
+
+    VPMOVZXWDZ128rr = 18106
+
+    VPMOVZXWDZ128rrk = 18107
+
+    VPMOVZXWDZ128rrkz = 18108
+
+    VPMOVZXWDZ256rm = 18109
+
+    VPMOVZXWDZ256rmk = 18110
+
+    VPMOVZXWDZ256rmkz = 18111
+
+    VPMOVZXWDZ256rr = 18112
+
+    VPMOVZXWDZ256rrk = 18113
+
+    VPMOVZXWDZ256rrkz = 18114
+
+    VPMOVZXWDZrm = 18115
+
+    VPMOVZXWDZrmk = 18116
+
+    VPMOVZXWDZrmkz = 18117
+
+    VPMOVZXWDZrr = 18118
+
+    VPMOVZXWDZrrk = 18119
+
+    VPMOVZXWDZrrkz = 18120
+
+    VPMOVZXWDrm = 18121
+
+    VPMOVZXWDrr = 18122
+
+    VPMOVZXWQYrm = 18123
+
+    VPMOVZXWQYrr = 18124
+
+    VPMOVZXWQZ128rm = 18125
+
+    VPMOVZXWQZ128rmk = 18126
+
+    VPMOVZXWQZ128rmkz = 18127
+
+    VPMOVZXWQZ128rr = 18128
+
+    VPMOVZXWQZ128rrk = 18129
+
+    VPMOVZXWQZ128rrkz = 18130
+
+    VPMOVZXWQZ256rm = 18131
+
+    VPMOVZXWQZ256rmk = 18132
+
+    VPMOVZXWQZ256rmkz = 18133
+
+    VPMOVZXWQZ256rr = 18134
+
+    VPMOVZXWQZ256rrk = 18135
+
+    VPMOVZXWQZ256rrkz = 18136
+
+    VPMOVZXWQZrm = 18137
+
+    VPMOVZXWQZrmk = 18138
+
+    VPMOVZXWQZrmkz = 18139
+
+    VPMOVZXWQZrr = 18140
+
+    VPMOVZXWQZrrk = 18141
+
+    VPMOVZXWQZrrkz = 18142
+
+    VPMOVZXWQrm = 18143
+
+    VPMOVZXWQrr = 18144
+
+    VPMULDQYrm = 18145
+
+    VPMULDQYrr = 18146
+
+    VPMULDQZ128rm = 18147
+
+    VPMULDQZ128rmb = 18148
+
+    VPMULDQZ128rmbk = 18149
+
+    VPMULDQZ128rmbkz = 18150
+
+    VPMULDQZ128rmk = 18151
+
+    VPMULDQZ128rmkz = 18152
+
+    VPMULDQZ128rr = 18153
+
+    VPMULDQZ128rrk = 18154
+
+    VPMULDQZ128rrkz = 18155
+
+    VPMULDQZ256rm = 18156
+
+    VPMULDQZ256rmb = 18157
+
+    VPMULDQZ256rmbk = 18158
+
+    VPMULDQZ256rmbkz = 18159
+
+    VPMULDQZ256rmk = 18160
+
+    VPMULDQZ256rmkz = 18161
+
+    VPMULDQZ256rr = 18162
+
+    VPMULDQZ256rrk = 18163
+
+    VPMULDQZ256rrkz = 18164
+
+    VPMULDQZrm = 18165
+
+    VPMULDQZrmb = 18166
+
+    VPMULDQZrmbk = 18167
+
+    VPMULDQZrmbkz = 18168
+
+    VPMULDQZrmk = 18169
+
+    VPMULDQZrmkz = 18170
+
+    VPMULDQZrr = 18171
+
+    VPMULDQZrrk = 18172
+
+    VPMULDQZrrkz = 18173
+
+    VPMULDQrm = 18174
+
+    VPMULDQrr = 18175
+
+    VPMULHRSWYrm = 18176
+
+    VPMULHRSWYrr = 18177
+
+    VPMULHRSWZ128rm = 18178
+
+    VPMULHRSWZ128rmk = 18179
+
+    VPMULHRSWZ128rmkz = 18180
+
+    VPMULHRSWZ128rr = 18181
+
+    VPMULHRSWZ128rrk = 18182
+
+    VPMULHRSWZ128rrkz = 18183
+
+    VPMULHRSWZ256rm = 18184
+
+    VPMULHRSWZ256rmk = 18185
+
+    VPMULHRSWZ256rmkz = 18186
+
+    VPMULHRSWZ256rr = 18187
+
+    VPMULHRSWZ256rrk = 18188
+
+    VPMULHRSWZ256rrkz = 18189
+
+    VPMULHRSWZrm = 18190
+
+    VPMULHRSWZrmk = 18191
+
+    VPMULHRSWZrmkz = 18192
+
+    VPMULHRSWZrr = 18193
+
+    VPMULHRSWZrrk = 18194
+
+    VPMULHRSWZrrkz = 18195
+
+    VPMULHRSWrm = 18196
+
+    VPMULHRSWrr = 18197
+
+    VPMULHUWYrm = 18198
+
+    VPMULHUWYrr = 18199
+
+    VPMULHUWZ128rm = 18200
+
+    VPMULHUWZ128rmk = 18201
+
+    VPMULHUWZ128rmkz = 18202
+
+    VPMULHUWZ128rr = 18203
+
+    VPMULHUWZ128rrk = 18204
+
+    VPMULHUWZ128rrkz = 18205
+
+    VPMULHUWZ256rm = 18206
+
+    VPMULHUWZ256rmk = 18207
+
+    VPMULHUWZ256rmkz = 18208
+
+    VPMULHUWZ256rr = 18209
+
+    VPMULHUWZ256rrk = 18210
+
+    VPMULHUWZ256rrkz = 18211
+
+    VPMULHUWZrm = 18212
+
+    VPMULHUWZrmk = 18213
+
+    VPMULHUWZrmkz = 18214
+
+    VPMULHUWZrr = 18215
+
+    VPMULHUWZrrk = 18216
+
+    VPMULHUWZrrkz = 18217
+
+    VPMULHUWrm = 18218
+
+    VPMULHUWrr = 18219
+
+    VPMULHWYrm = 18220
+
+    VPMULHWYrr = 18221
+
+    VPMULHWZ128rm = 18222
+
+    VPMULHWZ128rmk = 18223
+
+    VPMULHWZ128rmkz = 18224
+
+    VPMULHWZ128rr = 18225
+
+    VPMULHWZ128rrk = 18226
+
+    VPMULHWZ128rrkz = 18227
+
+    VPMULHWZ256rm = 18228
+
+    VPMULHWZ256rmk = 18229
+
+    VPMULHWZ256rmkz = 18230
+
+    VPMULHWZ256rr = 18231
+
+    VPMULHWZ256rrk = 18232
+
+    VPMULHWZ256rrkz = 18233
+
+    VPMULHWZrm = 18234
+
+    VPMULHWZrmk = 18235
+
+    VPMULHWZrmkz = 18236
+
+    VPMULHWZrr = 18237
+
+    VPMULHWZrrk = 18238
+
+    VPMULHWZrrkz = 18239
+
+    VPMULHWrm = 18240
+
+    VPMULHWrr = 18241
+
+    VPMULLDYrm = 18242
+
+    VPMULLDYrr = 18243
+
+    VPMULLDZ128rm = 18244
+
+    VPMULLDZ128rmb = 18245
+
+    VPMULLDZ128rmbk = 18246
+
+    VPMULLDZ128rmbkz = 18247
+
+    VPMULLDZ128rmk = 18248
+
+    VPMULLDZ128rmkz = 18249
+
+    VPMULLDZ128rr = 18250
+
+    VPMULLDZ128rrk = 18251
+
+    VPMULLDZ128rrkz = 18252
+
+    VPMULLDZ256rm = 18253
+
+    VPMULLDZ256rmb = 18254
+
+    VPMULLDZ256rmbk = 18255
+
+    VPMULLDZ256rmbkz = 18256
+
+    VPMULLDZ256rmk = 18257
+
+    VPMULLDZ256rmkz = 18258
+
+    VPMULLDZ256rr = 18259
+
+    VPMULLDZ256rrk = 18260
+
+    VPMULLDZ256rrkz = 18261
+
+    VPMULLDZrm = 18262
+
+    VPMULLDZrmb = 18263
+
+    VPMULLDZrmbk = 18264
+
+    VPMULLDZrmbkz = 18265
+
+    VPMULLDZrmk = 18266
+
+    VPMULLDZrmkz = 18267
+
+    VPMULLDZrr = 18268
+
+    VPMULLDZrrk = 18269
+
+    VPMULLDZrrkz = 18270
+
+    VPMULLDrm = 18271
+
+    VPMULLDrr = 18272
+
+    VPMULLQZ128rm = 18273
+
+    VPMULLQZ128rmb = 18274
+
+    VPMULLQZ128rmbk = 18275
+
+    VPMULLQZ128rmbkz = 18276
+
+    VPMULLQZ128rmk = 18277
+
+    VPMULLQZ128rmkz = 18278
+
+    VPMULLQZ128rr = 18279
+
+    VPMULLQZ128rrk = 18280
+
+    VPMULLQZ128rrkz = 18281
+
+    VPMULLQZ256rm = 18282
+
+    VPMULLQZ256rmb = 18283
+
+    VPMULLQZ256rmbk = 18284
+
+    VPMULLQZ256rmbkz = 18285
+
+    VPMULLQZ256rmk = 18286
+
+    VPMULLQZ256rmkz = 18287
+
+    VPMULLQZ256rr = 18288
+
+    VPMULLQZ256rrk = 18289
+
+    VPMULLQZ256rrkz = 18290
+
+    VPMULLQZrm = 18291
+
+    VPMULLQZrmb = 18292
+
+    VPMULLQZrmbk = 18293
+
+    VPMULLQZrmbkz = 18294
+
+    VPMULLQZrmk = 18295
+
+    VPMULLQZrmkz = 18296
+
+    VPMULLQZrr = 18297
+
+    VPMULLQZrrk = 18298
+
+    VPMULLQZrrkz = 18299
+
+    VPMULLWYrm = 18300
+
+    VPMULLWYrr = 18301
+
+    VPMULLWZ128rm = 18302
+
+    VPMULLWZ128rmk = 18303
+
+    VPMULLWZ128rmkz = 18304
+
+    VPMULLWZ128rr = 18305
+
+    VPMULLWZ128rrk = 18306
+
+    VPMULLWZ128rrkz = 18307
+
+    VPMULLWZ256rm = 18308
+
+    VPMULLWZ256rmk = 18309
+
+    VPMULLWZ256rmkz = 18310
+
+    VPMULLWZ256rr = 18311
+
+    VPMULLWZ256rrk = 18312
+
+    VPMULLWZ256rrkz = 18313
+
+    VPMULLWZrm = 18314
+
+    VPMULLWZrmk = 18315
+
+    VPMULLWZrmkz = 18316
+
+    VPMULLWZrr = 18317
+
+    VPMULLWZrrk = 18318
+
+    VPMULLWZrrkz = 18319
+
+    VPMULLWrm = 18320
+
+    VPMULLWrr = 18321
+
+    VPMULTISHIFTQBZ128rm = 18322
+
+    VPMULTISHIFTQBZ128rmb = 18323
+
+    VPMULTISHIFTQBZ128rmbk = 18324
+
+    VPMULTISHIFTQBZ128rmbkz = 18325
+
+    VPMULTISHIFTQBZ128rmk = 18326
+
+    VPMULTISHIFTQBZ128rmkz = 18327
+
+    VPMULTISHIFTQBZ128rr = 18328
+
+    VPMULTISHIFTQBZ128rrk = 18329
+
+    VPMULTISHIFTQBZ128rrkz = 18330
+
+    VPMULTISHIFTQBZ256rm = 18331
+
+    VPMULTISHIFTQBZ256rmb = 18332
+
+    VPMULTISHIFTQBZ256rmbk = 18333
+
+    VPMULTISHIFTQBZ256rmbkz = 18334
+
+    VPMULTISHIFTQBZ256rmk = 18335
+
+    VPMULTISHIFTQBZ256rmkz = 18336
+
+    VPMULTISHIFTQBZ256rr = 18337
+
+    VPMULTISHIFTQBZ256rrk = 18338
+
+    VPMULTISHIFTQBZ256rrkz = 18339
+
+    VPMULTISHIFTQBZrm = 18340
+
+    VPMULTISHIFTQBZrmb = 18341
+
+    VPMULTISHIFTQBZrmbk = 18342
+
+    VPMULTISHIFTQBZrmbkz = 18343
+
+    VPMULTISHIFTQBZrmk = 18344
+
+    VPMULTISHIFTQBZrmkz = 18345
+
+    VPMULTISHIFTQBZrr = 18346
+
+    VPMULTISHIFTQBZrrk = 18347
+
+    VPMULTISHIFTQBZrrkz = 18348
+
+    VPMULUDQYrm = 18349
+
+    VPMULUDQYrr = 18350
+
+    VPMULUDQZ128rm = 18351
+
+    VPMULUDQZ128rmb = 18352
+
+    VPMULUDQZ128rmbk = 18353
+
+    VPMULUDQZ128rmbkz = 18354
+
+    VPMULUDQZ128rmk = 18355
+
+    VPMULUDQZ128rmkz = 18356
+
+    VPMULUDQZ128rr = 18357
+
+    VPMULUDQZ128rrk = 18358
+
+    VPMULUDQZ128rrkz = 18359
+
+    VPMULUDQZ256rm = 18360
+
+    VPMULUDQZ256rmb = 18361
+
+    VPMULUDQZ256rmbk = 18362
+
+    VPMULUDQZ256rmbkz = 18363
+
+    VPMULUDQZ256rmk = 18364
+
+    VPMULUDQZ256rmkz = 18365
+
+    VPMULUDQZ256rr = 18366
+
+    VPMULUDQZ256rrk = 18367
+
+    VPMULUDQZ256rrkz = 18368
+
+    VPMULUDQZrm = 18369
+
+    VPMULUDQZrmb = 18370
+
+    VPMULUDQZrmbk = 18371
+
+    VPMULUDQZrmbkz = 18372
+
+    VPMULUDQZrmk = 18373
+
+    VPMULUDQZrmkz = 18374
+
+    VPMULUDQZrr = 18375
+
+    VPMULUDQZrrk = 18376
+
+    VPMULUDQZrrkz = 18377
+
+    VPMULUDQrm = 18378
+
+    VPMULUDQrr = 18379
+
+    VPOPCNTBZ128rm = 18380
+
+    VPOPCNTBZ128rmk = 18381
+
+    VPOPCNTBZ128rmkz = 18382
+
+    VPOPCNTBZ128rr = 18383
+
+    VPOPCNTBZ128rrk = 18384
+
+    VPOPCNTBZ128rrkz = 18385
+
+    VPOPCNTBZ256rm = 18386
+
+    VPOPCNTBZ256rmk = 18387
+
+    VPOPCNTBZ256rmkz = 18388
+
+    VPOPCNTBZ256rr = 18389
+
+    VPOPCNTBZ256rrk = 18390
+
+    VPOPCNTBZ256rrkz = 18391
+
+    VPOPCNTBZrm = 18392
+
+    VPOPCNTBZrmk = 18393
+
+    VPOPCNTBZrmkz = 18394
+
+    VPOPCNTBZrr = 18395
+
+    VPOPCNTBZrrk = 18396
+
+    VPOPCNTBZrrkz = 18397
+
+    VPOPCNTDZ128rm = 18398
+
+    VPOPCNTDZ128rmb = 18399
+
+    VPOPCNTDZ128rmbk = 18400
+
+    VPOPCNTDZ128rmbkz = 18401
+
+    VPOPCNTDZ128rmk = 18402
+
+    VPOPCNTDZ128rmkz = 18403
+
+    VPOPCNTDZ128rr = 18404
+
+    VPOPCNTDZ128rrk = 18405
+
+    VPOPCNTDZ128rrkz = 18406
+
+    VPOPCNTDZ256rm = 18407
+
+    VPOPCNTDZ256rmb = 18408
+
+    VPOPCNTDZ256rmbk = 18409
+
+    VPOPCNTDZ256rmbkz = 18410
+
+    VPOPCNTDZ256rmk = 18411
+
+    VPOPCNTDZ256rmkz = 18412
+
+    VPOPCNTDZ256rr = 18413
+
+    VPOPCNTDZ256rrk = 18414
+
+    VPOPCNTDZ256rrkz = 18415
+
+    VPOPCNTDZrm = 18416
+
+    VPOPCNTDZrmb = 18417
+
+    VPOPCNTDZrmbk = 18418
+
+    VPOPCNTDZrmbkz = 18419
+
+    VPOPCNTDZrmk = 18420
+
+    VPOPCNTDZrmkz = 18421
+
+    VPOPCNTDZrr = 18422
+
+    VPOPCNTDZrrk = 18423
+
+    VPOPCNTDZrrkz = 18424
+
+    VPOPCNTQZ128rm = 18425
+
+    VPOPCNTQZ128rmb = 18426
+
+    VPOPCNTQZ128rmbk = 18427
+
+    VPOPCNTQZ128rmbkz = 18428
+
+    VPOPCNTQZ128rmk = 18429
+
+    VPOPCNTQZ128rmkz = 18430
+
+    VPOPCNTQZ128rr = 18431
+
+    VPOPCNTQZ128rrk = 18432
+
+    VPOPCNTQZ128rrkz = 18433
+
+    VPOPCNTQZ256rm = 18434
+
+    VPOPCNTQZ256rmb = 18435
+
+    VPOPCNTQZ256rmbk = 18436
+
+    VPOPCNTQZ256rmbkz = 18437
+
+    VPOPCNTQZ256rmk = 18438
+
+    VPOPCNTQZ256rmkz = 18439
+
+    VPOPCNTQZ256rr = 18440
+
+    VPOPCNTQZ256rrk = 18441
+
+    VPOPCNTQZ256rrkz = 18442
+
+    VPOPCNTQZrm = 18443
+
+    VPOPCNTQZrmb = 18444
+
+    VPOPCNTQZrmbk = 18445
+
+    VPOPCNTQZrmbkz = 18446
+
+    VPOPCNTQZrmk = 18447
+
+    VPOPCNTQZrmkz = 18448
+
+    VPOPCNTQZrr = 18449
+
+    VPOPCNTQZrrk = 18450
+
+    VPOPCNTQZrrkz = 18451
+
+    VPOPCNTWZ128rm = 18452
+
+    VPOPCNTWZ128rmk = 18453
+
+    VPOPCNTWZ128rmkz = 18454
+
+    VPOPCNTWZ128rr = 18455
+
+    VPOPCNTWZ128rrk = 18456
+
+    VPOPCNTWZ128rrkz = 18457
+
+    VPOPCNTWZ256rm = 18458
+
+    VPOPCNTWZ256rmk = 18459
+
+    VPOPCNTWZ256rmkz = 18460
+
+    VPOPCNTWZ256rr = 18461
+
+    VPOPCNTWZ256rrk = 18462
+
+    VPOPCNTWZ256rrkz = 18463
+
+    VPOPCNTWZrm = 18464
+
+    VPOPCNTWZrmk = 18465
+
+    VPOPCNTWZrmkz = 18466
+
+    VPOPCNTWZrr = 18467
+
+    VPOPCNTWZrrk = 18468
+
+    VPOPCNTWZrrkz = 18469
+
+    VPORDZ128rm = 18470
+
+    VPORDZ128rmb = 18471
+
+    VPORDZ128rmbk = 18472
+
+    VPORDZ128rmbkz = 18473
+
+    VPORDZ128rmk = 18474
+
+    VPORDZ128rmkz = 18475
+
+    VPORDZ128rr = 18476
+
+    VPORDZ128rrk = 18477
+
+    VPORDZ128rrkz = 18478
+
+    VPORDZ256rm = 18479
+
+    VPORDZ256rmb = 18480
+
+    VPORDZ256rmbk = 18481
+
+    VPORDZ256rmbkz = 18482
+
+    VPORDZ256rmk = 18483
+
+    VPORDZ256rmkz = 18484
+
+    VPORDZ256rr = 18485
+
+    VPORDZ256rrk = 18486
+
+    VPORDZ256rrkz = 18487
+
+    VPORDZrm = 18488
+
+    VPORDZrmb = 18489
+
+    VPORDZrmbk = 18490
+
+    VPORDZrmbkz = 18491
+
+    VPORDZrmk = 18492
+
+    VPORDZrmkz = 18493
+
+    VPORDZrr = 18494
+
+    VPORDZrrk = 18495
+
+    VPORDZrrkz = 18496
+
+    VPORQZ128rm = 18497
+
+    VPORQZ128rmb = 18498
+
+    VPORQZ128rmbk = 18499
+
+    VPORQZ128rmbkz = 18500
+
+    VPORQZ128rmk = 18501
+
+    VPORQZ128rmkz = 18502
+
+    VPORQZ128rr = 18503
+
+    VPORQZ128rrk = 18504
+
+    VPORQZ128rrkz = 18505
+
+    VPORQZ256rm = 18506
+
+    VPORQZ256rmb = 18507
+
+    VPORQZ256rmbk = 18508
+
+    VPORQZ256rmbkz = 18509
+
+    VPORQZ256rmk = 18510
+
+    VPORQZ256rmkz = 18511
+
+    VPORQZ256rr = 18512
+
+    VPORQZ256rrk = 18513
+
+    VPORQZ256rrkz = 18514
+
+    VPORQZrm = 18515
+
+    VPORQZrmb = 18516
+
+    VPORQZrmbk = 18517
+
+    VPORQZrmbkz = 18518
+
+    VPORQZrmk = 18519
+
+    VPORQZrmkz = 18520
+
+    VPORQZrr = 18521
+
+    VPORQZrrk = 18522
+
+    VPORQZrrkz = 18523
+
+    VPORYrm = 18524
+
+    VPORYrr = 18525
+
+    VPORrm = 18526
+
+    VPORrr = 18527
+
+    VPPERMrmr = 18528
+
+    VPPERMrrm = 18529
+
+    VPPERMrrr = 18530
+
+    VPPERMrrr_REV = 18531
+
+    VPROLDZ128mbi = 18532
+
+    VPROLDZ128mbik = 18533
+
+    VPROLDZ128mbikz = 18534
+
+    VPROLDZ128mi = 18535
+
+    VPROLDZ128mik = 18536
+
+    VPROLDZ128mikz = 18537
+
+    VPROLDZ128ri = 18538
+
+    VPROLDZ128rik = 18539
+
+    VPROLDZ128rikz = 18540
+
+    VPROLDZ256mbi = 18541
+
+    VPROLDZ256mbik = 18542
+
+    VPROLDZ256mbikz = 18543
+
+    VPROLDZ256mi = 18544
+
+    VPROLDZ256mik = 18545
+
+    VPROLDZ256mikz = 18546
+
+    VPROLDZ256ri = 18547
+
+    VPROLDZ256rik = 18548
+
+    VPROLDZ256rikz = 18549
+
+    VPROLDZmbi = 18550
+
+    VPROLDZmbik = 18551
+
+    VPROLDZmbikz = 18552
+
+    VPROLDZmi = 18553
+
+    VPROLDZmik = 18554
+
+    VPROLDZmikz = 18555
+
+    VPROLDZri = 18556
+
+    VPROLDZrik = 18557
+
+    VPROLDZrikz = 18558
+
+    VPROLQZ128mbi = 18559
+
+    VPROLQZ128mbik = 18560
+
+    VPROLQZ128mbikz = 18561
+
+    VPROLQZ128mi = 18562
+
+    VPROLQZ128mik = 18563
+
+    VPROLQZ128mikz = 18564
+
+    VPROLQZ128ri = 18565
+
+    VPROLQZ128rik = 18566
+
+    VPROLQZ128rikz = 18567
+
+    VPROLQZ256mbi = 18568
+
+    VPROLQZ256mbik = 18569
+
+    VPROLQZ256mbikz = 18570
+
+    VPROLQZ256mi = 18571
+
+    VPROLQZ256mik = 18572
+
+    VPROLQZ256mikz = 18573
+
+    VPROLQZ256ri = 18574
+
+    VPROLQZ256rik = 18575
+
+    VPROLQZ256rikz = 18576
+
+    VPROLQZmbi = 18577
+
+    VPROLQZmbik = 18578
+
+    VPROLQZmbikz = 18579
+
+    VPROLQZmi = 18580
+
+    VPROLQZmik = 18581
+
+    VPROLQZmikz = 18582
+
+    VPROLQZri = 18583
+
+    VPROLQZrik = 18584
+
+    VPROLQZrikz = 18585
+
+    VPROLVDZ128rm = 18586
+
+    VPROLVDZ128rmb = 18587
+
+    VPROLVDZ128rmbk = 18588
+
+    VPROLVDZ128rmbkz = 18589
+
+    VPROLVDZ128rmk = 18590
+
+    VPROLVDZ128rmkz = 18591
+
+    VPROLVDZ128rr = 18592
+
+    VPROLVDZ128rrk = 18593
+
+    VPROLVDZ128rrkz = 18594
+
+    VPROLVDZ256rm = 18595
+
+    VPROLVDZ256rmb = 18596
+
+    VPROLVDZ256rmbk = 18597
+
+    VPROLVDZ256rmbkz = 18598
+
+    VPROLVDZ256rmk = 18599
+
+    VPROLVDZ256rmkz = 18600
+
+    VPROLVDZ256rr = 18601
+
+    VPROLVDZ256rrk = 18602
+
+    VPROLVDZ256rrkz = 18603
+
+    VPROLVDZrm = 18604
+
+    VPROLVDZrmb = 18605
+
+    VPROLVDZrmbk = 18606
+
+    VPROLVDZrmbkz = 18607
+
+    VPROLVDZrmk = 18608
+
+    VPROLVDZrmkz = 18609
+
+    VPROLVDZrr = 18610
+
+    VPROLVDZrrk = 18611
+
+    VPROLVDZrrkz = 18612
+
+    VPROLVQZ128rm = 18613
+
+    VPROLVQZ128rmb = 18614
+
+    VPROLVQZ128rmbk = 18615
+
+    VPROLVQZ128rmbkz = 18616
+
+    VPROLVQZ128rmk = 18617
+
+    VPROLVQZ128rmkz = 18618
+
+    VPROLVQZ128rr = 18619
+
+    VPROLVQZ128rrk = 18620
+
+    VPROLVQZ128rrkz = 18621
+
+    VPROLVQZ256rm = 18622
+
+    VPROLVQZ256rmb = 18623
+
+    VPROLVQZ256rmbk = 18624
+
+    VPROLVQZ256rmbkz = 18625
+
+    VPROLVQZ256rmk = 18626
+
+    VPROLVQZ256rmkz = 18627
+
+    VPROLVQZ256rr = 18628
+
+    VPROLVQZ256rrk = 18629
+
+    VPROLVQZ256rrkz = 18630
+
+    VPROLVQZrm = 18631
+
+    VPROLVQZrmb = 18632
+
+    VPROLVQZrmbk = 18633
+
+    VPROLVQZrmbkz = 18634
+
+    VPROLVQZrmk = 18635
+
+    VPROLVQZrmkz = 18636
+
+    VPROLVQZrr = 18637
+
+    VPROLVQZrrk = 18638
+
+    VPROLVQZrrkz = 18639
+
+    VPRORDZ128mbi = 18640
+
+    VPRORDZ128mbik = 18641
+
+    VPRORDZ128mbikz = 18642
+
+    VPRORDZ128mi = 18643
+
+    VPRORDZ128mik = 18644
+
+    VPRORDZ128mikz = 18645
+
+    VPRORDZ128ri = 18646
+
+    VPRORDZ128rik = 18647
+
+    VPRORDZ128rikz = 18648
+
+    VPRORDZ256mbi = 18649
+
+    VPRORDZ256mbik = 18650
+
+    VPRORDZ256mbikz = 18651
+
+    VPRORDZ256mi = 18652
+
+    VPRORDZ256mik = 18653
+
+    VPRORDZ256mikz = 18654
+
+    VPRORDZ256ri = 18655
+
+    VPRORDZ256rik = 18656
+
+    VPRORDZ256rikz = 18657
+
+    VPRORDZmbi = 18658
+
+    VPRORDZmbik = 18659
+
+    VPRORDZmbikz = 18660
+
+    VPRORDZmi = 18661
+
+    VPRORDZmik = 18662
+
+    VPRORDZmikz = 18663
+
+    VPRORDZri = 18664
+
+    VPRORDZrik = 18665
+
+    VPRORDZrikz = 18666
+
+    VPRORQZ128mbi = 18667
+
+    VPRORQZ128mbik = 18668
+
+    VPRORQZ128mbikz = 18669
+
+    VPRORQZ128mi = 18670
+
+    VPRORQZ128mik = 18671
+
+    VPRORQZ128mikz = 18672
+
+    VPRORQZ128ri = 18673
+
+    VPRORQZ128rik = 18674
+
+    VPRORQZ128rikz = 18675
+
+    VPRORQZ256mbi = 18676
+
+    VPRORQZ256mbik = 18677
+
+    VPRORQZ256mbikz = 18678
+
+    VPRORQZ256mi = 18679
+
+    VPRORQZ256mik = 18680
+
+    VPRORQZ256mikz = 18681
+
+    VPRORQZ256ri = 18682
+
+    VPRORQZ256rik = 18683
+
+    VPRORQZ256rikz = 18684
+
+    VPRORQZmbi = 18685
+
+    VPRORQZmbik = 18686
+
+    VPRORQZmbikz = 18687
+
+    VPRORQZmi = 18688
+
+    VPRORQZmik = 18689
+
+    VPRORQZmikz = 18690
+
+    VPRORQZri = 18691
+
+    VPRORQZrik = 18692
+
+    VPRORQZrikz = 18693
+
+    VPRORVDZ128rm = 18694
+
+    VPRORVDZ128rmb = 18695
+
+    VPRORVDZ128rmbk = 18696
+
+    VPRORVDZ128rmbkz = 18697
+
+    VPRORVDZ128rmk = 18698
+
+    VPRORVDZ128rmkz = 18699
+
+    VPRORVDZ128rr = 18700
+
+    VPRORVDZ128rrk = 18701
+
+    VPRORVDZ128rrkz = 18702
+
+    VPRORVDZ256rm = 18703
+
+    VPRORVDZ256rmb = 18704
+
+    VPRORVDZ256rmbk = 18705
+
+    VPRORVDZ256rmbkz = 18706
+
+    VPRORVDZ256rmk = 18707
+
+    VPRORVDZ256rmkz = 18708
+
+    VPRORVDZ256rr = 18709
+
+    VPRORVDZ256rrk = 18710
+
+    VPRORVDZ256rrkz = 18711
+
+    VPRORVDZrm = 18712
+
+    VPRORVDZrmb = 18713
+
+    VPRORVDZrmbk = 18714
+
+    VPRORVDZrmbkz = 18715
+
+    VPRORVDZrmk = 18716
+
+    VPRORVDZrmkz = 18717
+
+    VPRORVDZrr = 18718
+
+    VPRORVDZrrk = 18719
+
+    VPRORVDZrrkz = 18720
+
+    VPRORVQZ128rm = 18721
+
+    VPRORVQZ128rmb = 18722
+
+    VPRORVQZ128rmbk = 18723
+
+    VPRORVQZ128rmbkz = 18724
+
+    VPRORVQZ128rmk = 18725
+
+    VPRORVQZ128rmkz = 18726
+
+    VPRORVQZ128rr = 18727
+
+    VPRORVQZ128rrk = 18728
+
+    VPRORVQZ128rrkz = 18729
+
+    VPRORVQZ256rm = 18730
+
+    VPRORVQZ256rmb = 18731
+
+    VPRORVQZ256rmbk = 18732
+
+    VPRORVQZ256rmbkz = 18733
+
+    VPRORVQZ256rmk = 18734
+
+    VPRORVQZ256rmkz = 18735
+
+    VPRORVQZ256rr = 18736
+
+    VPRORVQZ256rrk = 18737
+
+    VPRORVQZ256rrkz = 18738
+
+    VPRORVQZrm = 18739
+
+    VPRORVQZrmb = 18740
+
+    VPRORVQZrmbk = 18741
+
+    VPRORVQZrmbkz = 18742
+
+    VPRORVQZrmk = 18743
+
+    VPRORVQZrmkz = 18744
+
+    VPRORVQZrr = 18745
+
+    VPRORVQZrrk = 18746
+
+    VPRORVQZrrkz = 18747
+
+    VPROTBmi = 18748
+
+    VPROTBmr = 18749
+
+    VPROTBri = 18750
+
+    VPROTBrm = 18751
+
+    VPROTBrr = 18752
+
+    VPROTBrr_REV = 18753
+
+    VPROTDmi = 18754
+
+    VPROTDmr = 18755
+
+    VPROTDri = 18756
+
+    VPROTDrm = 18757
+
+    VPROTDrr = 18758
+
+    VPROTDrr_REV = 18759
+
+    VPROTQmi = 18760
+
+    VPROTQmr = 18761
+
+    VPROTQri = 18762
+
+    VPROTQrm = 18763
+
+    VPROTQrr = 18764
+
+    VPROTQrr_REV = 18765
+
+    VPROTWmi = 18766
+
+    VPROTWmr = 18767
+
+    VPROTWri = 18768
+
+    VPROTWrm = 18769
+
+    VPROTWrr = 18770
+
+    VPROTWrr_REV = 18771
+
+    VPSADBWYrm = 18772
+
+    VPSADBWYrr = 18773
+
+    VPSADBWZ128rm = 18774
+
+    VPSADBWZ128rr = 18775
+
+    VPSADBWZ256rm = 18776
+
+    VPSADBWZ256rr = 18777
+
+    VPSADBWZrm = 18778
+
+    VPSADBWZrr = 18779
+
+    VPSADBWrm = 18780
+
+    VPSADBWrr = 18781
+
+    VPSCATTERDDZ128mr = 18782
+
+    VPSCATTERDDZ256mr = 18783
+
+    VPSCATTERDDZmr = 18784
+
+    VPSCATTERDQZ128mr = 18785
+
+    VPSCATTERDQZ256mr = 18786
+
+    VPSCATTERDQZmr = 18787
+
+    VPSCATTERQDZ128mr = 18788
+
+    VPSCATTERQDZ256mr = 18789
+
+    VPSCATTERQDZmr = 18790
+
+    VPSCATTERQQZ128mr = 18791
+
+    VPSCATTERQQZ256mr = 18792
+
+    VPSCATTERQQZmr = 18793
+
+    VPSHABmr = 18794
+
+    VPSHABrm = 18795
+
+    VPSHABrr = 18796
+
+    VPSHABrr_REV = 18797
+
+    VPSHADmr = 18798
+
+    VPSHADrm = 18799
+
+    VPSHADrr = 18800
+
+    VPSHADrr_REV = 18801
+
+    VPSHAQmr = 18802
+
+    VPSHAQrm = 18803
+
+    VPSHAQrr = 18804
+
+    VPSHAQrr_REV = 18805
+
+    VPSHAWmr = 18806
+
+    VPSHAWrm = 18807
+
+    VPSHAWrr = 18808
+
+    VPSHAWrr_REV = 18809
+
+    VPSHLBmr = 18810
+
+    VPSHLBrm = 18811
+
+    VPSHLBrr = 18812
+
+    VPSHLBrr_REV = 18813
+
+    VPSHLDDZ128rmbi = 18814
+
+    VPSHLDDZ128rmbik = 18815
+
+    VPSHLDDZ128rmbikz = 18816
+
+    VPSHLDDZ128rmi = 18817
+
+    VPSHLDDZ128rmik = 18818
+
+    VPSHLDDZ128rmikz = 18819
+
+    VPSHLDDZ128rri = 18820
+
+    VPSHLDDZ128rrik = 18821
+
+    VPSHLDDZ128rrikz = 18822
+
+    VPSHLDDZ256rmbi = 18823
+
+    VPSHLDDZ256rmbik = 18824
+
+    VPSHLDDZ256rmbikz = 18825
+
+    VPSHLDDZ256rmi = 18826
+
+    VPSHLDDZ256rmik = 18827
+
+    VPSHLDDZ256rmikz = 18828
+
+    VPSHLDDZ256rri = 18829
+
+    VPSHLDDZ256rrik = 18830
+
+    VPSHLDDZ256rrikz = 18831
+
+    VPSHLDDZrmbi = 18832
+
+    VPSHLDDZrmbik = 18833
+
+    VPSHLDDZrmbikz = 18834
+
+    VPSHLDDZrmi = 18835
+
+    VPSHLDDZrmik = 18836
+
+    VPSHLDDZrmikz = 18837
+
+    VPSHLDDZrri = 18838
+
+    VPSHLDDZrrik = 18839
+
+    VPSHLDDZrrikz = 18840
+
+    VPSHLDQZ128rmbi = 18841
+
+    VPSHLDQZ128rmbik = 18842
+
+    VPSHLDQZ128rmbikz = 18843
+
+    VPSHLDQZ128rmi = 18844
+
+    VPSHLDQZ128rmik = 18845
+
+    VPSHLDQZ128rmikz = 18846
+
+    VPSHLDQZ128rri = 18847
+
+    VPSHLDQZ128rrik = 18848
+
+    VPSHLDQZ128rrikz = 18849
+
+    VPSHLDQZ256rmbi = 18850
+
+    VPSHLDQZ256rmbik = 18851
+
+    VPSHLDQZ256rmbikz = 18852
+
+    VPSHLDQZ256rmi = 18853
+
+    VPSHLDQZ256rmik = 18854
+
+    VPSHLDQZ256rmikz = 18855
+
+    VPSHLDQZ256rri = 18856
+
+    VPSHLDQZ256rrik = 18857
+
+    VPSHLDQZ256rrikz = 18858
+
+    VPSHLDQZrmbi = 18859
+
+    VPSHLDQZrmbik = 18860
+
+    VPSHLDQZrmbikz = 18861
+
+    VPSHLDQZrmi = 18862
+
+    VPSHLDQZrmik = 18863
+
+    VPSHLDQZrmikz = 18864
+
+    VPSHLDQZrri = 18865
+
+    VPSHLDQZrrik = 18866
+
+    VPSHLDQZrrikz = 18867
+
+    VPSHLDVDZ128m = 18868
+
+    VPSHLDVDZ128mb = 18869
+
+    VPSHLDVDZ128mbk = 18870
+
+    VPSHLDVDZ128mbkz = 18871
+
+    VPSHLDVDZ128mk = 18872
+
+    VPSHLDVDZ128mkz = 18873
+
+    VPSHLDVDZ128r = 18874
+
+    VPSHLDVDZ128rk = 18875
+
+    VPSHLDVDZ128rkz = 18876
+
+    VPSHLDVDZ256m = 18877
+
+    VPSHLDVDZ256mb = 18878
+
+    VPSHLDVDZ256mbk = 18879
+
+    VPSHLDVDZ256mbkz = 18880
+
+    VPSHLDVDZ256mk = 18881
+
+    VPSHLDVDZ256mkz = 18882
+
+    VPSHLDVDZ256r = 18883
+
+    VPSHLDVDZ256rk = 18884
+
+    VPSHLDVDZ256rkz = 18885
+
+    VPSHLDVDZm = 18886
+
+    VPSHLDVDZmb = 18887
+
+    VPSHLDVDZmbk = 18888
+
+    VPSHLDVDZmbkz = 18889
+
+    VPSHLDVDZmk = 18890
+
+    VPSHLDVDZmkz = 18891
+
+    VPSHLDVDZr = 18892
+
+    VPSHLDVDZrk = 18893
+
+    VPSHLDVDZrkz = 18894
+
+    VPSHLDVQZ128m = 18895
+
+    VPSHLDVQZ128mb = 18896
+
+    VPSHLDVQZ128mbk = 18897
+
+    VPSHLDVQZ128mbkz = 18898
+
+    VPSHLDVQZ128mk = 18899
+
+    VPSHLDVQZ128mkz = 18900
+
+    VPSHLDVQZ128r = 18901
+
+    VPSHLDVQZ128rk = 18902
+
+    VPSHLDVQZ128rkz = 18903
+
+    VPSHLDVQZ256m = 18904
+
+    VPSHLDVQZ256mb = 18905
+
+    VPSHLDVQZ256mbk = 18906
+
+    VPSHLDVQZ256mbkz = 18907
+
+    VPSHLDVQZ256mk = 18908
+
+    VPSHLDVQZ256mkz = 18909
+
+    VPSHLDVQZ256r = 18910
+
+    VPSHLDVQZ256rk = 18911
+
+    VPSHLDVQZ256rkz = 18912
+
+    VPSHLDVQZm = 18913
+
+    VPSHLDVQZmb = 18914
+
+    VPSHLDVQZmbk = 18915
+
+    VPSHLDVQZmbkz = 18916
+
+    VPSHLDVQZmk = 18917
+
+    VPSHLDVQZmkz = 18918
+
+    VPSHLDVQZr = 18919
+
+    VPSHLDVQZrk = 18920
+
+    VPSHLDVQZrkz = 18921
+
+    VPSHLDVWZ128m = 18922
+
+    VPSHLDVWZ128mk = 18923
+
+    VPSHLDVWZ128mkz = 18924
+
+    VPSHLDVWZ128r = 18925
+
+    VPSHLDVWZ128rk = 18926
+
+    VPSHLDVWZ128rkz = 18927
+
+    VPSHLDVWZ256m = 18928
+
+    VPSHLDVWZ256mk = 18929
+
+    VPSHLDVWZ256mkz = 18930
+
+    VPSHLDVWZ256r = 18931
+
+    VPSHLDVWZ256rk = 18932
+
+    VPSHLDVWZ256rkz = 18933
+
+    VPSHLDVWZm = 18934
+
+    VPSHLDVWZmk = 18935
+
+    VPSHLDVWZmkz = 18936
+
+    VPSHLDVWZr = 18937
+
+    VPSHLDVWZrk = 18938
+
+    VPSHLDVWZrkz = 18939
+
+    VPSHLDWZ128rmi = 18940
+
+    VPSHLDWZ128rmik = 18941
+
+    VPSHLDWZ128rmikz = 18942
+
+    VPSHLDWZ128rri = 18943
+
+    VPSHLDWZ128rrik = 18944
+
+    VPSHLDWZ128rrikz = 18945
+
+    VPSHLDWZ256rmi = 18946
+
+    VPSHLDWZ256rmik = 18947
+
+    VPSHLDWZ256rmikz = 18948
+
+    VPSHLDWZ256rri = 18949
+
+    VPSHLDWZ256rrik = 18950
+
+    VPSHLDWZ256rrikz = 18951
+
+    VPSHLDWZrmi = 18952
+
+    VPSHLDWZrmik = 18953
+
+    VPSHLDWZrmikz = 18954
+
+    VPSHLDWZrri = 18955
+
+    VPSHLDWZrrik = 18956
+
+    VPSHLDWZrrikz = 18957
+
+    VPSHLDmr = 18958
+
+    VPSHLDrm = 18959
+
+    VPSHLDrr = 18960
+
+    VPSHLDrr_REV = 18961
+
+    VPSHLQmr = 18962
+
+    VPSHLQrm = 18963
+
+    VPSHLQrr = 18964
+
+    VPSHLQrr_REV = 18965
+
+    VPSHLWmr = 18966
+
+    VPSHLWrm = 18967
+
+    VPSHLWrr = 18968
+
+    VPSHLWrr_REV = 18969
+
+    VPSHRDDZ128rmbi = 18970
+
+    VPSHRDDZ128rmbik = 18971
+
+    VPSHRDDZ128rmbikz = 18972
+
+    VPSHRDDZ128rmi = 18973
+
+    VPSHRDDZ128rmik = 18974
+
+    VPSHRDDZ128rmikz = 18975
+
+    VPSHRDDZ128rri = 18976
+
+    VPSHRDDZ128rrik = 18977
+
+    VPSHRDDZ128rrikz = 18978
+
+    VPSHRDDZ256rmbi = 18979
+
+    VPSHRDDZ256rmbik = 18980
+
+    VPSHRDDZ256rmbikz = 18981
+
+    VPSHRDDZ256rmi = 18982
+
+    VPSHRDDZ256rmik = 18983
+
+    VPSHRDDZ256rmikz = 18984
+
+    VPSHRDDZ256rri = 18985
+
+    VPSHRDDZ256rrik = 18986
+
+    VPSHRDDZ256rrikz = 18987
+
+    VPSHRDDZrmbi = 18988
+
+    VPSHRDDZrmbik = 18989
+
+    VPSHRDDZrmbikz = 18990
+
+    VPSHRDDZrmi = 18991
+
+    VPSHRDDZrmik = 18992
+
+    VPSHRDDZrmikz = 18993
+
+    VPSHRDDZrri = 18994
+
+    VPSHRDDZrrik = 18995
+
+    VPSHRDDZrrikz = 18996
+
+    VPSHRDQZ128rmbi = 18997
+
+    VPSHRDQZ128rmbik = 18998
+
+    VPSHRDQZ128rmbikz = 18999
+
+    VPSHRDQZ128rmi = 19000
+
+    VPSHRDQZ128rmik = 19001
+
+    VPSHRDQZ128rmikz = 19002
+
+    VPSHRDQZ128rri = 19003
+
+    VPSHRDQZ128rrik = 19004
+
+    VPSHRDQZ128rrikz = 19005
+
+    VPSHRDQZ256rmbi = 19006
+
+    VPSHRDQZ256rmbik = 19007
+
+    VPSHRDQZ256rmbikz = 19008
+
+    VPSHRDQZ256rmi = 19009
+
+    VPSHRDQZ256rmik = 19010
+
+    VPSHRDQZ256rmikz = 19011
+
+    VPSHRDQZ256rri = 19012
+
+    VPSHRDQZ256rrik = 19013
+
+    VPSHRDQZ256rrikz = 19014
+
+    VPSHRDQZrmbi = 19015
+
+    VPSHRDQZrmbik = 19016
+
+    VPSHRDQZrmbikz = 19017
+
+    VPSHRDQZrmi = 19018
+
+    VPSHRDQZrmik = 19019
+
+    VPSHRDQZrmikz = 19020
+
+    VPSHRDQZrri = 19021
+
+    VPSHRDQZrrik = 19022
+
+    VPSHRDQZrrikz = 19023
+
+    VPSHRDVDZ128m = 19024
+
+    VPSHRDVDZ128mb = 19025
+
+    VPSHRDVDZ128mbk = 19026
+
+    VPSHRDVDZ128mbkz = 19027
+
+    VPSHRDVDZ128mk = 19028
+
+    VPSHRDVDZ128mkz = 19029
+
+    VPSHRDVDZ128r = 19030
+
+    VPSHRDVDZ128rk = 19031
+
+    VPSHRDVDZ128rkz = 19032
+
+    VPSHRDVDZ256m = 19033
+
+    VPSHRDVDZ256mb = 19034
+
+    VPSHRDVDZ256mbk = 19035
+
+    VPSHRDVDZ256mbkz = 19036
+
+    VPSHRDVDZ256mk = 19037
+
+    VPSHRDVDZ256mkz = 19038
+
+    VPSHRDVDZ256r = 19039
+
+    VPSHRDVDZ256rk = 19040
+
+    VPSHRDVDZ256rkz = 19041
+
+    VPSHRDVDZm = 19042
+
+    VPSHRDVDZmb = 19043
+
+    VPSHRDVDZmbk = 19044
+
+    VPSHRDVDZmbkz = 19045
+
+    VPSHRDVDZmk = 19046
+
+    VPSHRDVDZmkz = 19047
+
+    VPSHRDVDZr = 19048
+
+    VPSHRDVDZrk = 19049
+
+    VPSHRDVDZrkz = 19050
+
+    VPSHRDVQZ128m = 19051
+
+    VPSHRDVQZ128mb = 19052
+
+    VPSHRDVQZ128mbk = 19053
+
+    VPSHRDVQZ128mbkz = 19054
+
+    VPSHRDVQZ128mk = 19055
+
+    VPSHRDVQZ128mkz = 19056
+
+    VPSHRDVQZ128r = 19057
+
+    VPSHRDVQZ128rk = 19058
+
+    VPSHRDVQZ128rkz = 19059
+
+    VPSHRDVQZ256m = 19060
+
+    VPSHRDVQZ256mb = 19061
+
+    VPSHRDVQZ256mbk = 19062
+
+    VPSHRDVQZ256mbkz = 19063
+
+    VPSHRDVQZ256mk = 19064
+
+    VPSHRDVQZ256mkz = 19065
+
+    VPSHRDVQZ256r = 19066
+
+    VPSHRDVQZ256rk = 19067
+
+    VPSHRDVQZ256rkz = 19068
+
+    VPSHRDVQZm = 19069
+
+    VPSHRDVQZmb = 19070
+
+    VPSHRDVQZmbk = 19071
+
+    VPSHRDVQZmbkz = 19072
+
+    VPSHRDVQZmk = 19073
+
+    VPSHRDVQZmkz = 19074
+
+    VPSHRDVQZr = 19075
+
+    VPSHRDVQZrk = 19076
+
+    VPSHRDVQZrkz = 19077
+
+    VPSHRDVWZ128m = 19078
+
+    VPSHRDVWZ128mk = 19079
+
+    VPSHRDVWZ128mkz = 19080
+
+    VPSHRDVWZ128r = 19081
+
+    VPSHRDVWZ128rk = 19082
+
+    VPSHRDVWZ128rkz = 19083
+
+    VPSHRDVWZ256m = 19084
+
+    VPSHRDVWZ256mk = 19085
+
+    VPSHRDVWZ256mkz = 19086
+
+    VPSHRDVWZ256r = 19087
+
+    VPSHRDVWZ256rk = 19088
+
+    VPSHRDVWZ256rkz = 19089
+
+    VPSHRDVWZm = 19090
+
+    VPSHRDVWZmk = 19091
+
+    VPSHRDVWZmkz = 19092
+
+    VPSHRDVWZr = 19093
+
+    VPSHRDVWZrk = 19094
+
+    VPSHRDVWZrkz = 19095
+
+    VPSHRDWZ128rmi = 19096
+
+    VPSHRDWZ128rmik = 19097
+
+    VPSHRDWZ128rmikz = 19098
+
+    VPSHRDWZ128rri = 19099
+
+    VPSHRDWZ128rrik = 19100
+
+    VPSHRDWZ128rrikz = 19101
+
+    VPSHRDWZ256rmi = 19102
+
+    VPSHRDWZ256rmik = 19103
+
+    VPSHRDWZ256rmikz = 19104
+
+    VPSHRDWZ256rri = 19105
+
+    VPSHRDWZ256rrik = 19106
+
+    VPSHRDWZ256rrikz = 19107
+
+    VPSHRDWZrmi = 19108
+
+    VPSHRDWZrmik = 19109
+
+    VPSHRDWZrmikz = 19110
+
+    VPSHRDWZrri = 19111
+
+    VPSHRDWZrrik = 19112
+
+    VPSHRDWZrrikz = 19113
+
+    VPSHUFBITQMBZ128rm = 19114
+
+    VPSHUFBITQMBZ128rmk = 19115
+
+    VPSHUFBITQMBZ128rr = 19116
+
+    VPSHUFBITQMBZ128rrk = 19117
+
+    VPSHUFBITQMBZ256rm = 19118
+
+    VPSHUFBITQMBZ256rmk = 19119
+
+    VPSHUFBITQMBZ256rr = 19120
+
+    VPSHUFBITQMBZ256rrk = 19121
+
+    VPSHUFBITQMBZrm = 19122
+
+    VPSHUFBITQMBZrmk = 19123
+
+    VPSHUFBITQMBZrr = 19124
+
+    VPSHUFBITQMBZrrk = 19125
+
+    VPSHUFBYrm = 19126
+
+    VPSHUFBYrr = 19127
+
+    VPSHUFBZ128rm = 19128
+
+    VPSHUFBZ128rmk = 19129
+
+    VPSHUFBZ128rmkz = 19130
+
+    VPSHUFBZ128rr = 19131
+
+    VPSHUFBZ128rrk = 19132
+
+    VPSHUFBZ128rrkz = 19133
+
+    VPSHUFBZ256rm = 19134
+
+    VPSHUFBZ256rmk = 19135
+
+    VPSHUFBZ256rmkz = 19136
+
+    VPSHUFBZ256rr = 19137
+
+    VPSHUFBZ256rrk = 19138
+
+    VPSHUFBZ256rrkz = 19139
+
+    VPSHUFBZrm = 19140
+
+    VPSHUFBZrmk = 19141
+
+    VPSHUFBZrmkz = 19142
+
+    VPSHUFBZrr = 19143
+
+    VPSHUFBZrrk = 19144
+
+    VPSHUFBZrrkz = 19145
+
+    VPSHUFBrm = 19146
+
+    VPSHUFBrr = 19147
+
+    VPSHUFDYmi = 19148
+
+    VPSHUFDYri = 19149
+
+    VPSHUFDZ128mbi = 19150
+
+    VPSHUFDZ128mbik = 19151
+
+    VPSHUFDZ128mbikz = 19152
+
+    VPSHUFDZ128mi = 19153
+
+    VPSHUFDZ128mik = 19154
+
+    VPSHUFDZ128mikz = 19155
+
+    VPSHUFDZ128ri = 19156
+
+    VPSHUFDZ128rik = 19157
+
+    VPSHUFDZ128rikz = 19158
+
+    VPSHUFDZ256mbi = 19159
+
+    VPSHUFDZ256mbik = 19160
+
+    VPSHUFDZ256mbikz = 19161
+
+    VPSHUFDZ256mi = 19162
+
+    VPSHUFDZ256mik = 19163
+
+    VPSHUFDZ256mikz = 19164
+
+    VPSHUFDZ256ri = 19165
+
+    VPSHUFDZ256rik = 19166
+
+    VPSHUFDZ256rikz = 19167
+
+    VPSHUFDZmbi = 19168
+
+    VPSHUFDZmbik = 19169
+
+    VPSHUFDZmbikz = 19170
+
+    VPSHUFDZmi = 19171
+
+    VPSHUFDZmik = 19172
+
+    VPSHUFDZmikz = 19173
+
+    VPSHUFDZri = 19174
+
+    VPSHUFDZrik = 19175
+
+    VPSHUFDZrikz = 19176
+
+    VPSHUFDmi = 19177
+
+    VPSHUFDri = 19178
+
+    VPSHUFHWYmi = 19179
+
+    VPSHUFHWYri = 19180
+
+    VPSHUFHWZ128mi = 19181
+
+    VPSHUFHWZ128mik = 19182
+
+    VPSHUFHWZ128mikz = 19183
+
+    VPSHUFHWZ128ri = 19184
+
+    VPSHUFHWZ128rik = 19185
+
+    VPSHUFHWZ128rikz = 19186
+
+    VPSHUFHWZ256mi = 19187
+
+    VPSHUFHWZ256mik = 19188
+
+    VPSHUFHWZ256mikz = 19189
+
+    VPSHUFHWZ256ri = 19190
+
+    VPSHUFHWZ256rik = 19191
+
+    VPSHUFHWZ256rikz = 19192
+
+    VPSHUFHWZmi = 19193
+
+    VPSHUFHWZmik = 19194
+
+    VPSHUFHWZmikz = 19195
+
+    VPSHUFHWZri = 19196
+
+    VPSHUFHWZrik = 19197
+
+    VPSHUFHWZrikz = 19198
+
+    VPSHUFHWmi = 19199
+
+    VPSHUFHWri = 19200
+
+    VPSHUFLWYmi = 19201
+
+    VPSHUFLWYri = 19202
+
+    VPSHUFLWZ128mi = 19203
+
+    VPSHUFLWZ128mik = 19204
+
+    VPSHUFLWZ128mikz = 19205
+
+    VPSHUFLWZ128ri = 19206
+
+    VPSHUFLWZ128rik = 19207
+
+    VPSHUFLWZ128rikz = 19208
+
+    VPSHUFLWZ256mi = 19209
+
+    VPSHUFLWZ256mik = 19210
+
+    VPSHUFLWZ256mikz = 19211
+
+    VPSHUFLWZ256ri = 19212
+
+    VPSHUFLWZ256rik = 19213
+
+    VPSHUFLWZ256rikz = 19214
+
+    VPSHUFLWZmi = 19215
+
+    VPSHUFLWZmik = 19216
+
+    VPSHUFLWZmikz = 19217
+
+    VPSHUFLWZri = 19218
+
+    VPSHUFLWZrik = 19219
+
+    VPSHUFLWZrikz = 19220
+
+    VPSHUFLWmi = 19221
+
+    VPSHUFLWri = 19222
+
+    VPSIGNBYrm = 19223
+
+    VPSIGNBYrr = 19224
+
+    VPSIGNBrm = 19225
+
+    VPSIGNBrr = 19226
+
+    VPSIGNDYrm = 19227
+
+    VPSIGNDYrr = 19228
+
+    VPSIGNDrm = 19229
+
+    VPSIGNDrr = 19230
+
+    VPSIGNWYrm = 19231
+
+    VPSIGNWYrr = 19232
+
+    VPSIGNWrm = 19233
+
+    VPSIGNWrr = 19234
+
+    VPSLLDQYri = 19235
+
+    VPSLLDQZ128mi = 19236
+
+    VPSLLDQZ128ri = 19237
+
+    VPSLLDQZ256mi = 19238
+
+    VPSLLDQZ256ri = 19239
+
+    VPSLLDQZmi = 19240
+
+    VPSLLDQZri = 19241
+
+    VPSLLDQri = 19242
+
+    VPSLLDYri = 19243
+
+    VPSLLDYrm = 19244
+
+    VPSLLDYrr = 19245
+
+    VPSLLDZ128mbi = 19246
+
+    VPSLLDZ128mbik = 19247
+
+    VPSLLDZ128mbikz = 19248
+
+    VPSLLDZ128mi = 19249
+
+    VPSLLDZ128mik = 19250
+
+    VPSLLDZ128mikz = 19251
+
+    VPSLLDZ128ri = 19252
+
+    VPSLLDZ128rik = 19253
+
+    VPSLLDZ128rikz = 19254
+
+    VPSLLDZ128rm = 19255
+
+    VPSLLDZ128rmk = 19256
+
+    VPSLLDZ128rmkz = 19257
+
+    VPSLLDZ128rr = 19258
+
+    VPSLLDZ128rrk = 19259
+
+    VPSLLDZ128rrkz = 19260
+
+    VPSLLDZ256mbi = 19261
+
+    VPSLLDZ256mbik = 19262
+
+    VPSLLDZ256mbikz = 19263
+
+    VPSLLDZ256mi = 19264
+
+    VPSLLDZ256mik = 19265
+
+    VPSLLDZ256mikz = 19266
+
+    VPSLLDZ256ri = 19267
+
+    VPSLLDZ256rik = 19268
+
+    VPSLLDZ256rikz = 19269
+
+    VPSLLDZ256rm = 19270
+
+    VPSLLDZ256rmk = 19271
+
+    VPSLLDZ256rmkz = 19272
+
+    VPSLLDZ256rr = 19273
+
+    VPSLLDZ256rrk = 19274
+
+    VPSLLDZ256rrkz = 19275
+
+    VPSLLDZmbi = 19276
+
+    VPSLLDZmbik = 19277
+
+    VPSLLDZmbikz = 19278
+
+    VPSLLDZmi = 19279
+
+    VPSLLDZmik = 19280
+
+    VPSLLDZmikz = 19281
+
+    VPSLLDZri = 19282
+
+    VPSLLDZrik = 19283
+
+    VPSLLDZrikz = 19284
+
+    VPSLLDZrm = 19285
+
+    VPSLLDZrmk = 19286
+
+    VPSLLDZrmkz = 19287
+
+    VPSLLDZrr = 19288
+
+    VPSLLDZrrk = 19289
+
+    VPSLLDZrrkz = 19290
+
+    VPSLLDri = 19291
+
+    VPSLLDrm = 19292
+
+    VPSLLDrr = 19293
+
+    VPSLLQYri = 19294
+
+    VPSLLQYrm = 19295
+
+    VPSLLQYrr = 19296
+
+    VPSLLQZ128mbi = 19297
+
+    VPSLLQZ128mbik = 19298
+
+    VPSLLQZ128mbikz = 19299
+
+    VPSLLQZ128mi = 19300
+
+    VPSLLQZ128mik = 19301
+
+    VPSLLQZ128mikz = 19302
+
+    VPSLLQZ128ri = 19303
+
+    VPSLLQZ128rik = 19304
+
+    VPSLLQZ128rikz = 19305
+
+    VPSLLQZ128rm = 19306
+
+    VPSLLQZ128rmk = 19307
+
+    VPSLLQZ128rmkz = 19308
+
+    VPSLLQZ128rr = 19309
+
+    VPSLLQZ128rrk = 19310
+
+    VPSLLQZ128rrkz = 19311
+
+    VPSLLQZ256mbi = 19312
+
+    VPSLLQZ256mbik = 19313
+
+    VPSLLQZ256mbikz = 19314
+
+    VPSLLQZ256mi = 19315
+
+    VPSLLQZ256mik = 19316
+
+    VPSLLQZ256mikz = 19317
+
+    VPSLLQZ256ri = 19318
+
+    VPSLLQZ256rik = 19319
+
+    VPSLLQZ256rikz = 19320
+
+    VPSLLQZ256rm = 19321
+
+    VPSLLQZ256rmk = 19322
+
+    VPSLLQZ256rmkz = 19323
+
+    VPSLLQZ256rr = 19324
+
+    VPSLLQZ256rrk = 19325
+
+    VPSLLQZ256rrkz = 19326
+
+    VPSLLQZmbi = 19327
+
+    VPSLLQZmbik = 19328
+
+    VPSLLQZmbikz = 19329
+
+    VPSLLQZmi = 19330
+
+    VPSLLQZmik = 19331
+
+    VPSLLQZmikz = 19332
+
+    VPSLLQZri = 19333
+
+    VPSLLQZrik = 19334
+
+    VPSLLQZrikz = 19335
+
+    VPSLLQZrm = 19336
+
+    VPSLLQZrmk = 19337
+
+    VPSLLQZrmkz = 19338
+
+    VPSLLQZrr = 19339
+
+    VPSLLQZrrk = 19340
+
+    VPSLLQZrrkz = 19341
+
+    VPSLLQri = 19342
+
+    VPSLLQrm = 19343
+
+    VPSLLQrr = 19344
+
+    VPSLLVDYrm = 19345
+
+    VPSLLVDYrr = 19346
+
+    VPSLLVDZ128rm = 19347
+
+    VPSLLVDZ128rmb = 19348
+
+    VPSLLVDZ128rmbk = 19349
+
+    VPSLLVDZ128rmbkz = 19350
+
+    VPSLLVDZ128rmk = 19351
+
+    VPSLLVDZ128rmkz = 19352
+
+    VPSLLVDZ128rr = 19353
+
+    VPSLLVDZ128rrk = 19354
+
+    VPSLLVDZ128rrkz = 19355
+
+    VPSLLVDZ256rm = 19356
+
+    VPSLLVDZ256rmb = 19357
+
+    VPSLLVDZ256rmbk = 19358
+
+    VPSLLVDZ256rmbkz = 19359
+
+    VPSLLVDZ256rmk = 19360
+
+    VPSLLVDZ256rmkz = 19361
+
+    VPSLLVDZ256rr = 19362
+
+    VPSLLVDZ256rrk = 19363
+
+    VPSLLVDZ256rrkz = 19364
+
+    VPSLLVDZrm = 19365
+
+    VPSLLVDZrmb = 19366
+
+    VPSLLVDZrmbk = 19367
+
+    VPSLLVDZrmbkz = 19368
+
+    VPSLLVDZrmk = 19369
+
+    VPSLLVDZrmkz = 19370
+
+    VPSLLVDZrr = 19371
+
+    VPSLLVDZrrk = 19372
+
+    VPSLLVDZrrkz = 19373
+
+    VPSLLVDrm = 19374
+
+    VPSLLVDrr = 19375
+
+    VPSLLVQYrm = 19376
+
+    VPSLLVQYrr = 19377
+
+    VPSLLVQZ128rm = 19378
+
+    VPSLLVQZ128rmb = 19379
+
+    VPSLLVQZ128rmbk = 19380
+
+    VPSLLVQZ128rmbkz = 19381
+
+    VPSLLVQZ128rmk = 19382
+
+    VPSLLVQZ128rmkz = 19383
+
+    VPSLLVQZ128rr = 19384
+
+    VPSLLVQZ128rrk = 19385
+
+    VPSLLVQZ128rrkz = 19386
+
+    VPSLLVQZ256rm = 19387
+
+    VPSLLVQZ256rmb = 19388
+
+    VPSLLVQZ256rmbk = 19389
+
+    VPSLLVQZ256rmbkz = 19390
+
+    VPSLLVQZ256rmk = 19391
+
+    VPSLLVQZ256rmkz = 19392
+
+    VPSLLVQZ256rr = 19393
+
+    VPSLLVQZ256rrk = 19394
+
+    VPSLLVQZ256rrkz = 19395
+
+    VPSLLVQZrm = 19396
+
+    VPSLLVQZrmb = 19397
+
+    VPSLLVQZrmbk = 19398
+
+    VPSLLVQZrmbkz = 19399
+
+    VPSLLVQZrmk = 19400
+
+    VPSLLVQZrmkz = 19401
+
+    VPSLLVQZrr = 19402
+
+    VPSLLVQZrrk = 19403
+
+    VPSLLVQZrrkz = 19404
+
+    VPSLLVQrm = 19405
+
+    VPSLLVQrr = 19406
+
+    VPSLLVWZ128rm = 19407
+
+    VPSLLVWZ128rmk = 19408
+
+    VPSLLVWZ128rmkz = 19409
+
+    VPSLLVWZ128rr = 19410
+
+    VPSLLVWZ128rrk = 19411
+
+    VPSLLVWZ128rrkz = 19412
+
+    VPSLLVWZ256rm = 19413
+
+    VPSLLVWZ256rmk = 19414
+
+    VPSLLVWZ256rmkz = 19415
+
+    VPSLLVWZ256rr = 19416
+
+    VPSLLVWZ256rrk = 19417
+
+    VPSLLVWZ256rrkz = 19418
+
+    VPSLLVWZrm = 19419
+
+    VPSLLVWZrmk = 19420
+
+    VPSLLVWZrmkz = 19421
+
+    VPSLLVWZrr = 19422
+
+    VPSLLVWZrrk = 19423
+
+    VPSLLVWZrrkz = 19424
+
+    VPSLLWYri = 19425
+
+    VPSLLWYrm = 19426
+
+    VPSLLWYrr = 19427
+
+    VPSLLWZ128mi = 19428
+
+    VPSLLWZ128mik = 19429
+
+    VPSLLWZ128mikz = 19430
+
+    VPSLLWZ128ri = 19431
+
+    VPSLLWZ128rik = 19432
+
+    VPSLLWZ128rikz = 19433
+
+    VPSLLWZ128rm = 19434
+
+    VPSLLWZ128rmk = 19435
+
+    VPSLLWZ128rmkz = 19436
+
+    VPSLLWZ128rr = 19437
+
+    VPSLLWZ128rrk = 19438
+
+    VPSLLWZ128rrkz = 19439
+
+    VPSLLWZ256mi = 19440
+
+    VPSLLWZ256mik = 19441
+
+    VPSLLWZ256mikz = 19442
+
+    VPSLLWZ256ri = 19443
+
+    VPSLLWZ256rik = 19444
+
+    VPSLLWZ256rikz = 19445
+
+    VPSLLWZ256rm = 19446
+
+    VPSLLWZ256rmk = 19447
+
+    VPSLLWZ256rmkz = 19448
+
+    VPSLLWZ256rr = 19449
+
+    VPSLLWZ256rrk = 19450
+
+    VPSLLWZ256rrkz = 19451
+
+    VPSLLWZmi = 19452
+
+    VPSLLWZmik = 19453
+
+    VPSLLWZmikz = 19454
+
+    VPSLLWZri = 19455
+
+    VPSLLWZrik = 19456
+
+    VPSLLWZrikz = 19457
+
+    VPSLLWZrm = 19458
+
+    VPSLLWZrmk = 19459
+
+    VPSLLWZrmkz = 19460
+
+    VPSLLWZrr = 19461
+
+    VPSLLWZrrk = 19462
+
+    VPSLLWZrrkz = 19463
+
+    VPSLLWri = 19464
+
+    VPSLLWrm = 19465
+
+    VPSLLWrr = 19466
+
+    VPSRADYri = 19467
+
+    VPSRADYrm = 19468
+
+    VPSRADYrr = 19469
+
+    VPSRADZ128mbi = 19470
+
+    VPSRADZ128mbik = 19471
+
+    VPSRADZ128mbikz = 19472
+
+    VPSRADZ128mi = 19473
+
+    VPSRADZ128mik = 19474
+
+    VPSRADZ128mikz = 19475
+
+    VPSRADZ128ri = 19476
+
+    VPSRADZ128rik = 19477
+
+    VPSRADZ128rikz = 19478
+
+    VPSRADZ128rm = 19479
+
+    VPSRADZ128rmk = 19480
+
+    VPSRADZ128rmkz = 19481
+
+    VPSRADZ128rr = 19482
+
+    VPSRADZ128rrk = 19483
+
+    VPSRADZ128rrkz = 19484
+
+    VPSRADZ256mbi = 19485
+
+    VPSRADZ256mbik = 19486
+
+    VPSRADZ256mbikz = 19487
+
+    VPSRADZ256mi = 19488
+
+    VPSRADZ256mik = 19489
+
+    VPSRADZ256mikz = 19490
+
+    VPSRADZ256ri = 19491
+
+    VPSRADZ256rik = 19492
+
+    VPSRADZ256rikz = 19493
+
+    VPSRADZ256rm = 19494
+
+    VPSRADZ256rmk = 19495
+
+    VPSRADZ256rmkz = 19496
+
+    VPSRADZ256rr = 19497
+
+    VPSRADZ256rrk = 19498
+
+    VPSRADZ256rrkz = 19499
+
+    VPSRADZmbi = 19500
+
+    VPSRADZmbik = 19501
+
+    VPSRADZmbikz = 19502
+
+    VPSRADZmi = 19503
+
+    VPSRADZmik = 19504
+
+    VPSRADZmikz = 19505
+
+    VPSRADZri = 19506
+
+    VPSRADZrik = 19507
+
+    VPSRADZrikz = 19508
+
+    VPSRADZrm = 19509
+
+    VPSRADZrmk = 19510
+
+    VPSRADZrmkz = 19511
+
+    VPSRADZrr = 19512
+
+    VPSRADZrrk = 19513
+
+    VPSRADZrrkz = 19514
+
+    VPSRADri = 19515
+
+    VPSRADrm = 19516
+
+    VPSRADrr = 19517
+
+    VPSRAQZ128mbi = 19518
+
+    VPSRAQZ128mbik = 19519
+
+    VPSRAQZ128mbikz = 19520
+
+    VPSRAQZ128mi = 19521
+
+    VPSRAQZ128mik = 19522
+
+    VPSRAQZ128mikz = 19523
+
+    VPSRAQZ128ri = 19524
+
+    VPSRAQZ128rik = 19525
+
+    VPSRAQZ128rikz = 19526
+
+    VPSRAQZ128rm = 19527
+
+    VPSRAQZ128rmk = 19528
+
+    VPSRAQZ128rmkz = 19529
+
+    VPSRAQZ128rr = 19530
+
+    VPSRAQZ128rrk = 19531
+
+    VPSRAQZ128rrkz = 19532
+
+    VPSRAQZ256mbi = 19533
+
+    VPSRAQZ256mbik = 19534
+
+    VPSRAQZ256mbikz = 19535
+
+    VPSRAQZ256mi = 19536
+
+    VPSRAQZ256mik = 19537
+
+    VPSRAQZ256mikz = 19538
+
+    VPSRAQZ256ri = 19539
+
+    VPSRAQZ256rik = 19540
+
+    VPSRAQZ256rikz = 19541
+
+    VPSRAQZ256rm = 19542
+
+    VPSRAQZ256rmk = 19543
+
+    VPSRAQZ256rmkz = 19544
+
+    VPSRAQZ256rr = 19545
+
+    VPSRAQZ256rrk = 19546
+
+    VPSRAQZ256rrkz = 19547
+
+    VPSRAQZmbi = 19548
+
+    VPSRAQZmbik = 19549
+
+    VPSRAQZmbikz = 19550
+
+    VPSRAQZmi = 19551
+
+    VPSRAQZmik = 19552
+
+    VPSRAQZmikz = 19553
+
+    VPSRAQZri = 19554
+
+    VPSRAQZrik = 19555
+
+    VPSRAQZrikz = 19556
+
+    VPSRAQZrm = 19557
+
+    VPSRAQZrmk = 19558
+
+    VPSRAQZrmkz = 19559
+
+    VPSRAQZrr = 19560
+
+    VPSRAQZrrk = 19561
+
+    VPSRAQZrrkz = 19562
+
+    VPSRAVDYrm = 19563
+
+    VPSRAVDYrr = 19564
+
+    VPSRAVDZ128rm = 19565
+
+    VPSRAVDZ128rmb = 19566
+
+    VPSRAVDZ128rmbk = 19567
+
+    VPSRAVDZ128rmbkz = 19568
+
+    VPSRAVDZ128rmk = 19569
+
+    VPSRAVDZ128rmkz = 19570
+
+    VPSRAVDZ128rr = 19571
+
+    VPSRAVDZ128rrk = 19572
+
+    VPSRAVDZ128rrkz = 19573
+
+    VPSRAVDZ256rm = 19574
+
+    VPSRAVDZ256rmb = 19575
+
+    VPSRAVDZ256rmbk = 19576
+
+    VPSRAVDZ256rmbkz = 19577
+
+    VPSRAVDZ256rmk = 19578
+
+    VPSRAVDZ256rmkz = 19579
+
+    VPSRAVDZ256rr = 19580
+
+    VPSRAVDZ256rrk = 19581
+
+    VPSRAVDZ256rrkz = 19582
+
+    VPSRAVDZrm = 19583
+
+    VPSRAVDZrmb = 19584
+
+    VPSRAVDZrmbk = 19585
+
+    VPSRAVDZrmbkz = 19586
+
+    VPSRAVDZrmk = 19587
+
+    VPSRAVDZrmkz = 19588
+
+    VPSRAVDZrr = 19589
+
+    VPSRAVDZrrk = 19590
+
+    VPSRAVDZrrkz = 19591
+
+    VPSRAVDrm = 19592
+
+    VPSRAVDrr = 19593
+
+    VPSRAVQZ128rm = 19594
+
+    VPSRAVQZ128rmb = 19595
+
+    VPSRAVQZ128rmbk = 19596
+
+    VPSRAVQZ128rmbkz = 19597
+
+    VPSRAVQZ128rmk = 19598
+
+    VPSRAVQZ128rmkz = 19599
+
+    VPSRAVQZ128rr = 19600
+
+    VPSRAVQZ128rrk = 19601
+
+    VPSRAVQZ128rrkz = 19602
+
+    VPSRAVQZ256rm = 19603
+
+    VPSRAVQZ256rmb = 19604
+
+    VPSRAVQZ256rmbk = 19605
+
+    VPSRAVQZ256rmbkz = 19606
+
+    VPSRAVQZ256rmk = 19607
+
+    VPSRAVQZ256rmkz = 19608
+
+    VPSRAVQZ256rr = 19609
+
+    VPSRAVQZ256rrk = 19610
+
+    VPSRAVQZ256rrkz = 19611
+
+    VPSRAVQZrm = 19612
+
+    VPSRAVQZrmb = 19613
+
+    VPSRAVQZrmbk = 19614
+
+    VPSRAVQZrmbkz = 19615
+
+    VPSRAVQZrmk = 19616
+
+    VPSRAVQZrmkz = 19617
+
+    VPSRAVQZrr = 19618
+
+    VPSRAVQZrrk = 19619
+
+    VPSRAVQZrrkz = 19620
+
+    VPSRAVWZ128rm = 19621
+
+    VPSRAVWZ128rmk = 19622
+
+    VPSRAVWZ128rmkz = 19623
+
+    VPSRAVWZ128rr = 19624
+
+    VPSRAVWZ128rrk = 19625
+
+    VPSRAVWZ128rrkz = 19626
+
+    VPSRAVWZ256rm = 19627
+
+    VPSRAVWZ256rmk = 19628
+
+    VPSRAVWZ256rmkz = 19629
+
+    VPSRAVWZ256rr = 19630
+
+    VPSRAVWZ256rrk = 19631
+
+    VPSRAVWZ256rrkz = 19632
+
+    VPSRAVWZrm = 19633
+
+    VPSRAVWZrmk = 19634
+
+    VPSRAVWZrmkz = 19635
+
+    VPSRAVWZrr = 19636
+
+    VPSRAVWZrrk = 19637
+
+    VPSRAVWZrrkz = 19638
+
+    VPSRAWYri = 19639
+
+    VPSRAWYrm = 19640
+
+    VPSRAWYrr = 19641
+
+    VPSRAWZ128mi = 19642
+
+    VPSRAWZ128mik = 19643
+
+    VPSRAWZ128mikz = 19644
+
+    VPSRAWZ128ri = 19645
+
+    VPSRAWZ128rik = 19646
+
+    VPSRAWZ128rikz = 19647
+
+    VPSRAWZ128rm = 19648
+
+    VPSRAWZ128rmk = 19649
+
+    VPSRAWZ128rmkz = 19650
+
+    VPSRAWZ128rr = 19651
+
+    VPSRAWZ128rrk = 19652
+
+    VPSRAWZ128rrkz = 19653
+
+    VPSRAWZ256mi = 19654
+
+    VPSRAWZ256mik = 19655
+
+    VPSRAWZ256mikz = 19656
+
+    VPSRAWZ256ri = 19657
+
+    VPSRAWZ256rik = 19658
+
+    VPSRAWZ256rikz = 19659
+
+    VPSRAWZ256rm = 19660
+
+    VPSRAWZ256rmk = 19661
+
+    VPSRAWZ256rmkz = 19662
+
+    VPSRAWZ256rr = 19663
+
+    VPSRAWZ256rrk = 19664
+
+    VPSRAWZ256rrkz = 19665
+
+    VPSRAWZmi = 19666
+
+    VPSRAWZmik = 19667
+
+    VPSRAWZmikz = 19668
+
+    VPSRAWZri = 19669
+
+    VPSRAWZrik = 19670
+
+    VPSRAWZrikz = 19671
+
+    VPSRAWZrm = 19672
+
+    VPSRAWZrmk = 19673
+
+    VPSRAWZrmkz = 19674
+
+    VPSRAWZrr = 19675
+
+    VPSRAWZrrk = 19676
+
+    VPSRAWZrrkz = 19677
+
+    VPSRAWri = 19678
+
+    VPSRAWrm = 19679
+
+    VPSRAWrr = 19680
+
+    VPSRLDQYri = 19681
+
+    VPSRLDQZ128mi = 19682
+
+    VPSRLDQZ128ri = 19683
+
+    VPSRLDQZ256mi = 19684
+
+    VPSRLDQZ256ri = 19685
+
+    VPSRLDQZmi = 19686
+
+    VPSRLDQZri = 19687
+
+    VPSRLDQri = 19688
+
+    VPSRLDYri = 19689
+
+    VPSRLDYrm = 19690
+
+    VPSRLDYrr = 19691
+
+    VPSRLDZ128mbi = 19692
+
+    VPSRLDZ128mbik = 19693
+
+    VPSRLDZ128mbikz = 19694
+
+    VPSRLDZ128mi = 19695
+
+    VPSRLDZ128mik = 19696
+
+    VPSRLDZ128mikz = 19697
+
+    VPSRLDZ128ri = 19698
+
+    VPSRLDZ128rik = 19699
+
+    VPSRLDZ128rikz = 19700
+
+    VPSRLDZ128rm = 19701
+
+    VPSRLDZ128rmk = 19702
+
+    VPSRLDZ128rmkz = 19703
+
+    VPSRLDZ128rr = 19704
+
+    VPSRLDZ128rrk = 19705
+
+    VPSRLDZ128rrkz = 19706
+
+    VPSRLDZ256mbi = 19707
+
+    VPSRLDZ256mbik = 19708
+
+    VPSRLDZ256mbikz = 19709
+
+    VPSRLDZ256mi = 19710
+
+    VPSRLDZ256mik = 19711
+
+    VPSRLDZ256mikz = 19712
+
+    VPSRLDZ256ri = 19713
+
+    VPSRLDZ256rik = 19714
+
+    VPSRLDZ256rikz = 19715
+
+    VPSRLDZ256rm = 19716
+
+    VPSRLDZ256rmk = 19717
+
+    VPSRLDZ256rmkz = 19718
+
+    VPSRLDZ256rr = 19719
+
+    VPSRLDZ256rrk = 19720
+
+    VPSRLDZ256rrkz = 19721
+
+    VPSRLDZmbi = 19722
+
+    VPSRLDZmbik = 19723
+
+    VPSRLDZmbikz = 19724
+
+    VPSRLDZmi = 19725
+
+    VPSRLDZmik = 19726
+
+    VPSRLDZmikz = 19727
+
+    VPSRLDZri = 19728
+
+    VPSRLDZrik = 19729
+
+    VPSRLDZrikz = 19730
+
+    VPSRLDZrm = 19731
+
+    VPSRLDZrmk = 19732
+
+    VPSRLDZrmkz = 19733
+
+    VPSRLDZrr = 19734
+
+    VPSRLDZrrk = 19735
+
+    VPSRLDZrrkz = 19736
+
+    VPSRLDri = 19737
+
+    VPSRLDrm = 19738
+
+    VPSRLDrr = 19739
+
+    VPSRLQYri = 19740
+
+    VPSRLQYrm = 19741
+
+    VPSRLQYrr = 19742
+
+    VPSRLQZ128mbi = 19743
+
+    VPSRLQZ128mbik = 19744
+
+    VPSRLQZ128mbikz = 19745
+
+    VPSRLQZ128mi = 19746
+
+    VPSRLQZ128mik = 19747
+
+    VPSRLQZ128mikz = 19748
+
+    VPSRLQZ128ri = 19749
+
+    VPSRLQZ128rik = 19750
+
+    VPSRLQZ128rikz = 19751
+
+    VPSRLQZ128rm = 19752
+
+    VPSRLQZ128rmk = 19753
+
+    VPSRLQZ128rmkz = 19754
+
+    VPSRLQZ128rr = 19755
+
+    VPSRLQZ128rrk = 19756
+
+    VPSRLQZ128rrkz = 19757
+
+    VPSRLQZ256mbi = 19758
+
+    VPSRLQZ256mbik = 19759
+
+    VPSRLQZ256mbikz = 19760
+
+    VPSRLQZ256mi = 19761
+
+    VPSRLQZ256mik = 19762
+
+    VPSRLQZ256mikz = 19763
+
+    VPSRLQZ256ri = 19764
+
+    VPSRLQZ256rik = 19765
+
+    VPSRLQZ256rikz = 19766
+
+    VPSRLQZ256rm = 19767
+
+    VPSRLQZ256rmk = 19768
+
+    VPSRLQZ256rmkz = 19769
+
+    VPSRLQZ256rr = 19770
+
+    VPSRLQZ256rrk = 19771
+
+    VPSRLQZ256rrkz = 19772
+
+    VPSRLQZmbi = 19773
+
+    VPSRLQZmbik = 19774
+
+    VPSRLQZmbikz = 19775
+
+    VPSRLQZmi = 19776
+
+    VPSRLQZmik = 19777
+
+    VPSRLQZmikz = 19778
+
+    VPSRLQZri = 19779
+
+    VPSRLQZrik = 19780
+
+    VPSRLQZrikz = 19781
+
+    VPSRLQZrm = 19782
+
+    VPSRLQZrmk = 19783
+
+    VPSRLQZrmkz = 19784
+
+    VPSRLQZrr = 19785
+
+    VPSRLQZrrk = 19786
+
+    VPSRLQZrrkz = 19787
+
+    VPSRLQri = 19788
+
+    VPSRLQrm = 19789
+
+    VPSRLQrr = 19790
+
+    VPSRLVDYrm = 19791
+
+    VPSRLVDYrr = 19792
+
+    VPSRLVDZ128rm = 19793
+
+    VPSRLVDZ128rmb = 19794
+
+    VPSRLVDZ128rmbk = 19795
+
+    VPSRLVDZ128rmbkz = 19796
+
+    VPSRLVDZ128rmk = 19797
+
+    VPSRLVDZ128rmkz = 19798
+
+    VPSRLVDZ128rr = 19799
+
+    VPSRLVDZ128rrk = 19800
+
+    VPSRLVDZ128rrkz = 19801
+
+    VPSRLVDZ256rm = 19802
+
+    VPSRLVDZ256rmb = 19803
+
+    VPSRLVDZ256rmbk = 19804
+
+    VPSRLVDZ256rmbkz = 19805
+
+    VPSRLVDZ256rmk = 19806
+
+    VPSRLVDZ256rmkz = 19807
+
+    VPSRLVDZ256rr = 19808
+
+    VPSRLVDZ256rrk = 19809
+
+    VPSRLVDZ256rrkz = 19810
+
+    VPSRLVDZrm = 19811
+
+    VPSRLVDZrmb = 19812
+
+    VPSRLVDZrmbk = 19813
+
+    VPSRLVDZrmbkz = 19814
+
+    VPSRLVDZrmk = 19815
+
+    VPSRLVDZrmkz = 19816
+
+    VPSRLVDZrr = 19817
+
+    VPSRLVDZrrk = 19818
+
+    VPSRLVDZrrkz = 19819
+
+    VPSRLVDrm = 19820
+
+    VPSRLVDrr = 19821
+
+    VPSRLVQYrm = 19822
+
+    VPSRLVQYrr = 19823
+
+    VPSRLVQZ128rm = 19824
+
+    VPSRLVQZ128rmb = 19825
+
+    VPSRLVQZ128rmbk = 19826
+
+    VPSRLVQZ128rmbkz = 19827
+
+    VPSRLVQZ128rmk = 19828
+
+    VPSRLVQZ128rmkz = 19829
+
+    VPSRLVQZ128rr = 19830
+
+    VPSRLVQZ128rrk = 19831
+
+    VPSRLVQZ128rrkz = 19832
+
+    VPSRLVQZ256rm = 19833
+
+    VPSRLVQZ256rmb = 19834
+
+    VPSRLVQZ256rmbk = 19835
+
+    VPSRLVQZ256rmbkz = 19836
+
+    VPSRLVQZ256rmk = 19837
+
+    VPSRLVQZ256rmkz = 19838
+
+    VPSRLVQZ256rr = 19839
+
+    VPSRLVQZ256rrk = 19840
+
+    VPSRLVQZ256rrkz = 19841
+
+    VPSRLVQZrm = 19842
+
+    VPSRLVQZrmb = 19843
+
+    VPSRLVQZrmbk = 19844
+
+    VPSRLVQZrmbkz = 19845
+
+    VPSRLVQZrmk = 19846
+
+    VPSRLVQZrmkz = 19847
+
+    VPSRLVQZrr = 19848
+
+    VPSRLVQZrrk = 19849
+
+    VPSRLVQZrrkz = 19850
+
+    VPSRLVQrm = 19851
+
+    VPSRLVQrr = 19852
+
+    VPSRLVWZ128rm = 19853
+
+    VPSRLVWZ128rmk = 19854
+
+    VPSRLVWZ128rmkz = 19855
+
+    VPSRLVWZ128rr = 19856
+
+    VPSRLVWZ128rrk = 19857
+
+    VPSRLVWZ128rrkz = 19858
+
+    VPSRLVWZ256rm = 19859
+
+    VPSRLVWZ256rmk = 19860
+
+    VPSRLVWZ256rmkz = 19861
+
+    VPSRLVWZ256rr = 19862
+
+    VPSRLVWZ256rrk = 19863
+
+    VPSRLVWZ256rrkz = 19864
+
+    VPSRLVWZrm = 19865
+
+    VPSRLVWZrmk = 19866
+
+    VPSRLVWZrmkz = 19867
+
+    VPSRLVWZrr = 19868
+
+    VPSRLVWZrrk = 19869
+
+    VPSRLVWZrrkz = 19870
+
+    VPSRLWYri = 19871
+
+    VPSRLWYrm = 19872
+
+    VPSRLWYrr = 19873
+
+    VPSRLWZ128mi = 19874
+
+    VPSRLWZ128mik = 19875
+
+    VPSRLWZ128mikz = 19876
+
+    VPSRLWZ128ri = 19877
+
+    VPSRLWZ128rik = 19878
+
+    VPSRLWZ128rikz = 19879
+
+    VPSRLWZ128rm = 19880
+
+    VPSRLWZ128rmk = 19881
+
+    VPSRLWZ128rmkz = 19882
+
+    VPSRLWZ128rr = 19883
+
+    VPSRLWZ128rrk = 19884
+
+    VPSRLWZ128rrkz = 19885
+
+    VPSRLWZ256mi = 19886
+
+    VPSRLWZ256mik = 19887
+
+    VPSRLWZ256mikz = 19888
+
+    VPSRLWZ256ri = 19889
+
+    VPSRLWZ256rik = 19890
+
+    VPSRLWZ256rikz = 19891
+
+    VPSRLWZ256rm = 19892
+
+    VPSRLWZ256rmk = 19893
+
+    VPSRLWZ256rmkz = 19894
+
+    VPSRLWZ256rr = 19895
+
+    VPSRLWZ256rrk = 19896
+
+    VPSRLWZ256rrkz = 19897
+
+    VPSRLWZmi = 19898
+
+    VPSRLWZmik = 19899
+
+    VPSRLWZmikz = 19900
+
+    VPSRLWZri = 19901
+
+    VPSRLWZrik = 19902
+
+    VPSRLWZrikz = 19903
+
+    VPSRLWZrm = 19904
+
+    VPSRLWZrmk = 19905
+
+    VPSRLWZrmkz = 19906
+
+    VPSRLWZrr = 19907
+
+    VPSRLWZrrk = 19908
+
+    VPSRLWZrrkz = 19909
+
+    VPSRLWri = 19910
+
+    VPSRLWrm = 19911
+
+    VPSRLWrr = 19912
+
+    VPSUBBYrm = 19913
+
+    VPSUBBYrr = 19914
+
+    VPSUBBZ128rm = 19915
+
+    VPSUBBZ128rmk = 19916
+
+    VPSUBBZ128rmkz = 19917
+
+    VPSUBBZ128rr = 19918
+
+    VPSUBBZ128rrk = 19919
+
+    VPSUBBZ128rrkz = 19920
+
+    VPSUBBZ256rm = 19921
+
+    VPSUBBZ256rmk = 19922
+
+    VPSUBBZ256rmkz = 19923
+
+    VPSUBBZ256rr = 19924
+
+    VPSUBBZ256rrk = 19925
+
+    VPSUBBZ256rrkz = 19926
+
+    VPSUBBZrm = 19927
+
+    VPSUBBZrmk = 19928
+
+    VPSUBBZrmkz = 19929
+
+    VPSUBBZrr = 19930
+
+    VPSUBBZrrk = 19931
+
+    VPSUBBZrrkz = 19932
+
+    VPSUBBrm = 19933
+
+    VPSUBBrr = 19934
+
+    VPSUBDYrm = 19935
+
+    VPSUBDYrr = 19936
+
+    VPSUBDZ128rm = 19937
+
+    VPSUBDZ128rmb = 19938
+
+    VPSUBDZ128rmbk = 19939
+
+    VPSUBDZ128rmbkz = 19940
+
+    VPSUBDZ128rmk = 19941
+
+    VPSUBDZ128rmkz = 19942
+
+    VPSUBDZ128rr = 19943
+
+    VPSUBDZ128rrk = 19944
+
+    VPSUBDZ128rrkz = 19945
+
+    VPSUBDZ256rm = 19946
+
+    VPSUBDZ256rmb = 19947
+
+    VPSUBDZ256rmbk = 19948
+
+    VPSUBDZ256rmbkz = 19949
+
+    VPSUBDZ256rmk = 19950
+
+    VPSUBDZ256rmkz = 19951
+
+    VPSUBDZ256rr = 19952
+
+    VPSUBDZ256rrk = 19953
+
+    VPSUBDZ256rrkz = 19954
+
+    VPSUBDZrm = 19955
+
+    VPSUBDZrmb = 19956
+
+    VPSUBDZrmbk = 19957
+
+    VPSUBDZrmbkz = 19958
+
+    VPSUBDZrmk = 19959
+
+    VPSUBDZrmkz = 19960
+
+    VPSUBDZrr = 19961
+
+    VPSUBDZrrk = 19962
+
+    VPSUBDZrrkz = 19963
+
+    VPSUBDrm = 19964
+
+    VPSUBDrr = 19965
+
+    VPSUBQYrm = 19966
+
+    VPSUBQYrr = 19967
+
+    VPSUBQZ128rm = 19968
+
+    VPSUBQZ128rmb = 19969
+
+    VPSUBQZ128rmbk = 19970
+
+    VPSUBQZ128rmbkz = 19971
+
+    VPSUBQZ128rmk = 19972
+
+    VPSUBQZ128rmkz = 19973
+
+    VPSUBQZ128rr = 19974
+
+    VPSUBQZ128rrk = 19975
+
+    VPSUBQZ128rrkz = 19976
+
+    VPSUBQZ256rm = 19977
+
+    VPSUBQZ256rmb = 19978
+
+    VPSUBQZ256rmbk = 19979
+
+    VPSUBQZ256rmbkz = 19980
+
+    VPSUBQZ256rmk = 19981
+
+    VPSUBQZ256rmkz = 19982
+
+    VPSUBQZ256rr = 19983
+
+    VPSUBQZ256rrk = 19984
+
+    VPSUBQZ256rrkz = 19985
+
+    VPSUBQZrm = 19986
+
+    VPSUBQZrmb = 19987
+
+    VPSUBQZrmbk = 19988
+
+    VPSUBQZrmbkz = 19989
+
+    VPSUBQZrmk = 19990
+
+    VPSUBQZrmkz = 19991
+
+    VPSUBQZrr = 19992
+
+    VPSUBQZrrk = 19993
+
+    VPSUBQZrrkz = 19994
+
+    VPSUBQrm = 19995
+
+    VPSUBQrr = 19996
+
+    VPSUBSBYrm = 19997
+
+    VPSUBSBYrr = 19998
+
+    VPSUBSBZ128rm = 19999
+
+    VPSUBSBZ128rmk = 20000
+
+    VPSUBSBZ128rmkz = 20001
+
+    VPSUBSBZ128rr = 20002
+
+    VPSUBSBZ128rrk = 20003
+
+    VPSUBSBZ128rrkz = 20004
+
+    VPSUBSBZ256rm = 20005
+
+    VPSUBSBZ256rmk = 20006
+
+    VPSUBSBZ256rmkz = 20007
+
+    VPSUBSBZ256rr = 20008
+
+    VPSUBSBZ256rrk = 20009
+
+    VPSUBSBZ256rrkz = 20010
+
+    VPSUBSBZrm = 20011
+
+    VPSUBSBZrmk = 20012
+
+    VPSUBSBZrmkz = 20013
+
+    VPSUBSBZrr = 20014
+
+    VPSUBSBZrrk = 20015
+
+    VPSUBSBZrrkz = 20016
+
+    VPSUBSBrm = 20017
+
+    VPSUBSBrr = 20018
+
+    VPSUBSWYrm = 20019
+
+    VPSUBSWYrr = 20020
+
+    VPSUBSWZ128rm = 20021
+
+    VPSUBSWZ128rmk = 20022
+
+    VPSUBSWZ128rmkz = 20023
+
+    VPSUBSWZ128rr = 20024
+
+    VPSUBSWZ128rrk = 20025
+
+    VPSUBSWZ128rrkz = 20026
+
+    VPSUBSWZ256rm = 20027
+
+    VPSUBSWZ256rmk = 20028
+
+    VPSUBSWZ256rmkz = 20029
+
+    VPSUBSWZ256rr = 20030
+
+    VPSUBSWZ256rrk = 20031
+
+    VPSUBSWZ256rrkz = 20032
+
+    VPSUBSWZrm = 20033
+
+    VPSUBSWZrmk = 20034
+
+    VPSUBSWZrmkz = 20035
+
+    VPSUBSWZrr = 20036
+
+    VPSUBSWZrrk = 20037
+
+    VPSUBSWZrrkz = 20038
+
+    VPSUBSWrm = 20039
+
+    VPSUBSWrr = 20040
+
+    VPSUBUSBYrm = 20041
+
+    VPSUBUSBYrr = 20042
+
+    VPSUBUSBZ128rm = 20043
+
+    VPSUBUSBZ128rmk = 20044
+
+    VPSUBUSBZ128rmkz = 20045
+
+    VPSUBUSBZ128rr = 20046
+
+    VPSUBUSBZ128rrk = 20047
+
+    VPSUBUSBZ128rrkz = 20048
+
+    VPSUBUSBZ256rm = 20049
+
+    VPSUBUSBZ256rmk = 20050
+
+    VPSUBUSBZ256rmkz = 20051
+
+    VPSUBUSBZ256rr = 20052
+
+    VPSUBUSBZ256rrk = 20053
+
+    VPSUBUSBZ256rrkz = 20054
+
+    VPSUBUSBZrm = 20055
+
+    VPSUBUSBZrmk = 20056
+
+    VPSUBUSBZrmkz = 20057
+
+    VPSUBUSBZrr = 20058
+
+    VPSUBUSBZrrk = 20059
+
+    VPSUBUSBZrrkz = 20060
+
+    VPSUBUSBrm = 20061
+
+    VPSUBUSBrr = 20062
+
+    VPSUBUSWYrm = 20063
+
+    VPSUBUSWYrr = 20064
+
+    VPSUBUSWZ128rm = 20065
+
+    VPSUBUSWZ128rmk = 20066
+
+    VPSUBUSWZ128rmkz = 20067
+
+    VPSUBUSWZ128rr = 20068
+
+    VPSUBUSWZ128rrk = 20069
+
+    VPSUBUSWZ128rrkz = 20070
+
+    VPSUBUSWZ256rm = 20071
+
+    VPSUBUSWZ256rmk = 20072
+
+    VPSUBUSWZ256rmkz = 20073
+
+    VPSUBUSWZ256rr = 20074
+
+    VPSUBUSWZ256rrk = 20075
+
+    VPSUBUSWZ256rrkz = 20076
+
+    VPSUBUSWZrm = 20077
+
+    VPSUBUSWZrmk = 20078
+
+    VPSUBUSWZrmkz = 20079
+
+    VPSUBUSWZrr = 20080
+
+    VPSUBUSWZrrk = 20081
+
+    VPSUBUSWZrrkz = 20082
+
+    VPSUBUSWrm = 20083
+
+    VPSUBUSWrr = 20084
+
+    VPSUBWYrm = 20085
+
+    VPSUBWYrr = 20086
+
+    VPSUBWZ128rm = 20087
+
+    VPSUBWZ128rmk = 20088
+
+    VPSUBWZ128rmkz = 20089
+
+    VPSUBWZ128rr = 20090
+
+    VPSUBWZ128rrk = 20091
+
+    VPSUBWZ128rrkz = 20092
+
+    VPSUBWZ256rm = 20093
+
+    VPSUBWZ256rmk = 20094
+
+    VPSUBWZ256rmkz = 20095
+
+    VPSUBWZ256rr = 20096
+
+    VPSUBWZ256rrk = 20097
+
+    VPSUBWZ256rrkz = 20098
+
+    VPSUBWZrm = 20099
+
+    VPSUBWZrmk = 20100
+
+    VPSUBWZrmkz = 20101
+
+    VPSUBWZrr = 20102
+
+    VPSUBWZrrk = 20103
+
+    VPSUBWZrrkz = 20104
+
+    VPSUBWrm = 20105
+
+    VPSUBWrr = 20106
+
+    VPTERNLOGDZ128rmbi = 20107
+
+    VPTERNLOGDZ128rmbik = 20108
+
+    VPTERNLOGDZ128rmbikz = 20109
+
+    VPTERNLOGDZ128rmi = 20110
+
+    VPTERNLOGDZ128rmik = 20111
+
+    VPTERNLOGDZ128rmikz = 20112
+
+    VPTERNLOGDZ128rri = 20113
+
+    VPTERNLOGDZ128rrik = 20114
+
+    VPTERNLOGDZ128rrikz = 20115
+
+    VPTERNLOGDZ256rmbi = 20116
+
+    VPTERNLOGDZ256rmbik = 20117
+
+    VPTERNLOGDZ256rmbikz = 20118
+
+    VPTERNLOGDZ256rmi = 20119
+
+    VPTERNLOGDZ256rmik = 20120
+
+    VPTERNLOGDZ256rmikz = 20121
+
+    VPTERNLOGDZ256rri = 20122
+
+    VPTERNLOGDZ256rrik = 20123
+
+    VPTERNLOGDZ256rrikz = 20124
+
+    VPTERNLOGDZrmbi = 20125
+
+    VPTERNLOGDZrmbik = 20126
+
+    VPTERNLOGDZrmbikz = 20127
+
+    VPTERNLOGDZrmi = 20128
+
+    VPTERNLOGDZrmik = 20129
+
+    VPTERNLOGDZrmikz = 20130
+
+    VPTERNLOGDZrri = 20131
+
+    VPTERNLOGDZrrik = 20132
+
+    VPTERNLOGDZrrikz = 20133
+
+    VPTERNLOGQZ128rmbi = 20134
+
+    VPTERNLOGQZ128rmbik = 20135
+
+    VPTERNLOGQZ128rmbikz = 20136
+
+    VPTERNLOGQZ128rmi = 20137
+
+    VPTERNLOGQZ128rmik = 20138
+
+    VPTERNLOGQZ128rmikz = 20139
+
+    VPTERNLOGQZ128rri = 20140
+
+    VPTERNLOGQZ128rrik = 20141
+
+    VPTERNLOGQZ128rrikz = 20142
+
+    VPTERNLOGQZ256rmbi = 20143
+
+    VPTERNLOGQZ256rmbik = 20144
+
+    VPTERNLOGQZ256rmbikz = 20145
+
+    VPTERNLOGQZ256rmi = 20146
+
+    VPTERNLOGQZ256rmik = 20147
+
+    VPTERNLOGQZ256rmikz = 20148
+
+    VPTERNLOGQZ256rri = 20149
+
+    VPTERNLOGQZ256rrik = 20150
+
+    VPTERNLOGQZ256rrikz = 20151
+
+    VPTERNLOGQZrmbi = 20152
+
+    VPTERNLOGQZrmbik = 20153
+
+    VPTERNLOGQZrmbikz = 20154
+
+    VPTERNLOGQZrmi = 20155
+
+    VPTERNLOGQZrmik = 20156
+
+    VPTERNLOGQZrmikz = 20157
+
+    VPTERNLOGQZrri = 20158
+
+    VPTERNLOGQZrrik = 20159
+
+    VPTERNLOGQZrrikz = 20160
+
+    VPTESTMBZ128rm = 20161
+
+    VPTESTMBZ128rmk = 20162
+
+    VPTESTMBZ128rr = 20163
+
+    VPTESTMBZ128rrk = 20164
+
+    VPTESTMBZ256rm = 20165
+
+    VPTESTMBZ256rmk = 20166
+
+    VPTESTMBZ256rr = 20167
+
+    VPTESTMBZ256rrk = 20168
+
+    VPTESTMBZrm = 20169
+
+    VPTESTMBZrmk = 20170
+
+    VPTESTMBZrr = 20171
+
+    VPTESTMBZrrk = 20172
+
+    VPTESTMDZ128rm = 20173
+
+    VPTESTMDZ128rmb = 20174
+
+    VPTESTMDZ128rmbk = 20175
+
+    VPTESTMDZ128rmk = 20176
+
+    VPTESTMDZ128rr = 20177
+
+    VPTESTMDZ128rrk = 20178
+
+    VPTESTMDZ256rm = 20179
+
+    VPTESTMDZ256rmb = 20180
+
+    VPTESTMDZ256rmbk = 20181
+
+    VPTESTMDZ256rmk = 20182
+
+    VPTESTMDZ256rr = 20183
+
+    VPTESTMDZ256rrk = 20184
+
+    VPTESTMDZrm = 20185
+
+    VPTESTMDZrmb = 20186
+
+    VPTESTMDZrmbk = 20187
+
+    VPTESTMDZrmk = 20188
+
+    VPTESTMDZrr = 20189
+
+    VPTESTMDZrrk = 20190
+
+    VPTESTMQZ128rm = 20191
+
+    VPTESTMQZ128rmb = 20192
+
+    VPTESTMQZ128rmbk = 20193
+
+    VPTESTMQZ128rmk = 20194
+
+    VPTESTMQZ128rr = 20195
+
+    VPTESTMQZ128rrk = 20196
+
+    VPTESTMQZ256rm = 20197
+
+    VPTESTMQZ256rmb = 20198
+
+    VPTESTMQZ256rmbk = 20199
+
+    VPTESTMQZ256rmk = 20200
+
+    VPTESTMQZ256rr = 20201
+
+    VPTESTMQZ256rrk = 20202
+
+    VPTESTMQZrm = 20203
+
+    VPTESTMQZrmb = 20204
+
+    VPTESTMQZrmbk = 20205
+
+    VPTESTMQZrmk = 20206
+
+    VPTESTMQZrr = 20207
+
+    VPTESTMQZrrk = 20208
+
+    VPTESTMWZ128rm = 20209
+
+    VPTESTMWZ128rmk = 20210
+
+    VPTESTMWZ128rr = 20211
+
+    VPTESTMWZ128rrk = 20212
+
+    VPTESTMWZ256rm = 20213
+
+    VPTESTMWZ256rmk = 20214
+
+    VPTESTMWZ256rr = 20215
+
+    VPTESTMWZ256rrk = 20216
+
+    VPTESTMWZrm = 20217
+
+    VPTESTMWZrmk = 20218
+
+    VPTESTMWZrr = 20219
+
+    VPTESTMWZrrk = 20220
+
+    VPTESTNMBZ128rm = 20221
+
+    VPTESTNMBZ128rmk = 20222
+
+    VPTESTNMBZ128rr = 20223
+
+    VPTESTNMBZ128rrk = 20224
+
+    VPTESTNMBZ256rm = 20225
+
+    VPTESTNMBZ256rmk = 20226
+
+    VPTESTNMBZ256rr = 20227
+
+    VPTESTNMBZ256rrk = 20228
+
+    VPTESTNMBZrm = 20229
+
+    VPTESTNMBZrmk = 20230
+
+    VPTESTNMBZrr = 20231
+
+    VPTESTNMBZrrk = 20232
+
+    VPTESTNMDZ128rm = 20233
+
+    VPTESTNMDZ128rmb = 20234
+
+    VPTESTNMDZ128rmbk = 20235
+
+    VPTESTNMDZ128rmk = 20236
+
+    VPTESTNMDZ128rr = 20237
+
+    VPTESTNMDZ128rrk = 20238
+
+    VPTESTNMDZ256rm = 20239
+
+    VPTESTNMDZ256rmb = 20240
+
+    VPTESTNMDZ256rmbk = 20241
+
+    VPTESTNMDZ256rmk = 20242
+
+    VPTESTNMDZ256rr = 20243
+
+    VPTESTNMDZ256rrk = 20244
+
+    VPTESTNMDZrm = 20245
+
+    VPTESTNMDZrmb = 20246
+
+    VPTESTNMDZrmbk = 20247
+
+    VPTESTNMDZrmk = 20248
+
+    VPTESTNMDZrr = 20249
+
+    VPTESTNMDZrrk = 20250
+
+    VPTESTNMQZ128rm = 20251
+
+    VPTESTNMQZ128rmb = 20252
+
+    VPTESTNMQZ128rmbk = 20253
+
+    VPTESTNMQZ128rmk = 20254
+
+    VPTESTNMQZ128rr = 20255
+
+    VPTESTNMQZ128rrk = 20256
+
+    VPTESTNMQZ256rm = 20257
+
+    VPTESTNMQZ256rmb = 20258
+
+    VPTESTNMQZ256rmbk = 20259
+
+    VPTESTNMQZ256rmk = 20260
+
+    VPTESTNMQZ256rr = 20261
+
+    VPTESTNMQZ256rrk = 20262
+
+    VPTESTNMQZrm = 20263
+
+    VPTESTNMQZrmb = 20264
+
+    VPTESTNMQZrmbk = 20265
+
+    VPTESTNMQZrmk = 20266
+
+    VPTESTNMQZrr = 20267
+
+    VPTESTNMQZrrk = 20268
+
+    VPTESTNMWZ128rm = 20269
+
+    VPTESTNMWZ128rmk = 20270
+
+    VPTESTNMWZ128rr = 20271
+
+    VPTESTNMWZ128rrk = 20272
+
+    VPTESTNMWZ256rm = 20273
+
+    VPTESTNMWZ256rmk = 20274
+
+    VPTESTNMWZ256rr = 20275
+
+    VPTESTNMWZ256rrk = 20276
+
+    VPTESTNMWZrm = 20277
+
+    VPTESTNMWZrmk = 20278
+
+    VPTESTNMWZrr = 20279
+
+    VPTESTNMWZrrk = 20280
+
+    VPTESTYrm = 20281
+
+    VPTESTYrr = 20282
+
+    VPTESTrm = 20283
+
+    VPTESTrr = 20284
+
+    VPUNPCKHBWYrm = 20285
+
+    VPUNPCKHBWYrr = 20286
+
+    VPUNPCKHBWZ128rm = 20287
+
+    VPUNPCKHBWZ128rmk = 20288
+
+    VPUNPCKHBWZ128rmkz = 20289
+
+    VPUNPCKHBWZ128rr = 20290
+
+    VPUNPCKHBWZ128rrk = 20291
+
+    VPUNPCKHBWZ128rrkz = 20292
+
+    VPUNPCKHBWZ256rm = 20293
+
+    VPUNPCKHBWZ256rmk = 20294
+
+    VPUNPCKHBWZ256rmkz = 20295
+
+    VPUNPCKHBWZ256rr = 20296
+
+    VPUNPCKHBWZ256rrk = 20297
+
+    VPUNPCKHBWZ256rrkz = 20298
+
+    VPUNPCKHBWZrm = 20299
+
+    VPUNPCKHBWZrmk = 20300
+
+    VPUNPCKHBWZrmkz = 20301
+
+    VPUNPCKHBWZrr = 20302
+
+    VPUNPCKHBWZrrk = 20303
+
+    VPUNPCKHBWZrrkz = 20304
+
+    VPUNPCKHBWrm = 20305
+
+    VPUNPCKHBWrr = 20306
+
+    VPUNPCKHDQYrm = 20307
+
+    VPUNPCKHDQYrr = 20308
+
+    VPUNPCKHDQZ128rm = 20309
+
+    VPUNPCKHDQZ128rmb = 20310
+
+    VPUNPCKHDQZ128rmbk = 20311
+
+    VPUNPCKHDQZ128rmbkz = 20312
+
+    VPUNPCKHDQZ128rmk = 20313
+
+    VPUNPCKHDQZ128rmkz = 20314
+
+    VPUNPCKHDQZ128rr = 20315
+
+    VPUNPCKHDQZ128rrk = 20316
+
+    VPUNPCKHDQZ128rrkz = 20317
+
+    VPUNPCKHDQZ256rm = 20318
+
+    VPUNPCKHDQZ256rmb = 20319
+
+    VPUNPCKHDQZ256rmbk = 20320
+
+    VPUNPCKHDQZ256rmbkz = 20321
+
+    VPUNPCKHDQZ256rmk = 20322
+
+    VPUNPCKHDQZ256rmkz = 20323
+
+    VPUNPCKHDQZ256rr = 20324
+
+    VPUNPCKHDQZ256rrk = 20325
+
+    VPUNPCKHDQZ256rrkz = 20326
+
+    VPUNPCKHDQZrm = 20327
+
+    VPUNPCKHDQZrmb = 20328
+
+    VPUNPCKHDQZrmbk = 20329
+
+    VPUNPCKHDQZrmbkz = 20330
+
+    VPUNPCKHDQZrmk = 20331
+
+    VPUNPCKHDQZrmkz = 20332
+
+    VPUNPCKHDQZrr = 20333
+
+    VPUNPCKHDQZrrk = 20334
+
+    VPUNPCKHDQZrrkz = 20335
+
+    VPUNPCKHDQrm = 20336
+
+    VPUNPCKHDQrr = 20337
+
+    VPUNPCKHQDQYrm = 20338
+
+    VPUNPCKHQDQYrr = 20339
+
+    VPUNPCKHQDQZ128rm = 20340
+
+    VPUNPCKHQDQZ128rmb = 20341
+
+    VPUNPCKHQDQZ128rmbk = 20342
+
+    VPUNPCKHQDQZ128rmbkz = 20343
+
+    VPUNPCKHQDQZ128rmk = 20344
+
+    VPUNPCKHQDQZ128rmkz = 20345
+
+    VPUNPCKHQDQZ128rr = 20346
+
+    VPUNPCKHQDQZ128rrk = 20347
+
+    VPUNPCKHQDQZ128rrkz = 20348
+
+    VPUNPCKHQDQZ256rm = 20349
+
+    VPUNPCKHQDQZ256rmb = 20350
+
+    VPUNPCKHQDQZ256rmbk = 20351
+
+    VPUNPCKHQDQZ256rmbkz = 20352
+
+    VPUNPCKHQDQZ256rmk = 20353
+
+    VPUNPCKHQDQZ256rmkz = 20354
+
+    VPUNPCKHQDQZ256rr = 20355
+
+    VPUNPCKHQDQZ256rrk = 20356
+
+    VPUNPCKHQDQZ256rrkz = 20357
+
+    VPUNPCKHQDQZrm = 20358
+
+    VPUNPCKHQDQZrmb = 20359
+
+    VPUNPCKHQDQZrmbk = 20360
+
+    VPUNPCKHQDQZrmbkz = 20361
+
+    VPUNPCKHQDQZrmk = 20362
+
+    VPUNPCKHQDQZrmkz = 20363
+
+    VPUNPCKHQDQZrr = 20364
+
+    VPUNPCKHQDQZrrk = 20365
+
+    VPUNPCKHQDQZrrkz = 20366
+
+    VPUNPCKHQDQrm = 20367
+
+    VPUNPCKHQDQrr = 20368
+
+    VPUNPCKHWDYrm = 20369
+
+    VPUNPCKHWDYrr = 20370
+
+    VPUNPCKHWDZ128rm = 20371
+
+    VPUNPCKHWDZ128rmk = 20372
+
+    VPUNPCKHWDZ128rmkz = 20373
+
+    VPUNPCKHWDZ128rr = 20374
+
+    VPUNPCKHWDZ128rrk = 20375
+
+    VPUNPCKHWDZ128rrkz = 20376
+
+    VPUNPCKHWDZ256rm = 20377
+
+    VPUNPCKHWDZ256rmk = 20378
+
+    VPUNPCKHWDZ256rmkz = 20379
+
+    VPUNPCKHWDZ256rr = 20380
+
+    VPUNPCKHWDZ256rrk = 20381
+
+    VPUNPCKHWDZ256rrkz = 20382
+
+    VPUNPCKHWDZrm = 20383
+
+    VPUNPCKHWDZrmk = 20384
+
+    VPUNPCKHWDZrmkz = 20385
+
+    VPUNPCKHWDZrr = 20386
+
+    VPUNPCKHWDZrrk = 20387
+
+    VPUNPCKHWDZrrkz = 20388
+
+    VPUNPCKHWDrm = 20389
+
+    VPUNPCKHWDrr = 20390
+
+    VPUNPCKLBWYrm = 20391
+
+    VPUNPCKLBWYrr = 20392
+
+    VPUNPCKLBWZ128rm = 20393
+
+    VPUNPCKLBWZ128rmk = 20394
+
+    VPUNPCKLBWZ128rmkz = 20395
+
+    VPUNPCKLBWZ128rr = 20396
+
+    VPUNPCKLBWZ128rrk = 20397
+
+    VPUNPCKLBWZ128rrkz = 20398
+
+    VPUNPCKLBWZ256rm = 20399
+
+    VPUNPCKLBWZ256rmk = 20400
+
+    VPUNPCKLBWZ256rmkz = 20401
+
+    VPUNPCKLBWZ256rr = 20402
+
+    VPUNPCKLBWZ256rrk = 20403
+
+    VPUNPCKLBWZ256rrkz = 20404
+
+    VPUNPCKLBWZrm = 20405
+
+    VPUNPCKLBWZrmk = 20406
+
+    VPUNPCKLBWZrmkz = 20407
+
+    VPUNPCKLBWZrr = 20408
+
+    VPUNPCKLBWZrrk = 20409
+
+    VPUNPCKLBWZrrkz = 20410
+
+    VPUNPCKLBWrm = 20411
+
+    VPUNPCKLBWrr = 20412
+
+    VPUNPCKLDQYrm = 20413
+
+    VPUNPCKLDQYrr = 20414
+
+    VPUNPCKLDQZ128rm = 20415
+
+    VPUNPCKLDQZ128rmb = 20416
+
+    VPUNPCKLDQZ128rmbk = 20417
+
+    VPUNPCKLDQZ128rmbkz = 20418
+
+    VPUNPCKLDQZ128rmk = 20419
+
+    VPUNPCKLDQZ128rmkz = 20420
+
+    VPUNPCKLDQZ128rr = 20421
+
+    VPUNPCKLDQZ128rrk = 20422
+
+    VPUNPCKLDQZ128rrkz = 20423
+
+    VPUNPCKLDQZ256rm = 20424
+
+    VPUNPCKLDQZ256rmb = 20425
+
+    VPUNPCKLDQZ256rmbk = 20426
+
+    VPUNPCKLDQZ256rmbkz = 20427
+
+    VPUNPCKLDQZ256rmk = 20428
+
+    VPUNPCKLDQZ256rmkz = 20429
+
+    VPUNPCKLDQZ256rr = 20430
+
+    VPUNPCKLDQZ256rrk = 20431
+
+    VPUNPCKLDQZ256rrkz = 20432
+
+    VPUNPCKLDQZrm = 20433
+
+    VPUNPCKLDQZrmb = 20434
+
+    VPUNPCKLDQZrmbk = 20435
+
+    VPUNPCKLDQZrmbkz = 20436
+
+    VPUNPCKLDQZrmk = 20437
+
+    VPUNPCKLDQZrmkz = 20438
+
+    VPUNPCKLDQZrr = 20439
+
+    VPUNPCKLDQZrrk = 20440
+
+    VPUNPCKLDQZrrkz = 20441
+
+    VPUNPCKLDQrm = 20442
+
+    VPUNPCKLDQrr = 20443
+
+    VPUNPCKLQDQYrm = 20444
+
+    VPUNPCKLQDQYrr = 20445
+
+    VPUNPCKLQDQZ128rm = 20446
+
+    VPUNPCKLQDQZ128rmb = 20447
+
+    VPUNPCKLQDQZ128rmbk = 20448
+
+    VPUNPCKLQDQZ128rmbkz = 20449
+
+    VPUNPCKLQDQZ128rmk = 20450
+
+    VPUNPCKLQDQZ128rmkz = 20451
+
+    VPUNPCKLQDQZ128rr = 20452
+
+    VPUNPCKLQDQZ128rrk = 20453
+
+    VPUNPCKLQDQZ128rrkz = 20454
+
+    VPUNPCKLQDQZ256rm = 20455
+
+    VPUNPCKLQDQZ256rmb = 20456
+
+    VPUNPCKLQDQZ256rmbk = 20457
+
+    VPUNPCKLQDQZ256rmbkz = 20458
+
+    VPUNPCKLQDQZ256rmk = 20459
+
+    VPUNPCKLQDQZ256rmkz = 20460
+
+    VPUNPCKLQDQZ256rr = 20461
+
+    VPUNPCKLQDQZ256rrk = 20462
+
+    VPUNPCKLQDQZ256rrkz = 20463
+
+    VPUNPCKLQDQZrm = 20464
+
+    VPUNPCKLQDQZrmb = 20465
+
+    VPUNPCKLQDQZrmbk = 20466
+
+    VPUNPCKLQDQZrmbkz = 20467
+
+    VPUNPCKLQDQZrmk = 20468
+
+    VPUNPCKLQDQZrmkz = 20469
+
+    VPUNPCKLQDQZrr = 20470
+
+    VPUNPCKLQDQZrrk = 20471
+
+    VPUNPCKLQDQZrrkz = 20472
+
+    VPUNPCKLQDQrm = 20473
+
+    VPUNPCKLQDQrr = 20474
+
+    VPUNPCKLWDYrm = 20475
+
+    VPUNPCKLWDYrr = 20476
+
+    VPUNPCKLWDZ128rm = 20477
+
+    VPUNPCKLWDZ128rmk = 20478
+
+    VPUNPCKLWDZ128rmkz = 20479
+
+    VPUNPCKLWDZ128rr = 20480
+
+    VPUNPCKLWDZ128rrk = 20481
+
+    VPUNPCKLWDZ128rrkz = 20482
+
+    VPUNPCKLWDZ256rm = 20483
+
+    VPUNPCKLWDZ256rmk = 20484
+
+    VPUNPCKLWDZ256rmkz = 20485
+
+    VPUNPCKLWDZ256rr = 20486
+
+    VPUNPCKLWDZ256rrk = 20487
+
+    VPUNPCKLWDZ256rrkz = 20488
+
+    VPUNPCKLWDZrm = 20489
+
+    VPUNPCKLWDZrmk = 20490
+
+    VPUNPCKLWDZrmkz = 20491
+
+    VPUNPCKLWDZrr = 20492
+
+    VPUNPCKLWDZrrk = 20493
+
+    VPUNPCKLWDZrrkz = 20494
+
+    VPUNPCKLWDrm = 20495
+
+    VPUNPCKLWDrr = 20496
+
+    VPXORDZ128rm = 20497
+
+    VPXORDZ128rmb = 20498
+
+    VPXORDZ128rmbk = 20499
+
+    VPXORDZ128rmbkz = 20500
+
+    VPXORDZ128rmk = 20501
+
+    VPXORDZ128rmkz = 20502
+
+    VPXORDZ128rr = 20503
+
+    VPXORDZ128rrk = 20504
+
+    VPXORDZ128rrkz = 20505
+
+    VPXORDZ256rm = 20506
+
+    VPXORDZ256rmb = 20507
+
+    VPXORDZ256rmbk = 20508
+
+    VPXORDZ256rmbkz = 20509
+
+    VPXORDZ256rmk = 20510
+
+    VPXORDZ256rmkz = 20511
+
+    VPXORDZ256rr = 20512
+
+    VPXORDZ256rrk = 20513
+
+    VPXORDZ256rrkz = 20514
+
+    VPXORDZrm = 20515
+
+    VPXORDZrmb = 20516
+
+    VPXORDZrmbk = 20517
+
+    VPXORDZrmbkz = 20518
+
+    VPXORDZrmk = 20519
+
+    VPXORDZrmkz = 20520
+
+    VPXORDZrr = 20521
+
+    VPXORDZrrk = 20522
+
+    VPXORDZrrkz = 20523
+
+    VPXORQZ128rm = 20524
+
+    VPXORQZ128rmb = 20525
+
+    VPXORQZ128rmbk = 20526
+
+    VPXORQZ128rmbkz = 20527
+
+    VPXORQZ128rmk = 20528
+
+    VPXORQZ128rmkz = 20529
+
+    VPXORQZ128rr = 20530
+
+    VPXORQZ128rrk = 20531
+
+    VPXORQZ128rrkz = 20532
+
+    VPXORQZ256rm = 20533
+
+    VPXORQZ256rmb = 20534
+
+    VPXORQZ256rmbk = 20535
+
+    VPXORQZ256rmbkz = 20536
+
+    VPXORQZ256rmk = 20537
+
+    VPXORQZ256rmkz = 20538
+
+    VPXORQZ256rr = 20539
+
+    VPXORQZ256rrk = 20540
+
+    VPXORQZ256rrkz = 20541
+
+    VPXORQZrm = 20542
+
+    VPXORQZrmb = 20543
+
+    VPXORQZrmbk = 20544
+
+    VPXORQZrmbkz = 20545
+
+    VPXORQZrmk = 20546
+
+    VPXORQZrmkz = 20547
+
+    VPXORQZrr = 20548
+
+    VPXORQZrrk = 20549
+
+    VPXORQZrrkz = 20550
+
+    VPXORYrm = 20551
+
+    VPXORYrr = 20552
+
+    VPXORrm = 20553
+
+    VPXORrr = 20554
+
+    VRANGEPDZ128rmbi = 20555
+
+    VRANGEPDZ128rmbik = 20556
+
+    VRANGEPDZ128rmbikz = 20557
+
+    VRANGEPDZ128rmi = 20558
+
+    VRANGEPDZ128rmik = 20559
+
+    VRANGEPDZ128rmikz = 20560
+
+    VRANGEPDZ128rri = 20561
+
+    VRANGEPDZ128rrik = 20562
+
+    VRANGEPDZ128rrikz = 20563
+
+    VRANGEPDZ256rmbi = 20564
+
+    VRANGEPDZ256rmbik = 20565
+
+    VRANGEPDZ256rmbikz = 20566
+
+    VRANGEPDZ256rmi = 20567
+
+    VRANGEPDZ256rmik = 20568
+
+    VRANGEPDZ256rmikz = 20569
+
+    VRANGEPDZ256rri = 20570
+
+    VRANGEPDZ256rrik = 20571
+
+    VRANGEPDZ256rrikz = 20572
+
+    VRANGEPDZrmbi = 20573
+
+    VRANGEPDZrmbik = 20574
+
+    VRANGEPDZrmbikz = 20575
+
+    VRANGEPDZrmi = 20576
+
+    VRANGEPDZrmik = 20577
+
+    VRANGEPDZrmikz = 20578
+
+    VRANGEPDZrri = 20579
+
+    VRANGEPDZrrib = 20580
+
+    VRANGEPDZrribk = 20581
+
+    VRANGEPDZrribkz = 20582
+
+    VRANGEPDZrrik = 20583
+
+    VRANGEPDZrrikz = 20584
+
+    VRANGEPSZ128rmbi = 20585
+
+    VRANGEPSZ128rmbik = 20586
+
+    VRANGEPSZ128rmbikz = 20587
+
+    VRANGEPSZ128rmi = 20588
+
+    VRANGEPSZ128rmik = 20589
+
+    VRANGEPSZ128rmikz = 20590
+
+    VRANGEPSZ128rri = 20591
+
+    VRANGEPSZ128rrik = 20592
+
+    VRANGEPSZ128rrikz = 20593
+
+    VRANGEPSZ256rmbi = 20594
+
+    VRANGEPSZ256rmbik = 20595
+
+    VRANGEPSZ256rmbikz = 20596
+
+    VRANGEPSZ256rmi = 20597
+
+    VRANGEPSZ256rmik = 20598
+
+    VRANGEPSZ256rmikz = 20599
+
+    VRANGEPSZ256rri = 20600
+
+    VRANGEPSZ256rrik = 20601
+
+    VRANGEPSZ256rrikz = 20602
+
+    VRANGEPSZrmbi = 20603
+
+    VRANGEPSZrmbik = 20604
+
+    VRANGEPSZrmbikz = 20605
+
+    VRANGEPSZrmi = 20606
+
+    VRANGEPSZrmik = 20607
+
+    VRANGEPSZrmikz = 20608
+
+    VRANGEPSZrri = 20609
+
+    VRANGEPSZrrib = 20610
+
+    VRANGEPSZrribk = 20611
+
+    VRANGEPSZrribkz = 20612
+
+    VRANGEPSZrrik = 20613
+
+    VRANGEPSZrrikz = 20614
+
+    VRANGESDZrmi = 20615
+
+    VRANGESDZrmik = 20616
+
+    VRANGESDZrmikz = 20617
+
+    VRANGESDZrri = 20618
+
+    VRANGESDZrrib = 20619
+
+    VRANGESDZrribk = 20620
+
+    VRANGESDZrribkz = 20621
+
+    VRANGESDZrrik = 20622
+
+    VRANGESDZrrikz = 20623
+
+    VRANGESSZrmi = 20624
+
+    VRANGESSZrmik = 20625
+
+    VRANGESSZrmikz = 20626
+
+    VRANGESSZrri = 20627
+
+    VRANGESSZrrib = 20628
+
+    VRANGESSZrribk = 20629
+
+    VRANGESSZrribkz = 20630
+
+    VRANGESSZrrik = 20631
+
+    VRANGESSZrrikz = 20632
+
+    VRCP14PDZ128m = 20633
+
+    VRCP14PDZ128mb = 20634
+
+    VRCP14PDZ128mbk = 20635
+
+    VRCP14PDZ128mbkz = 20636
+
+    VRCP14PDZ128mk = 20637
+
+    VRCP14PDZ128mkz = 20638
+
+    VRCP14PDZ128r = 20639
+
+    VRCP14PDZ128rk = 20640
+
+    VRCP14PDZ128rkz = 20641
+
+    VRCP14PDZ256m = 20642
+
+    VRCP14PDZ256mb = 20643
+
+    VRCP14PDZ256mbk = 20644
+
+    VRCP14PDZ256mbkz = 20645
+
+    VRCP14PDZ256mk = 20646
+
+    VRCP14PDZ256mkz = 20647
+
+    VRCP14PDZ256r = 20648
+
+    VRCP14PDZ256rk = 20649
+
+    VRCP14PDZ256rkz = 20650
+
+    VRCP14PDZm = 20651
+
+    VRCP14PDZmb = 20652
+
+    VRCP14PDZmbk = 20653
+
+    VRCP14PDZmbkz = 20654
+
+    VRCP14PDZmk = 20655
+
+    VRCP14PDZmkz = 20656
+
+    VRCP14PDZr = 20657
+
+    VRCP14PDZrk = 20658
+
+    VRCP14PDZrkz = 20659
+
+    VRCP14PSZ128m = 20660
+
+    VRCP14PSZ128mb = 20661
+
+    VRCP14PSZ128mbk = 20662
+
+    VRCP14PSZ128mbkz = 20663
+
+    VRCP14PSZ128mk = 20664
+
+    VRCP14PSZ128mkz = 20665
+
+    VRCP14PSZ128r = 20666
+
+    VRCP14PSZ128rk = 20667
+
+    VRCP14PSZ128rkz = 20668
+
+    VRCP14PSZ256m = 20669
+
+    VRCP14PSZ256mb = 20670
+
+    VRCP14PSZ256mbk = 20671
+
+    VRCP14PSZ256mbkz = 20672
+
+    VRCP14PSZ256mk = 20673
+
+    VRCP14PSZ256mkz = 20674
+
+    VRCP14PSZ256r = 20675
+
+    VRCP14PSZ256rk = 20676
+
+    VRCP14PSZ256rkz = 20677
+
+    VRCP14PSZm = 20678
+
+    VRCP14PSZmb = 20679
+
+    VRCP14PSZmbk = 20680
+
+    VRCP14PSZmbkz = 20681
+
+    VRCP14PSZmk = 20682
+
+    VRCP14PSZmkz = 20683
+
+    VRCP14PSZr = 20684
+
+    VRCP14PSZrk = 20685
+
+    VRCP14PSZrkz = 20686
+
+    VRCP14SDZrm = 20687
+
+    VRCP14SDZrmk = 20688
+
+    VRCP14SDZrmkz = 20689
+
+    VRCP14SDZrr = 20690
+
+    VRCP14SDZrrk = 20691
+
+    VRCP14SDZrrkz = 20692
+
+    VRCP14SSZrm = 20693
+
+    VRCP14SSZrmk = 20694
+
+    VRCP14SSZrmkz = 20695
+
+    VRCP14SSZrr = 20696
+
+    VRCP14SSZrrk = 20697
+
+    VRCP14SSZrrkz = 20698
+
+    VRCP28PDZm = 20699
+
+    VRCP28PDZmb = 20700
+
+    VRCP28PDZmbk = 20701
+
+    VRCP28PDZmbkz = 20702
+
+    VRCP28PDZmk = 20703
+
+    VRCP28PDZmkz = 20704
+
+    VRCP28PDZr = 20705
+
+    VRCP28PDZrb = 20706
+
+    VRCP28PDZrbk = 20707
+
+    VRCP28PDZrbkz = 20708
+
+    VRCP28PDZrk = 20709
+
+    VRCP28PDZrkz = 20710
+
+    VRCP28PSZm = 20711
+
+    VRCP28PSZmb = 20712
+
+    VRCP28PSZmbk = 20713
+
+    VRCP28PSZmbkz = 20714
+
+    VRCP28PSZmk = 20715
+
+    VRCP28PSZmkz = 20716
+
+    VRCP28PSZr = 20717
+
+    VRCP28PSZrb = 20718
+
+    VRCP28PSZrbk = 20719
+
+    VRCP28PSZrbkz = 20720
+
+    VRCP28PSZrk = 20721
+
+    VRCP28PSZrkz = 20722
+
+    VRCP28SDZm = 20723
+
+    VRCP28SDZmk = 20724
+
+    VRCP28SDZmkz = 20725
+
+    VRCP28SDZr = 20726
+
+    VRCP28SDZrb = 20727
+
+    VRCP28SDZrbk = 20728
+
+    VRCP28SDZrbkz = 20729
+
+    VRCP28SDZrk = 20730
+
+    VRCP28SDZrkz = 20731
+
+    VRCP28SSZm = 20732
+
+    VRCP28SSZmk = 20733
+
+    VRCP28SSZmkz = 20734
+
+    VRCP28SSZr = 20735
+
+    VRCP28SSZrb = 20736
+
+    VRCP28SSZrbk = 20737
+
+    VRCP28SSZrbkz = 20738
+
+    VRCP28SSZrk = 20739
+
+    VRCP28SSZrkz = 20740
+
+    VRCPBF16Z128m = 20741
+
+    VRCPBF16Z128mb = 20742
+
+    VRCPBF16Z128mbk = 20743
+
+    VRCPBF16Z128mbkz = 20744
+
+    VRCPBF16Z128mk = 20745
+
+    VRCPBF16Z128mkz = 20746
+
+    VRCPBF16Z128r = 20747
+
+    VRCPBF16Z128rk = 20748
+
+    VRCPBF16Z128rkz = 20749
+
+    VRCPBF16Z256m = 20750
+
+    VRCPBF16Z256mb = 20751
+
+    VRCPBF16Z256mbk = 20752
+
+    VRCPBF16Z256mbkz = 20753
+
+    VRCPBF16Z256mk = 20754
+
+    VRCPBF16Z256mkz = 20755
+
+    VRCPBF16Z256r = 20756
+
+    VRCPBF16Z256rk = 20757
+
+    VRCPBF16Z256rkz = 20758
+
+    VRCPBF16Zm = 20759
+
+    VRCPBF16Zmb = 20760
+
+    VRCPBF16Zmbk = 20761
+
+    VRCPBF16Zmbkz = 20762
+
+    VRCPBF16Zmk = 20763
+
+    VRCPBF16Zmkz = 20764
+
+    VRCPBF16Zr = 20765
+
+    VRCPBF16Zrk = 20766
+
+    VRCPBF16Zrkz = 20767
+
+    VRCPPHZ128m = 20768
+
+    VRCPPHZ128mb = 20769
+
+    VRCPPHZ128mbk = 20770
+
+    VRCPPHZ128mbkz = 20771
+
+    VRCPPHZ128mk = 20772
+
+    VRCPPHZ128mkz = 20773
+
+    VRCPPHZ128r = 20774
+
+    VRCPPHZ128rk = 20775
+
+    VRCPPHZ128rkz = 20776
+
+    VRCPPHZ256m = 20777
+
+    VRCPPHZ256mb = 20778
+
+    VRCPPHZ256mbk = 20779
+
+    VRCPPHZ256mbkz = 20780
+
+    VRCPPHZ256mk = 20781
+
+    VRCPPHZ256mkz = 20782
+
+    VRCPPHZ256r = 20783
+
+    VRCPPHZ256rk = 20784
+
+    VRCPPHZ256rkz = 20785
+
+    VRCPPHZm = 20786
+
+    VRCPPHZmb = 20787
+
+    VRCPPHZmbk = 20788
+
+    VRCPPHZmbkz = 20789
+
+    VRCPPHZmk = 20790
+
+    VRCPPHZmkz = 20791
+
+    VRCPPHZr = 20792
+
+    VRCPPHZrk = 20793
+
+    VRCPPHZrkz = 20794
+
+    VRCPPSYm = 20795
+
+    VRCPPSYr = 20796
+
+    VRCPPSm = 20797
+
+    VRCPPSr = 20798
+
+    VRCPSHZrm = 20799
+
+    VRCPSHZrmk = 20800
+
+    VRCPSHZrmkz = 20801
+
+    VRCPSHZrr = 20802
+
+    VRCPSHZrrk = 20803
+
+    VRCPSHZrrkz = 20804
+
+    VRCPSSm = 20805
+
+    VRCPSSm_Int = 20806
+
+    VRCPSSr = 20807
+
+    VRCPSSr_Int = 20808
+
+    VREDUCEBF16Z128rmbi = 20809
+
+    VREDUCEBF16Z128rmbik = 20810
+
+    VREDUCEBF16Z128rmbikz = 20811
+
+    VREDUCEBF16Z128rmi = 20812
+
+    VREDUCEBF16Z128rmik = 20813
+
+    VREDUCEBF16Z128rmikz = 20814
+
+    VREDUCEBF16Z128rri = 20815
+
+    VREDUCEBF16Z128rrik = 20816
+
+    VREDUCEBF16Z128rrikz = 20817
+
+    VREDUCEBF16Z256rmbi = 20818
+
+    VREDUCEBF16Z256rmbik = 20819
+
+    VREDUCEBF16Z256rmbikz = 20820
+
+    VREDUCEBF16Z256rmi = 20821
+
+    VREDUCEBF16Z256rmik = 20822
+
+    VREDUCEBF16Z256rmikz = 20823
+
+    VREDUCEBF16Z256rri = 20824
+
+    VREDUCEBF16Z256rrik = 20825
+
+    VREDUCEBF16Z256rrikz = 20826
+
+    VREDUCEBF16Zrmbi = 20827
+
+    VREDUCEBF16Zrmbik = 20828
+
+    VREDUCEBF16Zrmbikz = 20829
+
+    VREDUCEBF16Zrmi = 20830
+
+    VREDUCEBF16Zrmik = 20831
+
+    VREDUCEBF16Zrmikz = 20832
+
+    VREDUCEBF16Zrri = 20833
+
+    VREDUCEBF16Zrrik = 20834
+
+    VREDUCEBF16Zrrikz = 20835
+
+    VREDUCEPDZ128rmbi = 20836
+
+    VREDUCEPDZ128rmbik = 20837
+
+    VREDUCEPDZ128rmbikz = 20838
+
+    VREDUCEPDZ128rmi = 20839
+
+    VREDUCEPDZ128rmik = 20840
+
+    VREDUCEPDZ128rmikz = 20841
+
+    VREDUCEPDZ128rri = 20842
+
+    VREDUCEPDZ128rrik = 20843
+
+    VREDUCEPDZ128rrikz = 20844
+
+    VREDUCEPDZ256rmbi = 20845
+
+    VREDUCEPDZ256rmbik = 20846
+
+    VREDUCEPDZ256rmbikz = 20847
+
+    VREDUCEPDZ256rmi = 20848
+
+    VREDUCEPDZ256rmik = 20849
+
+    VREDUCEPDZ256rmikz = 20850
+
+    VREDUCEPDZ256rri = 20851
+
+    VREDUCEPDZ256rrik = 20852
+
+    VREDUCEPDZ256rrikz = 20853
+
+    VREDUCEPDZrmbi = 20854
+
+    VREDUCEPDZrmbik = 20855
+
+    VREDUCEPDZrmbikz = 20856
+
+    VREDUCEPDZrmi = 20857
+
+    VREDUCEPDZrmik = 20858
+
+    VREDUCEPDZrmikz = 20859
+
+    VREDUCEPDZrri = 20860
+
+    VREDUCEPDZrrib = 20861
+
+    VREDUCEPDZrribk = 20862
+
+    VREDUCEPDZrribkz = 20863
+
+    VREDUCEPDZrrik = 20864
+
+    VREDUCEPDZrrikz = 20865
+
+    VREDUCEPHZ128rmbi = 20866
+
+    VREDUCEPHZ128rmbik = 20867
+
+    VREDUCEPHZ128rmbikz = 20868
+
+    VREDUCEPHZ128rmi = 20869
+
+    VREDUCEPHZ128rmik = 20870
+
+    VREDUCEPHZ128rmikz = 20871
+
+    VREDUCEPHZ128rri = 20872
+
+    VREDUCEPHZ128rrik = 20873
+
+    VREDUCEPHZ128rrikz = 20874
+
+    VREDUCEPHZ256rmbi = 20875
+
+    VREDUCEPHZ256rmbik = 20876
+
+    VREDUCEPHZ256rmbikz = 20877
+
+    VREDUCEPHZ256rmi = 20878
+
+    VREDUCEPHZ256rmik = 20879
+
+    VREDUCEPHZ256rmikz = 20880
+
+    VREDUCEPHZ256rri = 20881
+
+    VREDUCEPHZ256rrik = 20882
+
+    VREDUCEPHZ256rrikz = 20883
+
+    VREDUCEPHZrmbi = 20884
+
+    VREDUCEPHZrmbik = 20885
+
+    VREDUCEPHZrmbikz = 20886
+
+    VREDUCEPHZrmi = 20887
+
+    VREDUCEPHZrmik = 20888
+
+    VREDUCEPHZrmikz = 20889
+
+    VREDUCEPHZrri = 20890
+
+    VREDUCEPHZrrib = 20891
+
+    VREDUCEPHZrribk = 20892
+
+    VREDUCEPHZrribkz = 20893
+
+    VREDUCEPHZrrik = 20894
+
+    VREDUCEPHZrrikz = 20895
+
+    VREDUCEPSZ128rmbi = 20896
+
+    VREDUCEPSZ128rmbik = 20897
+
+    VREDUCEPSZ128rmbikz = 20898
+
+    VREDUCEPSZ128rmi = 20899
+
+    VREDUCEPSZ128rmik = 20900
+
+    VREDUCEPSZ128rmikz = 20901
+
+    VREDUCEPSZ128rri = 20902
+
+    VREDUCEPSZ128rrik = 20903
+
+    VREDUCEPSZ128rrikz = 20904
+
+    VREDUCEPSZ256rmbi = 20905
+
+    VREDUCEPSZ256rmbik = 20906
+
+    VREDUCEPSZ256rmbikz = 20907
+
+    VREDUCEPSZ256rmi = 20908
+
+    VREDUCEPSZ256rmik = 20909
+
+    VREDUCEPSZ256rmikz = 20910
+
+    VREDUCEPSZ256rri = 20911
+
+    VREDUCEPSZ256rrik = 20912
+
+    VREDUCEPSZ256rrikz = 20913
+
+    VREDUCEPSZrmbi = 20914
+
+    VREDUCEPSZrmbik = 20915
+
+    VREDUCEPSZrmbikz = 20916
+
+    VREDUCEPSZrmi = 20917
+
+    VREDUCEPSZrmik = 20918
+
+    VREDUCEPSZrmikz = 20919
+
+    VREDUCEPSZrri = 20920
+
+    VREDUCEPSZrrib = 20921
+
+    VREDUCEPSZrribk = 20922
+
+    VREDUCEPSZrribkz = 20923
+
+    VREDUCEPSZrrik = 20924
+
+    VREDUCEPSZrrikz = 20925
+
+    VREDUCESDZrmi = 20926
+
+    VREDUCESDZrmik = 20927
+
+    VREDUCESDZrmikz = 20928
+
+    VREDUCESDZrri = 20929
+
+    VREDUCESDZrrib = 20930
+
+    VREDUCESDZrribk = 20931
+
+    VREDUCESDZrribkz = 20932
+
+    VREDUCESDZrrik = 20933
+
+    VREDUCESDZrrikz = 20934
+
+    VREDUCESHZrmi = 20935
+
+    VREDUCESHZrmik = 20936
+
+    VREDUCESHZrmikz = 20937
+
+    VREDUCESHZrri = 20938
+
+    VREDUCESHZrrib = 20939
+
+    VREDUCESHZrribk = 20940
+
+    VREDUCESHZrribkz = 20941
+
+    VREDUCESHZrrik = 20942
+
+    VREDUCESHZrrikz = 20943
+
+    VREDUCESSZrmi = 20944
+
+    VREDUCESSZrmik = 20945
+
+    VREDUCESSZrmikz = 20946
+
+    VREDUCESSZrri = 20947
+
+    VREDUCESSZrrib = 20948
+
+    VREDUCESSZrribk = 20949
+
+    VREDUCESSZrribkz = 20950
+
+    VREDUCESSZrrik = 20951
+
+    VREDUCESSZrrikz = 20952
+
+    VRNDSCALEBF16Z128rmbi = 20953
+
+    VRNDSCALEBF16Z128rmbik = 20954
+
+    VRNDSCALEBF16Z128rmbikz = 20955
+
+    VRNDSCALEBF16Z128rmi = 20956
+
+    VRNDSCALEBF16Z128rmik = 20957
+
+    VRNDSCALEBF16Z128rmikz = 20958
+
+    VRNDSCALEBF16Z128rri = 20959
+
+    VRNDSCALEBF16Z128rrik = 20960
+
+    VRNDSCALEBF16Z128rrikz = 20961
+
+    VRNDSCALEBF16Z256rmbi = 20962
+
+    VRNDSCALEBF16Z256rmbik = 20963
+
+    VRNDSCALEBF16Z256rmbikz = 20964
+
+    VRNDSCALEBF16Z256rmi = 20965
+
+    VRNDSCALEBF16Z256rmik = 20966
+
+    VRNDSCALEBF16Z256rmikz = 20967
+
+    VRNDSCALEBF16Z256rri = 20968
+
+    VRNDSCALEBF16Z256rrik = 20969
+
+    VRNDSCALEBF16Z256rrikz = 20970
+
+    VRNDSCALEBF16Zrmbi = 20971
+
+    VRNDSCALEBF16Zrmbik = 20972
+
+    VRNDSCALEBF16Zrmbikz = 20973
+
+    VRNDSCALEBF16Zrmi = 20974
+
+    VRNDSCALEBF16Zrmik = 20975
+
+    VRNDSCALEBF16Zrmikz = 20976
+
+    VRNDSCALEBF16Zrri = 20977
+
+    VRNDSCALEBF16Zrrik = 20978
+
+    VRNDSCALEBF16Zrrikz = 20979
+
+    VRNDSCALEPDZ128rmbi = 20980
+
+    VRNDSCALEPDZ128rmbik = 20981
+
+    VRNDSCALEPDZ128rmbikz = 20982
+
+    VRNDSCALEPDZ128rmi = 20983
+
+    VRNDSCALEPDZ128rmik = 20984
+
+    VRNDSCALEPDZ128rmikz = 20985
+
+    VRNDSCALEPDZ128rri = 20986
+
+    VRNDSCALEPDZ128rrik = 20987
+
+    VRNDSCALEPDZ128rrikz = 20988
+
+    VRNDSCALEPDZ256rmbi = 20989
+
+    VRNDSCALEPDZ256rmbik = 20990
+
+    VRNDSCALEPDZ256rmbikz = 20991
+
+    VRNDSCALEPDZ256rmi = 20992
+
+    VRNDSCALEPDZ256rmik = 20993
+
+    VRNDSCALEPDZ256rmikz = 20994
+
+    VRNDSCALEPDZ256rri = 20995
+
+    VRNDSCALEPDZ256rrik = 20996
+
+    VRNDSCALEPDZ256rrikz = 20997
+
+    VRNDSCALEPDZrmbi = 20998
+
+    VRNDSCALEPDZrmbik = 20999
+
+    VRNDSCALEPDZrmbikz = 21000
+
+    VRNDSCALEPDZrmi = 21001
+
+    VRNDSCALEPDZrmik = 21002
+
+    VRNDSCALEPDZrmikz = 21003
+
+    VRNDSCALEPDZrri = 21004
+
+    VRNDSCALEPDZrrib = 21005
+
+    VRNDSCALEPDZrribk = 21006
+
+    VRNDSCALEPDZrribkz = 21007
+
+    VRNDSCALEPDZrrik = 21008
+
+    VRNDSCALEPDZrrikz = 21009
+
+    VRNDSCALEPHZ128rmbi = 21010
+
+    VRNDSCALEPHZ128rmbik = 21011
+
+    VRNDSCALEPHZ128rmbikz = 21012
+
+    VRNDSCALEPHZ128rmi = 21013
+
+    VRNDSCALEPHZ128rmik = 21014
+
+    VRNDSCALEPHZ128rmikz = 21015
+
+    VRNDSCALEPHZ128rri = 21016
+
+    VRNDSCALEPHZ128rrik = 21017
+
+    VRNDSCALEPHZ128rrikz = 21018
+
+    VRNDSCALEPHZ256rmbi = 21019
+
+    VRNDSCALEPHZ256rmbik = 21020
+
+    VRNDSCALEPHZ256rmbikz = 21021
+
+    VRNDSCALEPHZ256rmi = 21022
+
+    VRNDSCALEPHZ256rmik = 21023
+
+    VRNDSCALEPHZ256rmikz = 21024
+
+    VRNDSCALEPHZ256rri = 21025
+
+    VRNDSCALEPHZ256rrik = 21026
+
+    VRNDSCALEPHZ256rrikz = 21027
+
+    VRNDSCALEPHZrmbi = 21028
+
+    VRNDSCALEPHZrmbik = 21029
+
+    VRNDSCALEPHZrmbikz = 21030
+
+    VRNDSCALEPHZrmi = 21031
+
+    VRNDSCALEPHZrmik = 21032
+
+    VRNDSCALEPHZrmikz = 21033
+
+    VRNDSCALEPHZrri = 21034
+
+    VRNDSCALEPHZrrib = 21035
+
+    VRNDSCALEPHZrribk = 21036
+
+    VRNDSCALEPHZrribkz = 21037
+
+    VRNDSCALEPHZrrik = 21038
+
+    VRNDSCALEPHZrrikz = 21039
+
+    VRNDSCALEPSZ128rmbi = 21040
+
+    VRNDSCALEPSZ128rmbik = 21041
+
+    VRNDSCALEPSZ128rmbikz = 21042
+
+    VRNDSCALEPSZ128rmi = 21043
+
+    VRNDSCALEPSZ128rmik = 21044
+
+    VRNDSCALEPSZ128rmikz = 21045
+
+    VRNDSCALEPSZ128rri = 21046
+
+    VRNDSCALEPSZ128rrik = 21047
+
+    VRNDSCALEPSZ128rrikz = 21048
+
+    VRNDSCALEPSZ256rmbi = 21049
+
+    VRNDSCALEPSZ256rmbik = 21050
+
+    VRNDSCALEPSZ256rmbikz = 21051
+
+    VRNDSCALEPSZ256rmi = 21052
+
+    VRNDSCALEPSZ256rmik = 21053
+
+    VRNDSCALEPSZ256rmikz = 21054
+
+    VRNDSCALEPSZ256rri = 21055
+
+    VRNDSCALEPSZ256rrik = 21056
+
+    VRNDSCALEPSZ256rrikz = 21057
+
+    VRNDSCALEPSZrmbi = 21058
+
+    VRNDSCALEPSZrmbik = 21059
+
+    VRNDSCALEPSZrmbikz = 21060
+
+    VRNDSCALEPSZrmi = 21061
+
+    VRNDSCALEPSZrmik = 21062
+
+    VRNDSCALEPSZrmikz = 21063
+
+    VRNDSCALEPSZrri = 21064
+
+    VRNDSCALEPSZrrib = 21065
+
+    VRNDSCALEPSZrribk = 21066
+
+    VRNDSCALEPSZrribkz = 21067
+
+    VRNDSCALEPSZrrik = 21068
+
+    VRNDSCALEPSZrrikz = 21069
+
+    VRNDSCALESDZrmi = 21070
+
+    VRNDSCALESDZrmi_Int = 21071
+
+    VRNDSCALESDZrmik_Int = 21072
+
+    VRNDSCALESDZrmikz_Int = 21073
+
+    VRNDSCALESDZrri = 21074
+
+    VRNDSCALESDZrri_Int = 21075
+
+    VRNDSCALESDZrrib_Int = 21076
+
+    VRNDSCALESDZrribk_Int = 21077
+
+    VRNDSCALESDZrribkz_Int = 21078
+
+    VRNDSCALESDZrrik_Int = 21079
+
+    VRNDSCALESDZrrikz_Int = 21080
+
+    VRNDSCALESHZrmi = 21081
+
+    VRNDSCALESHZrmi_Int = 21082
+
+    VRNDSCALESHZrmik_Int = 21083
+
+    VRNDSCALESHZrmikz_Int = 21084
+
+    VRNDSCALESHZrri = 21085
+
+    VRNDSCALESHZrri_Int = 21086
+
+    VRNDSCALESHZrrib_Int = 21087
+
+    VRNDSCALESHZrribk_Int = 21088
+
+    VRNDSCALESHZrribkz_Int = 21089
+
+    VRNDSCALESHZrrik_Int = 21090
+
+    VRNDSCALESHZrrikz_Int = 21091
+
+    VRNDSCALESSZrmi = 21092
+
+    VRNDSCALESSZrmi_Int = 21093
+
+    VRNDSCALESSZrmik_Int = 21094
+
+    VRNDSCALESSZrmikz_Int = 21095
+
+    VRNDSCALESSZrri = 21096
+
+    VRNDSCALESSZrri_Int = 21097
+
+    VRNDSCALESSZrrib_Int = 21098
+
+    VRNDSCALESSZrribk_Int = 21099
+
+    VRNDSCALESSZrribkz_Int = 21100
+
+    VRNDSCALESSZrrik_Int = 21101
+
+    VRNDSCALESSZrrikz_Int = 21102
+
+    VROUNDPDYmi = 21103
+
+    VROUNDPDYri = 21104
+
+    VROUNDPDmi = 21105
+
+    VROUNDPDri = 21106
+
+    VROUNDPSYmi = 21107
+
+    VROUNDPSYri = 21108
+
+    VROUNDPSmi = 21109
+
+    VROUNDPSri = 21110
+
+    VROUNDSDmi = 21111
+
+    VROUNDSDmi_Int = 21112
+
+    VROUNDSDri = 21113
+
+    VROUNDSDri_Int = 21114
+
+    VROUNDSSmi = 21115
+
+    VROUNDSSmi_Int = 21116
+
+    VROUNDSSri = 21117
+
+    VROUNDSSri_Int = 21118
+
+    VRSQRT14PDZ128m = 21119
+
+    VRSQRT14PDZ128mb = 21120
+
+    VRSQRT14PDZ128mbk = 21121
+
+    VRSQRT14PDZ128mbkz = 21122
+
+    VRSQRT14PDZ128mk = 21123
+
+    VRSQRT14PDZ128mkz = 21124
+
+    VRSQRT14PDZ128r = 21125
+
+    VRSQRT14PDZ128rk = 21126
+
+    VRSQRT14PDZ128rkz = 21127
+
+    VRSQRT14PDZ256m = 21128
+
+    VRSQRT14PDZ256mb = 21129
+
+    VRSQRT14PDZ256mbk = 21130
+
+    VRSQRT14PDZ256mbkz = 21131
+
+    VRSQRT14PDZ256mk = 21132
+
+    VRSQRT14PDZ256mkz = 21133
+
+    VRSQRT14PDZ256r = 21134
+
+    VRSQRT14PDZ256rk = 21135
+
+    VRSQRT14PDZ256rkz = 21136
+
+    VRSQRT14PDZm = 21137
+
+    VRSQRT14PDZmb = 21138
+
+    VRSQRT14PDZmbk = 21139
+
+    VRSQRT14PDZmbkz = 21140
+
+    VRSQRT14PDZmk = 21141
+
+    VRSQRT14PDZmkz = 21142
+
+    VRSQRT14PDZr = 21143
+
+    VRSQRT14PDZrk = 21144
+
+    VRSQRT14PDZrkz = 21145
+
+    VRSQRT14PSZ128m = 21146
+
+    VRSQRT14PSZ128mb = 21147
+
+    VRSQRT14PSZ128mbk = 21148
+
+    VRSQRT14PSZ128mbkz = 21149
+
+    VRSQRT14PSZ128mk = 21150
+
+    VRSQRT14PSZ128mkz = 21151
+
+    VRSQRT14PSZ128r = 21152
+
+    VRSQRT14PSZ128rk = 21153
+
+    VRSQRT14PSZ128rkz = 21154
+
+    VRSQRT14PSZ256m = 21155
+
+    VRSQRT14PSZ256mb = 21156
+
+    VRSQRT14PSZ256mbk = 21157
+
+    VRSQRT14PSZ256mbkz = 21158
+
+    VRSQRT14PSZ256mk = 21159
+
+    VRSQRT14PSZ256mkz = 21160
+
+    VRSQRT14PSZ256r = 21161
+
+    VRSQRT14PSZ256rk = 21162
+
+    VRSQRT14PSZ256rkz = 21163
+
+    VRSQRT14PSZm = 21164
+
+    VRSQRT14PSZmb = 21165
+
+    VRSQRT14PSZmbk = 21166
+
+    VRSQRT14PSZmbkz = 21167
+
+    VRSQRT14PSZmk = 21168
+
+    VRSQRT14PSZmkz = 21169
+
+    VRSQRT14PSZr = 21170
+
+    VRSQRT14PSZrk = 21171
+
+    VRSQRT14PSZrkz = 21172
+
+    VRSQRT14SDZrm = 21173
+
+    VRSQRT14SDZrmk = 21174
+
+    VRSQRT14SDZrmkz = 21175
+
+    VRSQRT14SDZrr = 21176
+
+    VRSQRT14SDZrrk = 21177
+
+    VRSQRT14SDZrrkz = 21178
+
+    VRSQRT14SSZrm = 21179
+
+    VRSQRT14SSZrmk = 21180
+
+    VRSQRT14SSZrmkz = 21181
+
+    VRSQRT14SSZrr = 21182
+
+    VRSQRT14SSZrrk = 21183
+
+    VRSQRT14SSZrrkz = 21184
+
+    VRSQRT28PDZm = 21185
+
+    VRSQRT28PDZmb = 21186
+
+    VRSQRT28PDZmbk = 21187
+
+    VRSQRT28PDZmbkz = 21188
+
+    VRSQRT28PDZmk = 21189
+
+    VRSQRT28PDZmkz = 21190
+
+    VRSQRT28PDZr = 21191
+
+    VRSQRT28PDZrb = 21192
+
+    VRSQRT28PDZrbk = 21193
+
+    VRSQRT28PDZrbkz = 21194
+
+    VRSQRT28PDZrk = 21195
+
+    VRSQRT28PDZrkz = 21196
+
+    VRSQRT28PSZm = 21197
+
+    VRSQRT28PSZmb = 21198
+
+    VRSQRT28PSZmbk = 21199
+
+    VRSQRT28PSZmbkz = 21200
+
+    VRSQRT28PSZmk = 21201
+
+    VRSQRT28PSZmkz = 21202
+
+    VRSQRT28PSZr = 21203
+
+    VRSQRT28PSZrb = 21204
+
+    VRSQRT28PSZrbk = 21205
+
+    VRSQRT28PSZrbkz = 21206
+
+    VRSQRT28PSZrk = 21207
+
+    VRSQRT28PSZrkz = 21208
+
+    VRSQRT28SDZm = 21209
+
+    VRSQRT28SDZmk = 21210
+
+    VRSQRT28SDZmkz = 21211
+
+    VRSQRT28SDZr = 21212
+
+    VRSQRT28SDZrb = 21213
+
+    VRSQRT28SDZrbk = 21214
+
+    VRSQRT28SDZrbkz = 21215
+
+    VRSQRT28SDZrk = 21216
+
+    VRSQRT28SDZrkz = 21217
+
+    VRSQRT28SSZm = 21218
+
+    VRSQRT28SSZmk = 21219
+
+    VRSQRT28SSZmkz = 21220
+
+    VRSQRT28SSZr = 21221
+
+    VRSQRT28SSZrb = 21222
+
+    VRSQRT28SSZrbk = 21223
+
+    VRSQRT28SSZrbkz = 21224
+
+    VRSQRT28SSZrk = 21225
+
+    VRSQRT28SSZrkz = 21226
+
+    VRSQRTBF16Z128m = 21227
+
+    VRSQRTBF16Z128mb = 21228
+
+    VRSQRTBF16Z128mbk = 21229
+
+    VRSQRTBF16Z128mbkz = 21230
+
+    VRSQRTBF16Z128mk = 21231
+
+    VRSQRTBF16Z128mkz = 21232
+
+    VRSQRTBF16Z128r = 21233
+
+    VRSQRTBF16Z128rk = 21234
+
+    VRSQRTBF16Z128rkz = 21235
+
+    VRSQRTBF16Z256m = 21236
+
+    VRSQRTBF16Z256mb = 21237
+
+    VRSQRTBF16Z256mbk = 21238
+
+    VRSQRTBF16Z256mbkz = 21239
+
+    VRSQRTBF16Z256mk = 21240
+
+    VRSQRTBF16Z256mkz = 21241
+
+    VRSQRTBF16Z256r = 21242
+
+    VRSQRTBF16Z256rk = 21243
+
+    VRSQRTBF16Z256rkz = 21244
+
+    VRSQRTBF16Zm = 21245
+
+    VRSQRTBF16Zmb = 21246
+
+    VRSQRTBF16Zmbk = 21247
+
+    VRSQRTBF16Zmbkz = 21248
+
+    VRSQRTBF16Zmk = 21249
+
+    VRSQRTBF16Zmkz = 21250
+
+    VRSQRTBF16Zr = 21251
+
+    VRSQRTBF16Zrk = 21252
+
+    VRSQRTBF16Zrkz = 21253
+
+    VRSQRTPHZ128m = 21254
+
+    VRSQRTPHZ128mb = 21255
+
+    VRSQRTPHZ128mbk = 21256
+
+    VRSQRTPHZ128mbkz = 21257
+
+    VRSQRTPHZ128mk = 21258
+
+    VRSQRTPHZ128mkz = 21259
+
+    VRSQRTPHZ128r = 21260
+
+    VRSQRTPHZ128rk = 21261
+
+    VRSQRTPHZ128rkz = 21262
+
+    VRSQRTPHZ256m = 21263
+
+    VRSQRTPHZ256mb = 21264
+
+    VRSQRTPHZ256mbk = 21265
+
+    VRSQRTPHZ256mbkz = 21266
+
+    VRSQRTPHZ256mk = 21267
+
+    VRSQRTPHZ256mkz = 21268
+
+    VRSQRTPHZ256r = 21269
+
+    VRSQRTPHZ256rk = 21270
+
+    VRSQRTPHZ256rkz = 21271
+
+    VRSQRTPHZm = 21272
+
+    VRSQRTPHZmb = 21273
+
+    VRSQRTPHZmbk = 21274
+
+    VRSQRTPHZmbkz = 21275
+
+    VRSQRTPHZmk = 21276
+
+    VRSQRTPHZmkz = 21277
+
+    VRSQRTPHZr = 21278
+
+    VRSQRTPHZrk = 21279
+
+    VRSQRTPHZrkz = 21280
+
+    VRSQRTPSYm = 21281
+
+    VRSQRTPSYr = 21282
+
+    VRSQRTPSm = 21283
+
+    VRSQRTPSr = 21284
+
+    VRSQRTSHZrm = 21285
+
+    VRSQRTSHZrmk = 21286
+
+    VRSQRTSHZrmkz = 21287
+
+    VRSQRTSHZrr = 21288
+
+    VRSQRTSHZrrk = 21289
+
+    VRSQRTSHZrrkz = 21290
+
+    VRSQRTSSm = 21291
+
+    VRSQRTSSm_Int = 21292
+
+    VRSQRTSSr = 21293
+
+    VRSQRTSSr_Int = 21294
+
+    VSCALEFBF16Z128rm = 21295
+
+    VSCALEFBF16Z128rmb = 21296
+
+    VSCALEFBF16Z128rmbk = 21297
+
+    VSCALEFBF16Z128rmbkz = 21298
+
+    VSCALEFBF16Z128rmk = 21299
+
+    VSCALEFBF16Z128rmkz = 21300
+
+    VSCALEFBF16Z128rr = 21301
+
+    VSCALEFBF16Z128rrk = 21302
+
+    VSCALEFBF16Z128rrkz = 21303
+
+    VSCALEFBF16Z256rm = 21304
+
+    VSCALEFBF16Z256rmb = 21305
+
+    VSCALEFBF16Z256rmbk = 21306
+
+    VSCALEFBF16Z256rmbkz = 21307
+
+    VSCALEFBF16Z256rmk = 21308
+
+    VSCALEFBF16Z256rmkz = 21309
+
+    VSCALEFBF16Z256rr = 21310
+
+    VSCALEFBF16Z256rrk = 21311
+
+    VSCALEFBF16Z256rrkz = 21312
+
+    VSCALEFBF16Zrm = 21313
+
+    VSCALEFBF16Zrmb = 21314
+
+    VSCALEFBF16Zrmbk = 21315
+
+    VSCALEFBF16Zrmbkz = 21316
+
+    VSCALEFBF16Zrmk = 21317
+
+    VSCALEFBF16Zrmkz = 21318
+
+    VSCALEFBF16Zrr = 21319
+
+    VSCALEFBF16Zrrk = 21320
+
+    VSCALEFBF16Zrrkz = 21321
+
+    VSCALEFPDZ128rm = 21322
+
+    VSCALEFPDZ128rmb = 21323
+
+    VSCALEFPDZ128rmbk = 21324
+
+    VSCALEFPDZ128rmbkz = 21325
+
+    VSCALEFPDZ128rmk = 21326
+
+    VSCALEFPDZ128rmkz = 21327
+
+    VSCALEFPDZ128rr = 21328
+
+    VSCALEFPDZ128rrk = 21329
+
+    VSCALEFPDZ128rrkz = 21330
+
+    VSCALEFPDZ256rm = 21331
+
+    VSCALEFPDZ256rmb = 21332
+
+    VSCALEFPDZ256rmbk = 21333
+
+    VSCALEFPDZ256rmbkz = 21334
+
+    VSCALEFPDZ256rmk = 21335
+
+    VSCALEFPDZ256rmkz = 21336
+
+    VSCALEFPDZ256rr = 21337
+
+    VSCALEFPDZ256rrk = 21338
+
+    VSCALEFPDZ256rrkz = 21339
+
+    VSCALEFPDZrm = 21340
+
+    VSCALEFPDZrmb = 21341
+
+    VSCALEFPDZrmbk = 21342
+
+    VSCALEFPDZrmbkz = 21343
+
+    VSCALEFPDZrmk = 21344
+
+    VSCALEFPDZrmkz = 21345
+
+    VSCALEFPDZrr = 21346
+
+    VSCALEFPDZrrb = 21347
+
+    VSCALEFPDZrrbk = 21348
+
+    VSCALEFPDZrrbkz = 21349
+
+    VSCALEFPDZrrk = 21350
+
+    VSCALEFPDZrrkz = 21351
+
+    VSCALEFPHZ128rm = 21352
+
+    VSCALEFPHZ128rmb = 21353
+
+    VSCALEFPHZ128rmbk = 21354
+
+    VSCALEFPHZ128rmbkz = 21355
+
+    VSCALEFPHZ128rmk = 21356
+
+    VSCALEFPHZ128rmkz = 21357
+
+    VSCALEFPHZ128rr = 21358
+
+    VSCALEFPHZ128rrk = 21359
+
+    VSCALEFPHZ128rrkz = 21360
+
+    VSCALEFPHZ256rm = 21361
+
+    VSCALEFPHZ256rmb = 21362
+
+    VSCALEFPHZ256rmbk = 21363
+
+    VSCALEFPHZ256rmbkz = 21364
+
+    VSCALEFPHZ256rmk = 21365
+
+    VSCALEFPHZ256rmkz = 21366
+
+    VSCALEFPHZ256rr = 21367
+
+    VSCALEFPHZ256rrk = 21368
+
+    VSCALEFPHZ256rrkz = 21369
+
+    VSCALEFPHZrm = 21370
+
+    VSCALEFPHZrmb = 21371
+
+    VSCALEFPHZrmbk = 21372
+
+    VSCALEFPHZrmbkz = 21373
+
+    VSCALEFPHZrmk = 21374
+
+    VSCALEFPHZrmkz = 21375
+
+    VSCALEFPHZrr = 21376
+
+    VSCALEFPHZrrb = 21377
+
+    VSCALEFPHZrrbk = 21378
+
+    VSCALEFPHZrrbkz = 21379
+
+    VSCALEFPHZrrk = 21380
+
+    VSCALEFPHZrrkz = 21381
+
+    VSCALEFPSZ128rm = 21382
+
+    VSCALEFPSZ128rmb = 21383
+
+    VSCALEFPSZ128rmbk = 21384
+
+    VSCALEFPSZ128rmbkz = 21385
+
+    VSCALEFPSZ128rmk = 21386
+
+    VSCALEFPSZ128rmkz = 21387
+
+    VSCALEFPSZ128rr = 21388
+
+    VSCALEFPSZ128rrk = 21389
+
+    VSCALEFPSZ128rrkz = 21390
+
+    VSCALEFPSZ256rm = 21391
+
+    VSCALEFPSZ256rmb = 21392
+
+    VSCALEFPSZ256rmbk = 21393
+
+    VSCALEFPSZ256rmbkz = 21394
+
+    VSCALEFPSZ256rmk = 21395
+
+    VSCALEFPSZ256rmkz = 21396
+
+    VSCALEFPSZ256rr = 21397
+
+    VSCALEFPSZ256rrk = 21398
+
+    VSCALEFPSZ256rrkz = 21399
+
+    VSCALEFPSZrm = 21400
+
+    VSCALEFPSZrmb = 21401
+
+    VSCALEFPSZrmbk = 21402
+
+    VSCALEFPSZrmbkz = 21403
+
+    VSCALEFPSZrmk = 21404
+
+    VSCALEFPSZrmkz = 21405
+
+    VSCALEFPSZrr = 21406
+
+    VSCALEFPSZrrb = 21407
+
+    VSCALEFPSZrrbk = 21408
+
+    VSCALEFPSZrrbkz = 21409
+
+    VSCALEFPSZrrk = 21410
+
+    VSCALEFPSZrrkz = 21411
+
+    VSCALEFSDZrm = 21412
+
+    VSCALEFSDZrmk = 21413
+
+    VSCALEFSDZrmkz = 21414
+
+    VSCALEFSDZrr = 21415
+
+    VSCALEFSDZrrb_Int = 21416
+
+    VSCALEFSDZrrbk_Int = 21417
+
+    VSCALEFSDZrrbkz_Int = 21418
+
+    VSCALEFSDZrrk = 21419
+
+    VSCALEFSDZrrkz = 21420
+
+    VSCALEFSHZrm = 21421
+
+    VSCALEFSHZrmk = 21422
+
+    VSCALEFSHZrmkz = 21423
+
+    VSCALEFSHZrr = 21424
+
+    VSCALEFSHZrrb_Int = 21425
+
+    VSCALEFSHZrrbk_Int = 21426
+
+    VSCALEFSHZrrbkz_Int = 21427
+
+    VSCALEFSHZrrk = 21428
+
+    VSCALEFSHZrrkz = 21429
+
+    VSCALEFSSZrm = 21430
+
+    VSCALEFSSZrmk = 21431
+
+    VSCALEFSSZrmkz = 21432
+
+    VSCALEFSSZrr = 21433
+
+    VSCALEFSSZrrb_Int = 21434
+
+    VSCALEFSSZrrbk_Int = 21435
+
+    VSCALEFSSZrrbkz_Int = 21436
+
+    VSCALEFSSZrrk = 21437
+
+    VSCALEFSSZrrkz = 21438
+
+    VSCATTERDPDZ128mr = 21439
+
+    VSCATTERDPDZ256mr = 21440
+
+    VSCATTERDPDZmr = 21441
+
+    VSCATTERDPSZ128mr = 21442
+
+    VSCATTERDPSZ256mr = 21443
+
+    VSCATTERDPSZmr = 21444
+
+    VSCATTERPF0DPDm = 21445
+
+    VSCATTERPF0DPSm = 21446
+
+    VSCATTERPF0QPDm = 21447
+
+    VSCATTERPF0QPSm = 21448
+
+    VSCATTERPF1DPDm = 21449
+
+    VSCATTERPF1DPSm = 21450
+
+    VSCATTERPF1QPDm = 21451
+
+    VSCATTERPF1QPSm = 21452
+
+    VSCATTERQPDZ128mr = 21453
+
+    VSCATTERQPDZ256mr = 21454
+
+    VSCATTERQPDZmr = 21455
+
+    VSCATTERQPSZ128mr = 21456
+
+    VSCATTERQPSZ256mr = 21457
+
+    VSCATTERQPSZmr = 21458
+
+    VSHA512MSG1rr = 21459
+
+    VSHA512MSG2rr = 21460
+
+    VSHA512RNDS2rr = 21461
+
+    VSHUFF32X4Z256rmbi = 21462
+
+    VSHUFF32X4Z256rmbik = 21463
+
+    VSHUFF32X4Z256rmbikz = 21464
+
+    VSHUFF32X4Z256rmi = 21465
+
+    VSHUFF32X4Z256rmik = 21466
+
+    VSHUFF32X4Z256rmikz = 21467
+
+    VSHUFF32X4Z256rri = 21468
+
+    VSHUFF32X4Z256rrik = 21469
+
+    VSHUFF32X4Z256rrikz = 21470
+
+    VSHUFF32X4Zrmbi = 21471
+
+    VSHUFF32X4Zrmbik = 21472
+
+    VSHUFF32X4Zrmbikz = 21473
+
+    VSHUFF32X4Zrmi = 21474
+
+    VSHUFF32X4Zrmik = 21475
+
+    VSHUFF32X4Zrmikz = 21476
+
+    VSHUFF32X4Zrri = 21477
+
+    VSHUFF32X4Zrrik = 21478
+
+    VSHUFF32X4Zrrikz = 21479
+
+    VSHUFF64X2Z256rmbi = 21480
+
+    VSHUFF64X2Z256rmbik = 21481
+
+    VSHUFF64X2Z256rmbikz = 21482
+
+    VSHUFF64X2Z256rmi = 21483
+
+    VSHUFF64X2Z256rmik = 21484
+
+    VSHUFF64X2Z256rmikz = 21485
+
+    VSHUFF64X2Z256rri = 21486
+
+    VSHUFF64X2Z256rrik = 21487
+
+    VSHUFF64X2Z256rrikz = 21488
+
+    VSHUFF64X2Zrmbi = 21489
+
+    VSHUFF64X2Zrmbik = 21490
+
+    VSHUFF64X2Zrmbikz = 21491
+
+    VSHUFF64X2Zrmi = 21492
+
+    VSHUFF64X2Zrmik = 21493
+
+    VSHUFF64X2Zrmikz = 21494
+
+    VSHUFF64X2Zrri = 21495
+
+    VSHUFF64X2Zrrik = 21496
+
+    VSHUFF64X2Zrrikz = 21497
+
+    VSHUFI32X4Z256rmbi = 21498
+
+    VSHUFI32X4Z256rmbik = 21499
+
+    VSHUFI32X4Z256rmbikz = 21500
+
+    VSHUFI32X4Z256rmi = 21501
+
+    VSHUFI32X4Z256rmik = 21502
+
+    VSHUFI32X4Z256rmikz = 21503
+
+    VSHUFI32X4Z256rri = 21504
+
+    VSHUFI32X4Z256rrik = 21505
+
+    VSHUFI32X4Z256rrikz = 21506
+
+    VSHUFI32X4Zrmbi = 21507
+
+    VSHUFI32X4Zrmbik = 21508
+
+    VSHUFI32X4Zrmbikz = 21509
+
+    VSHUFI32X4Zrmi = 21510
+
+    VSHUFI32X4Zrmik = 21511
+
+    VSHUFI32X4Zrmikz = 21512
+
+    VSHUFI32X4Zrri = 21513
+
+    VSHUFI32X4Zrrik = 21514
+
+    VSHUFI32X4Zrrikz = 21515
+
+    VSHUFI64X2Z256rmbi = 21516
+
+    VSHUFI64X2Z256rmbik = 21517
+
+    VSHUFI64X2Z256rmbikz = 21518
+
+    VSHUFI64X2Z256rmi = 21519
+
+    VSHUFI64X2Z256rmik = 21520
+
+    VSHUFI64X2Z256rmikz = 21521
+
+    VSHUFI64X2Z256rri = 21522
+
+    VSHUFI64X2Z256rrik = 21523
+
+    VSHUFI64X2Z256rrikz = 21524
+
+    VSHUFI64X2Zrmbi = 21525
+
+    VSHUFI64X2Zrmbik = 21526
+
+    VSHUFI64X2Zrmbikz = 21527
+
+    VSHUFI64X2Zrmi = 21528
+
+    VSHUFI64X2Zrmik = 21529
+
+    VSHUFI64X2Zrmikz = 21530
+
+    VSHUFI64X2Zrri = 21531
+
+    VSHUFI64X2Zrrik = 21532
+
+    VSHUFI64X2Zrrikz = 21533
+
+    VSHUFPDYrmi = 21534
+
+    VSHUFPDYrri = 21535
+
+    VSHUFPDZ128rmbi = 21536
+
+    VSHUFPDZ128rmbik = 21537
+
+    VSHUFPDZ128rmbikz = 21538
+
+    VSHUFPDZ128rmi = 21539
+
+    VSHUFPDZ128rmik = 21540
+
+    VSHUFPDZ128rmikz = 21541
+
+    VSHUFPDZ128rri = 21542
+
+    VSHUFPDZ128rrik = 21543
+
+    VSHUFPDZ128rrikz = 21544
+
+    VSHUFPDZ256rmbi = 21545
+
+    VSHUFPDZ256rmbik = 21546
+
+    VSHUFPDZ256rmbikz = 21547
+
+    VSHUFPDZ256rmi = 21548
+
+    VSHUFPDZ256rmik = 21549
+
+    VSHUFPDZ256rmikz = 21550
+
+    VSHUFPDZ256rri = 21551
+
+    VSHUFPDZ256rrik = 21552
+
+    VSHUFPDZ256rrikz = 21553
+
+    VSHUFPDZrmbi = 21554
+
+    VSHUFPDZrmbik = 21555
+
+    VSHUFPDZrmbikz = 21556
+
+    VSHUFPDZrmi = 21557
+
+    VSHUFPDZrmik = 21558
+
+    VSHUFPDZrmikz = 21559
+
+    VSHUFPDZrri = 21560
+
+    VSHUFPDZrrik = 21561
+
+    VSHUFPDZrrikz = 21562
+
+    VSHUFPDrmi = 21563
+
+    VSHUFPDrri = 21564
+
+    VSHUFPSYrmi = 21565
+
+    VSHUFPSYrri = 21566
+
+    VSHUFPSZ128rmbi = 21567
+
+    VSHUFPSZ128rmbik = 21568
+
+    VSHUFPSZ128rmbikz = 21569
+
+    VSHUFPSZ128rmi = 21570
+
+    VSHUFPSZ128rmik = 21571
+
+    VSHUFPSZ128rmikz = 21572
+
+    VSHUFPSZ128rri = 21573
+
+    VSHUFPSZ128rrik = 21574
+
+    VSHUFPSZ128rrikz = 21575
+
+    VSHUFPSZ256rmbi = 21576
+
+    VSHUFPSZ256rmbik = 21577
+
+    VSHUFPSZ256rmbikz = 21578
+
+    VSHUFPSZ256rmi = 21579
+
+    VSHUFPSZ256rmik = 21580
+
+    VSHUFPSZ256rmikz = 21581
+
+    VSHUFPSZ256rri = 21582
+
+    VSHUFPSZ256rrik = 21583
+
+    VSHUFPSZ256rrikz = 21584
+
+    VSHUFPSZrmbi = 21585
+
+    VSHUFPSZrmbik = 21586
+
+    VSHUFPSZrmbikz = 21587
+
+    VSHUFPSZrmi = 21588
+
+    VSHUFPSZrmik = 21589
+
+    VSHUFPSZrmikz = 21590
+
+    VSHUFPSZrri = 21591
+
+    VSHUFPSZrrik = 21592
+
+    VSHUFPSZrrikz = 21593
+
+    VSHUFPSrmi = 21594
+
+    VSHUFPSrri = 21595
+
+    VSM3MSG1rm = 21596
+
+    VSM3MSG1rr = 21597
+
+    VSM3MSG2rm = 21598
+
+    VSM3MSG2rr = 21599
+
+    VSM3RNDS2rmi = 21600
+
+    VSM3RNDS2rri = 21601
+
+    VSM4KEY4Yrm = 21602
+
+    VSM4KEY4Yrr = 21603
+
+    VSM4KEY4Z128rm = 21604
+
+    VSM4KEY4Z128rr = 21605
+
+    VSM4KEY4Z256rm = 21606
+
+    VSM4KEY4Z256rr = 21607
+
+    VSM4KEY4Zrm = 21608
+
+    VSM4KEY4Zrr = 21609
+
+    VSM4KEY4rm = 21610
+
+    VSM4KEY4rr = 21611
+
+    VSM4RNDS4Yrm = 21612
+
+    VSM4RNDS4Yrr = 21613
+
+    VSM4RNDS4Z128rm = 21614
+
+    VSM4RNDS4Z128rr = 21615
+
+    VSM4RNDS4Z256rm = 21616
+
+    VSM4RNDS4Z256rr = 21617
+
+    VSM4RNDS4Zrm = 21618
+
+    VSM4RNDS4Zrr = 21619
+
+    VSM4RNDS4rm = 21620
+
+    VSM4RNDS4rr = 21621
+
+    VSQRTBF16Z128m = 21622
+
+    VSQRTBF16Z128mb = 21623
+
+    VSQRTBF16Z128mbk = 21624
+
+    VSQRTBF16Z128mbkz = 21625
+
+    VSQRTBF16Z128mk = 21626
+
+    VSQRTBF16Z128mkz = 21627
+
+    VSQRTBF16Z128r = 21628
+
+    VSQRTBF16Z128rk = 21629
+
+    VSQRTBF16Z128rkz = 21630
+
+    VSQRTBF16Z256m = 21631
+
+    VSQRTBF16Z256mb = 21632
+
+    VSQRTBF16Z256mbk = 21633
+
+    VSQRTBF16Z256mbkz = 21634
+
+    VSQRTBF16Z256mk = 21635
+
+    VSQRTBF16Z256mkz = 21636
+
+    VSQRTBF16Z256r = 21637
+
+    VSQRTBF16Z256rk = 21638
+
+    VSQRTBF16Z256rkz = 21639
+
+    VSQRTBF16Zm = 21640
+
+    VSQRTBF16Zmb = 21641
+
+    VSQRTBF16Zmbk = 21642
+
+    VSQRTBF16Zmbkz = 21643
+
+    VSQRTBF16Zmk = 21644
+
+    VSQRTBF16Zmkz = 21645
+
+    VSQRTBF16Zr = 21646
+
+    VSQRTBF16Zrk = 21647
+
+    VSQRTBF16Zrkz = 21648
+
+    VSQRTPDYm = 21649
+
+    VSQRTPDYr = 21650
+
+    VSQRTPDZ128m = 21651
+
+    VSQRTPDZ128mb = 21652
+
+    VSQRTPDZ128mbk = 21653
+
+    VSQRTPDZ128mbkz = 21654
+
+    VSQRTPDZ128mk = 21655
+
+    VSQRTPDZ128mkz = 21656
+
+    VSQRTPDZ128r = 21657
+
+    VSQRTPDZ128rk = 21658
+
+    VSQRTPDZ128rkz = 21659
+
+    VSQRTPDZ256m = 21660
+
+    VSQRTPDZ256mb = 21661
+
+    VSQRTPDZ256mbk = 21662
+
+    VSQRTPDZ256mbkz = 21663
+
+    VSQRTPDZ256mk = 21664
+
+    VSQRTPDZ256mkz = 21665
+
+    VSQRTPDZ256r = 21666
+
+    VSQRTPDZ256rk = 21667
+
+    VSQRTPDZ256rkz = 21668
+
+    VSQRTPDZm = 21669
+
+    VSQRTPDZmb = 21670
+
+    VSQRTPDZmbk = 21671
+
+    VSQRTPDZmbkz = 21672
+
+    VSQRTPDZmk = 21673
+
+    VSQRTPDZmkz = 21674
+
+    VSQRTPDZr = 21675
+
+    VSQRTPDZrb = 21676
+
+    VSQRTPDZrbk = 21677
+
+    VSQRTPDZrbkz = 21678
+
+    VSQRTPDZrk = 21679
+
+    VSQRTPDZrkz = 21680
+
+    VSQRTPDm = 21681
+
+    VSQRTPDr = 21682
+
+    VSQRTPHZ128m = 21683
+
+    VSQRTPHZ128mb = 21684
+
+    VSQRTPHZ128mbk = 21685
+
+    VSQRTPHZ128mbkz = 21686
+
+    VSQRTPHZ128mk = 21687
+
+    VSQRTPHZ128mkz = 21688
+
+    VSQRTPHZ128r = 21689
+
+    VSQRTPHZ128rk = 21690
+
+    VSQRTPHZ128rkz = 21691
+
+    VSQRTPHZ256m = 21692
+
+    VSQRTPHZ256mb = 21693
+
+    VSQRTPHZ256mbk = 21694
+
+    VSQRTPHZ256mbkz = 21695
+
+    VSQRTPHZ256mk = 21696
+
+    VSQRTPHZ256mkz = 21697
+
+    VSQRTPHZ256r = 21698
+
+    VSQRTPHZ256rk = 21699
+
+    VSQRTPHZ256rkz = 21700
+
+    VSQRTPHZm = 21701
+
+    VSQRTPHZmb = 21702
+
+    VSQRTPHZmbk = 21703
+
+    VSQRTPHZmbkz = 21704
+
+    VSQRTPHZmk = 21705
+
+    VSQRTPHZmkz = 21706
+
+    VSQRTPHZr = 21707
+
+    VSQRTPHZrb = 21708
+
+    VSQRTPHZrbk = 21709
+
+    VSQRTPHZrbkz = 21710
+
+    VSQRTPHZrk = 21711
+
+    VSQRTPHZrkz = 21712
+
+    VSQRTPSYm = 21713
+
+    VSQRTPSYr = 21714
+
+    VSQRTPSZ128m = 21715
+
+    VSQRTPSZ128mb = 21716
+
+    VSQRTPSZ128mbk = 21717
+
+    VSQRTPSZ128mbkz = 21718
+
+    VSQRTPSZ128mk = 21719
+
+    VSQRTPSZ128mkz = 21720
+
+    VSQRTPSZ128r = 21721
+
+    VSQRTPSZ128rk = 21722
+
+    VSQRTPSZ128rkz = 21723
+
+    VSQRTPSZ256m = 21724
+
+    VSQRTPSZ256mb = 21725
+
+    VSQRTPSZ256mbk = 21726
+
+    VSQRTPSZ256mbkz = 21727
+
+    VSQRTPSZ256mk = 21728
+
+    VSQRTPSZ256mkz = 21729
+
+    VSQRTPSZ256r = 21730
+
+    VSQRTPSZ256rk = 21731
+
+    VSQRTPSZ256rkz = 21732
+
+    VSQRTPSZm = 21733
+
+    VSQRTPSZmb = 21734
+
+    VSQRTPSZmbk = 21735
+
+    VSQRTPSZmbkz = 21736
+
+    VSQRTPSZmk = 21737
+
+    VSQRTPSZmkz = 21738
+
+    VSQRTPSZr = 21739
+
+    VSQRTPSZrb = 21740
+
+    VSQRTPSZrbk = 21741
+
+    VSQRTPSZrbkz = 21742
+
+    VSQRTPSZrk = 21743
+
+    VSQRTPSZrkz = 21744
+
+    VSQRTPSm = 21745
+
+    VSQRTPSr = 21746
+
+    VSQRTSDZm = 21747
+
+    VSQRTSDZm_Int = 21748
+
+    VSQRTSDZmk_Int = 21749
+
+    VSQRTSDZmkz_Int = 21750
+
+    VSQRTSDZr = 21751
+
+    VSQRTSDZr_Int = 21752
+
+    VSQRTSDZrb_Int = 21753
+
+    VSQRTSDZrbk_Int = 21754
+
+    VSQRTSDZrbkz_Int = 21755
+
+    VSQRTSDZrk_Int = 21756
+
+    VSQRTSDZrkz_Int = 21757
+
+    VSQRTSDm = 21758
+
+    VSQRTSDm_Int = 21759
+
+    VSQRTSDr = 21760
+
+    VSQRTSDr_Int = 21761
+
+    VSQRTSHZm = 21762
+
+    VSQRTSHZm_Int = 21763
+
+    VSQRTSHZmk_Int = 21764
+
+    VSQRTSHZmkz_Int = 21765
+
+    VSQRTSHZr = 21766
+
+    VSQRTSHZr_Int = 21767
+
+    VSQRTSHZrb_Int = 21768
+
+    VSQRTSHZrbk_Int = 21769
+
+    VSQRTSHZrbkz_Int = 21770
+
+    VSQRTSHZrk_Int = 21771
+
+    VSQRTSHZrkz_Int = 21772
+
+    VSQRTSSZm = 21773
+
+    VSQRTSSZm_Int = 21774
+
+    VSQRTSSZmk_Int = 21775
+
+    VSQRTSSZmkz_Int = 21776
+
+    VSQRTSSZr = 21777
+
+    VSQRTSSZr_Int = 21778
+
+    VSQRTSSZrb_Int = 21779
+
+    VSQRTSSZrbk_Int = 21780
+
+    VSQRTSSZrbkz_Int = 21781
+
+    VSQRTSSZrk_Int = 21782
+
+    VSQRTSSZrkz_Int = 21783
+
+    VSQRTSSm = 21784
+
+    VSQRTSSm_Int = 21785
+
+    VSQRTSSr = 21786
+
+    VSQRTSSr_Int = 21787
+
+    VSTMXCSR = 21788
+
+    VSUBBF16Z128rm = 21789
+
+    VSUBBF16Z128rmb = 21790
+
+    VSUBBF16Z128rmbk = 21791
+
+    VSUBBF16Z128rmbkz = 21792
+
+    VSUBBF16Z128rmk = 21793
+
+    VSUBBF16Z128rmkz = 21794
+
+    VSUBBF16Z128rr = 21795
+
+    VSUBBF16Z128rrk = 21796
+
+    VSUBBF16Z128rrkz = 21797
+
+    VSUBBF16Z256rm = 21798
+
+    VSUBBF16Z256rmb = 21799
+
+    VSUBBF16Z256rmbk = 21800
+
+    VSUBBF16Z256rmbkz = 21801
+
+    VSUBBF16Z256rmk = 21802
+
+    VSUBBF16Z256rmkz = 21803
+
+    VSUBBF16Z256rr = 21804
+
+    VSUBBF16Z256rrk = 21805
+
+    VSUBBF16Z256rrkz = 21806
+
+    VSUBBF16Zrm = 21807
+
+    VSUBBF16Zrmb = 21808
+
+    VSUBBF16Zrmbk = 21809
+
+    VSUBBF16Zrmbkz = 21810
+
+    VSUBBF16Zrmk = 21811
+
+    VSUBBF16Zrmkz = 21812
+
+    VSUBBF16Zrr = 21813
+
+    VSUBBF16Zrrk = 21814
+
+    VSUBBF16Zrrkz = 21815
+
+    VSUBPDYrm = 21816
+
+    VSUBPDYrr = 21817
+
+    VSUBPDZ128rm = 21818
+
+    VSUBPDZ128rmb = 21819
+
+    VSUBPDZ128rmbk = 21820
+
+    VSUBPDZ128rmbkz = 21821
+
+    VSUBPDZ128rmk = 21822
+
+    VSUBPDZ128rmkz = 21823
+
+    VSUBPDZ128rr = 21824
+
+    VSUBPDZ128rrk = 21825
+
+    VSUBPDZ128rrkz = 21826
+
+    VSUBPDZ256rm = 21827
+
+    VSUBPDZ256rmb = 21828
+
+    VSUBPDZ256rmbk = 21829
+
+    VSUBPDZ256rmbkz = 21830
+
+    VSUBPDZ256rmk = 21831
+
+    VSUBPDZ256rmkz = 21832
+
+    VSUBPDZ256rr = 21833
+
+    VSUBPDZ256rrk = 21834
+
+    VSUBPDZ256rrkz = 21835
+
+    VSUBPDZrm = 21836
+
+    VSUBPDZrmb = 21837
+
+    VSUBPDZrmbk = 21838
+
+    VSUBPDZrmbkz = 21839
+
+    VSUBPDZrmk = 21840
+
+    VSUBPDZrmkz = 21841
+
+    VSUBPDZrr = 21842
+
+    VSUBPDZrrb = 21843
+
+    VSUBPDZrrbk = 21844
+
+    VSUBPDZrrbkz = 21845
+
+    VSUBPDZrrk = 21846
+
+    VSUBPDZrrkz = 21847
+
+    VSUBPDrm = 21848
+
+    VSUBPDrr = 21849
+
+    VSUBPHZ128rm = 21850
+
+    VSUBPHZ128rmb = 21851
+
+    VSUBPHZ128rmbk = 21852
+
+    VSUBPHZ128rmbkz = 21853
+
+    VSUBPHZ128rmk = 21854
+
+    VSUBPHZ128rmkz = 21855
+
+    VSUBPHZ128rr = 21856
+
+    VSUBPHZ128rrk = 21857
+
+    VSUBPHZ128rrkz = 21858
+
+    VSUBPHZ256rm = 21859
+
+    VSUBPHZ256rmb = 21860
+
+    VSUBPHZ256rmbk = 21861
+
+    VSUBPHZ256rmbkz = 21862
+
+    VSUBPHZ256rmk = 21863
+
+    VSUBPHZ256rmkz = 21864
+
+    VSUBPHZ256rr = 21865
+
+    VSUBPHZ256rrk = 21866
+
+    VSUBPHZ256rrkz = 21867
+
+    VSUBPHZrm = 21868
+
+    VSUBPHZrmb = 21869
+
+    VSUBPHZrmbk = 21870
+
+    VSUBPHZrmbkz = 21871
+
+    VSUBPHZrmk = 21872
+
+    VSUBPHZrmkz = 21873
+
+    VSUBPHZrr = 21874
+
+    VSUBPHZrrb = 21875
+
+    VSUBPHZrrbk = 21876
+
+    VSUBPHZrrbkz = 21877
+
+    VSUBPHZrrk = 21878
+
+    VSUBPHZrrkz = 21879
+
+    VSUBPSYrm = 21880
+
+    VSUBPSYrr = 21881
+
+    VSUBPSZ128rm = 21882
+
+    VSUBPSZ128rmb = 21883
+
+    VSUBPSZ128rmbk = 21884
+
+    VSUBPSZ128rmbkz = 21885
+
+    VSUBPSZ128rmk = 21886
+
+    VSUBPSZ128rmkz = 21887
+
+    VSUBPSZ128rr = 21888
+
+    VSUBPSZ128rrk = 21889
+
+    VSUBPSZ128rrkz = 21890
+
+    VSUBPSZ256rm = 21891
+
+    VSUBPSZ256rmb = 21892
+
+    VSUBPSZ256rmbk = 21893
+
+    VSUBPSZ256rmbkz = 21894
+
+    VSUBPSZ256rmk = 21895
+
+    VSUBPSZ256rmkz = 21896
+
+    VSUBPSZ256rr = 21897
+
+    VSUBPSZ256rrk = 21898
+
+    VSUBPSZ256rrkz = 21899
+
+    VSUBPSZrm = 21900
+
+    VSUBPSZrmb = 21901
+
+    VSUBPSZrmbk = 21902
+
+    VSUBPSZrmbkz = 21903
+
+    VSUBPSZrmk = 21904
+
+    VSUBPSZrmkz = 21905
+
+    VSUBPSZrr = 21906
+
+    VSUBPSZrrb = 21907
+
+    VSUBPSZrrbk = 21908
+
+    VSUBPSZrrbkz = 21909
+
+    VSUBPSZrrk = 21910
+
+    VSUBPSZrrkz = 21911
+
+    VSUBPSrm = 21912
+
+    VSUBPSrr = 21913
+
+    VSUBSDZrm = 21914
+
+    VSUBSDZrm_Int = 21915
+
+    VSUBSDZrmk_Int = 21916
+
+    VSUBSDZrmkz_Int = 21917
+
+    VSUBSDZrr = 21918
+
+    VSUBSDZrr_Int = 21919
+
+    VSUBSDZrrb_Int = 21920
+
+    VSUBSDZrrbk_Int = 21921
+
+    VSUBSDZrrbkz_Int = 21922
+
+    VSUBSDZrrk_Int = 21923
+
+    VSUBSDZrrkz_Int = 21924
+
+    VSUBSDrm = 21925
+
+    VSUBSDrm_Int = 21926
+
+    VSUBSDrr = 21927
+
+    VSUBSDrr_Int = 21928
+
+    VSUBSHZrm = 21929
+
+    VSUBSHZrm_Int = 21930
+
+    VSUBSHZrmk_Int = 21931
+
+    VSUBSHZrmkz_Int = 21932
+
+    VSUBSHZrr = 21933
+
+    VSUBSHZrr_Int = 21934
+
+    VSUBSHZrrb_Int = 21935
+
+    VSUBSHZrrbk_Int = 21936
+
+    VSUBSHZrrbkz_Int = 21937
+
+    VSUBSHZrrk_Int = 21938
+
+    VSUBSHZrrkz_Int = 21939
+
+    VSUBSSZrm = 21940
+
+    VSUBSSZrm_Int = 21941
+
+    VSUBSSZrmk_Int = 21942
+
+    VSUBSSZrmkz_Int = 21943
+
+    VSUBSSZrr = 21944
+
+    VSUBSSZrr_Int = 21945
+
+    VSUBSSZrrb_Int = 21946
+
+    VSUBSSZrrbk_Int = 21947
+
+    VSUBSSZrrbkz_Int = 21948
+
+    VSUBSSZrrk_Int = 21949
+
+    VSUBSSZrrkz_Int = 21950
+
+    VSUBSSrm = 21951
+
+    VSUBSSrm_Int = 21952
+
+    VSUBSSrr = 21953
+
+    VSUBSSrr_Int = 21954
+
+    VTESTPDYrm = 21955
+
+    VTESTPDYrr = 21956
+
+    VTESTPDrm = 21957
+
+    VTESTPDrr = 21958
+
+    VTESTPSYrm = 21959
+
+    VTESTPSYrr = 21960
+
+    VTESTPSrm = 21961
+
+    VTESTPSrr = 21962
+
+    VUCOMISDZrm = 21963
+
+    VUCOMISDZrm_Int = 21964
+
+    VUCOMISDZrr = 21965
+
+    VUCOMISDZrr_Int = 21966
+
+    VUCOMISDZrrb = 21967
+
+    VUCOMISDrm = 21968
+
+    VUCOMISDrm_Int = 21969
+
+    VUCOMISDrr = 21970
+
+    VUCOMISDrr_Int = 21971
+
+    VUCOMISHZrm = 21972
+
+    VUCOMISHZrm_Int = 21973
+
+    VUCOMISHZrr = 21974
+
+    VUCOMISHZrr_Int = 21975
+
+    VUCOMISHZrrb = 21976
+
+    VUCOMISSZrm = 21977
+
+    VUCOMISSZrm_Int = 21978
+
+    VUCOMISSZrr = 21979
+
+    VUCOMISSZrr_Int = 21980
+
+    VUCOMISSZrrb = 21981
+
+    VUCOMISSrm = 21982
+
+    VUCOMISSrm_Int = 21983
+
+    VUCOMISSrr = 21984
+
+    VUCOMISSrr_Int = 21985
+
+    VUCOMXSDZrm = 21986
+
+    VUCOMXSDZrm_Int = 21987
+
+    VUCOMXSDZrr = 21988
+
+    VUCOMXSDZrr_Int = 21989
+
+    VUCOMXSDZrrb_Int = 21990
+
+    VUCOMXSHZrm = 21991
+
+    VUCOMXSHZrm_Int = 21992
+
+    VUCOMXSHZrr = 21993
+
+    VUCOMXSHZrr_Int = 21994
+
+    VUCOMXSHZrrb_Int = 21995
+
+    VUCOMXSSZrm = 21996
+
+    VUCOMXSSZrm_Int = 21997
+
+    VUCOMXSSZrr = 21998
+
+    VUCOMXSSZrr_Int = 21999
+
+    VUCOMXSSZrrb_Int = 22000
+
+    VUNPCKHPDYrm = 22001
+
+    VUNPCKHPDYrr = 22002
+
+    VUNPCKHPDZ128rm = 22003
+
+    VUNPCKHPDZ128rmb = 22004
+
+    VUNPCKHPDZ128rmbk = 22005
+
+    VUNPCKHPDZ128rmbkz = 22006
+
+    VUNPCKHPDZ128rmk = 22007
+
+    VUNPCKHPDZ128rmkz = 22008
+
+    VUNPCKHPDZ128rr = 22009
+
+    VUNPCKHPDZ128rrk = 22010
+
+    VUNPCKHPDZ128rrkz = 22011
+
+    VUNPCKHPDZ256rm = 22012
+
+    VUNPCKHPDZ256rmb = 22013
+
+    VUNPCKHPDZ256rmbk = 22014
+
+    VUNPCKHPDZ256rmbkz = 22015
+
+    VUNPCKHPDZ256rmk = 22016
+
+    VUNPCKHPDZ256rmkz = 22017
+
+    VUNPCKHPDZ256rr = 22018
+
+    VUNPCKHPDZ256rrk = 22019
+
+    VUNPCKHPDZ256rrkz = 22020
+
+    VUNPCKHPDZrm = 22021
+
+    VUNPCKHPDZrmb = 22022
+
+    VUNPCKHPDZrmbk = 22023
+
+    VUNPCKHPDZrmbkz = 22024
+
+    VUNPCKHPDZrmk = 22025
+
+    VUNPCKHPDZrmkz = 22026
+
+    VUNPCKHPDZrr = 22027
+
+    VUNPCKHPDZrrk = 22028
+
+    VUNPCKHPDZrrkz = 22029
+
+    VUNPCKHPDrm = 22030
+
+    VUNPCKHPDrr = 22031
+
+    VUNPCKHPSYrm = 22032
+
+    VUNPCKHPSYrr = 22033
+
+    VUNPCKHPSZ128rm = 22034
+
+    VUNPCKHPSZ128rmb = 22035
+
+    VUNPCKHPSZ128rmbk = 22036
+
+    VUNPCKHPSZ128rmbkz = 22037
+
+    VUNPCKHPSZ128rmk = 22038
+
+    VUNPCKHPSZ128rmkz = 22039
+
+    VUNPCKHPSZ128rr = 22040
+
+    VUNPCKHPSZ128rrk = 22041
+
+    VUNPCKHPSZ128rrkz = 22042
+
+    VUNPCKHPSZ256rm = 22043
+
+    VUNPCKHPSZ256rmb = 22044
+
+    VUNPCKHPSZ256rmbk = 22045
+
+    VUNPCKHPSZ256rmbkz = 22046
+
+    VUNPCKHPSZ256rmk = 22047
+
+    VUNPCKHPSZ256rmkz = 22048
+
+    VUNPCKHPSZ256rr = 22049
+
+    VUNPCKHPSZ256rrk = 22050
+
+    VUNPCKHPSZ256rrkz = 22051
+
+    VUNPCKHPSZrm = 22052
+
+    VUNPCKHPSZrmb = 22053
+
+    VUNPCKHPSZrmbk = 22054
+
+    VUNPCKHPSZrmbkz = 22055
+
+    VUNPCKHPSZrmk = 22056
+
+    VUNPCKHPSZrmkz = 22057
+
+    VUNPCKHPSZrr = 22058
+
+    VUNPCKHPSZrrk = 22059
+
+    VUNPCKHPSZrrkz = 22060
+
+    VUNPCKHPSrm = 22061
+
+    VUNPCKHPSrr = 22062
+
+    VUNPCKLPDYrm = 22063
+
+    VUNPCKLPDYrr = 22064
+
+    VUNPCKLPDZ128rm = 22065
+
+    VUNPCKLPDZ128rmb = 22066
+
+    VUNPCKLPDZ128rmbk = 22067
+
+    VUNPCKLPDZ128rmbkz = 22068
+
+    VUNPCKLPDZ128rmk = 22069
+
+    VUNPCKLPDZ128rmkz = 22070
+
+    VUNPCKLPDZ128rr = 22071
+
+    VUNPCKLPDZ128rrk = 22072
+
+    VUNPCKLPDZ128rrkz = 22073
+
+    VUNPCKLPDZ256rm = 22074
+
+    VUNPCKLPDZ256rmb = 22075
+
+    VUNPCKLPDZ256rmbk = 22076
+
+    VUNPCKLPDZ256rmbkz = 22077
+
+    VUNPCKLPDZ256rmk = 22078
+
+    VUNPCKLPDZ256rmkz = 22079
+
+    VUNPCKLPDZ256rr = 22080
+
+    VUNPCKLPDZ256rrk = 22081
+
+    VUNPCKLPDZ256rrkz = 22082
+
+    VUNPCKLPDZrm = 22083
+
+    VUNPCKLPDZrmb = 22084
+
+    VUNPCKLPDZrmbk = 22085
+
+    VUNPCKLPDZrmbkz = 22086
+
+    VUNPCKLPDZrmk = 22087
+
+    VUNPCKLPDZrmkz = 22088
+
+    VUNPCKLPDZrr = 22089
+
+    VUNPCKLPDZrrk = 22090
+
+    VUNPCKLPDZrrkz = 22091
+
+    VUNPCKLPDrm = 22092
+
+    VUNPCKLPDrr = 22093
+
+    VUNPCKLPSYrm = 22094
+
+    VUNPCKLPSYrr = 22095
+
+    VUNPCKLPSZ128rm = 22096
+
+    VUNPCKLPSZ128rmb = 22097
+
+    VUNPCKLPSZ128rmbk = 22098
+
+    VUNPCKLPSZ128rmbkz = 22099
+
+    VUNPCKLPSZ128rmk = 22100
+
+    VUNPCKLPSZ128rmkz = 22101
+
+    VUNPCKLPSZ128rr = 22102
+
+    VUNPCKLPSZ128rrk = 22103
+
+    VUNPCKLPSZ128rrkz = 22104
+
+    VUNPCKLPSZ256rm = 22105
+
+    VUNPCKLPSZ256rmb = 22106
+
+    VUNPCKLPSZ256rmbk = 22107
+
+    VUNPCKLPSZ256rmbkz = 22108
+
+    VUNPCKLPSZ256rmk = 22109
+
+    VUNPCKLPSZ256rmkz = 22110
+
+    VUNPCKLPSZ256rr = 22111
+
+    VUNPCKLPSZ256rrk = 22112
+
+    VUNPCKLPSZ256rrkz = 22113
+
+    VUNPCKLPSZrm = 22114
+
+    VUNPCKLPSZrmb = 22115
+
+    VUNPCKLPSZrmbk = 22116
+
+    VUNPCKLPSZrmbkz = 22117
+
+    VUNPCKLPSZrmk = 22118
+
+    VUNPCKLPSZrmkz = 22119
+
+    VUNPCKLPSZrr = 22120
+
+    VUNPCKLPSZrrk = 22121
+
+    VUNPCKLPSZrrkz = 22122
+
+    VUNPCKLPSrm = 22123
+
+    VUNPCKLPSrr = 22124
+
+    VXORPDYrm = 22125
+
+    VXORPDYrr = 22126
+
+    VXORPDZ128rm = 22127
+
+    VXORPDZ128rmb = 22128
+
+    VXORPDZ128rmbk = 22129
+
+    VXORPDZ128rmbkz = 22130
+
+    VXORPDZ128rmk = 22131
+
+    VXORPDZ128rmkz = 22132
+
+    VXORPDZ128rr = 22133
+
+    VXORPDZ128rrk = 22134
+
+    VXORPDZ128rrkz = 22135
+
+    VXORPDZ256rm = 22136
+
+    VXORPDZ256rmb = 22137
+
+    VXORPDZ256rmbk = 22138
+
+    VXORPDZ256rmbkz = 22139
+
+    VXORPDZ256rmk = 22140
+
+    VXORPDZ256rmkz = 22141
+
+    VXORPDZ256rr = 22142
+
+    VXORPDZ256rrk = 22143
+
+    VXORPDZ256rrkz = 22144
+
+    VXORPDZrm = 22145
+
+    VXORPDZrmb = 22146
+
+    VXORPDZrmbk = 22147
+
+    VXORPDZrmbkz = 22148
+
+    VXORPDZrmk = 22149
+
+    VXORPDZrmkz = 22150
+
+    VXORPDZrr = 22151
+
+    VXORPDZrrk = 22152
+
+    VXORPDZrrkz = 22153
+
+    VXORPDrm = 22154
+
+    VXORPDrr = 22155
+
+    VXORPSYrm = 22156
+
+    VXORPSYrr = 22157
+
+    VXORPSZ128rm = 22158
+
+    VXORPSZ128rmb = 22159
+
+    VXORPSZ128rmbk = 22160
+
+    VXORPSZ128rmbkz = 22161
+
+    VXORPSZ128rmk = 22162
+
+    VXORPSZ128rmkz = 22163
+
+    VXORPSZ128rr = 22164
+
+    VXORPSZ128rrk = 22165
+
+    VXORPSZ128rrkz = 22166
+
+    VXORPSZ256rm = 22167
+
+    VXORPSZ256rmb = 22168
+
+    VXORPSZ256rmbk = 22169
+
+    VXORPSZ256rmbkz = 22170
+
+    VXORPSZ256rmk = 22171
+
+    VXORPSZ256rmkz = 22172
+
+    VXORPSZ256rr = 22173
+
+    VXORPSZ256rrk = 22174
+
+    VXORPSZ256rrkz = 22175
+
+    VXORPSZrm = 22176
+
+    VXORPSZrmb = 22177
+
+    VXORPSZrmbk = 22178
+
+    VXORPSZrmbkz = 22179
+
+    VXORPSZrmk = 22180
+
+    VXORPSZrmkz = 22181
+
+    VXORPSZrr = 22182
+
+    VXORPSZrrk = 22183
+
+    VXORPSZrrkz = 22184
+
+    VXORPSrm = 22185
+
+    VXORPSrr = 22186
+
+    VZEROALL = 22187
+
+    VZEROUPPER = 22188
+
+    WAIT = 22189
+
+    WBINVD = 22190
+
+    WBNOINVD = 22191
+
+    WRFSBASE = 22192
+
+    WRFSBASE64 = 22193
+
+    WRGSBASE = 22194
+
+    WRGSBASE64 = 22195
+
+    WRMSR = 22196
+
+    WRMSRLIST = 22197
+
+    WRMSRNS = 22198
+
+    WRMSRNSir = 22199
+
+    WRMSRNSir_EVEX = 22200
+
+    WRPKRUr = 22201
+
+    WRSSD = 22202
+
+    WRSSD_EVEX = 22203
+
+    WRSSQ = 22204
+
+    WRSSQ_EVEX = 22205
+
+    WRUSSD = 22206
+
+    WRUSSD_EVEX = 22207
+
+    WRUSSQ = 22208
+
+    WRUSSQ_EVEX = 22209
+
+    XABORT = 22210
+
+    XACQUIRE_PREFIX = 22211
+
+    XADD16rm = 22212
+
+    XADD16rr = 22213
+
+    XADD32rm = 22214
+
+    XADD32rr = 22215
+
+    XADD64rm = 22216
+
+    XADD64rr = 22217
+
+    XADD8rm = 22218
+
+    XADD8rr = 22219
+
+    XAM_F = 22220
+
+    XAM_Fp32 = 22221
+
+    XAM_Fp64 = 22222
+
+    XAM_Fp80 = 22223
+
+    XBEGIN = 22224
+
+    XBEGIN_2 = 22225
+
+    XBEGIN_4 = 22226
+
+    XCHG16ar = 22227
+
+    XCHG16rm = 22228
+
+    XCHG16rr = 22229
+
+    XCHG32ar = 22230
+
+    XCHG32rm = 22231
+
+    XCHG32rr = 22232
+
+    XCHG64ar = 22233
+
+    XCHG64rm = 22234
+
+    XCHG64rr = 22235
+
+    XCHG8rm = 22236
+
+    XCHG8rr = 22237
+
+    XCH_F = 22238
+
+    XCH_F_alt = 22239
+
+    XCH_F_alt2 = 22240
+
+    XCRYPTCBC = 22241
+
+    XCRYPTCFB = 22242
+
+    XCRYPTCTR = 22243
+
+    XCRYPTECB = 22244
+
+    XCRYPTOFB = 22245
+
+    XEND = 22246
+
+    XGETBV = 22247
+
+    XLAT = 22248
+
+    XOR16i16 = 22249
+
+    XOR16mi = 22250
+
+    XOR16mi8 = 22251
+
+    XOR16mi8_EVEX = 22252
+
+    XOR16mi8_ND = 22253
+
+    XOR16mi8_NF = 22254
+
+    XOR16mi8_NF_ND = 22255
+
+    XOR16mi_EVEX = 22256
+
+    XOR16mi_ND = 22257
+
+    XOR16mi_NF = 22258
+
+    XOR16mi_NF_ND = 22259
+
+    XOR16mr = 22260
+
+    XOR16mr_EVEX = 22261
+
+    XOR16mr_ND = 22262
+
+    XOR16mr_NF = 22263
+
+    XOR16mr_NF_ND = 22264
+
+    XOR16ri = 22265
+
+    XOR16ri8 = 22266
+
+    XOR16ri8_EVEX = 22267
+
+    XOR16ri8_ND = 22268
+
+    XOR16ri8_NF = 22269
+
+    XOR16ri8_NF_ND = 22270
+
+    XOR16ri_EVEX = 22271
+
+    XOR16ri_ND = 22272
+
+    XOR16ri_NF = 22273
+
+    XOR16ri_NF_ND = 22274
+
+    XOR16rm = 22275
+
+    XOR16rm_EVEX = 22276
+
+    XOR16rm_ND = 22277
+
+    XOR16rm_NF = 22278
+
+    XOR16rm_NF_ND = 22279
+
+    XOR16rr = 22280
+
+    XOR16rr_EVEX = 22281
+
+    XOR16rr_EVEX_REV = 22282
+
+    XOR16rr_ND = 22283
+
+    XOR16rr_ND_REV = 22284
+
+    XOR16rr_NF = 22285
+
+    XOR16rr_NF_ND = 22286
+
+    XOR16rr_NF_ND_REV = 22287
+
+    XOR16rr_NF_REV = 22288
+
+    XOR16rr_REV = 22289
+
+    XOR32i32 = 22290
+
+    XOR32mi = 22291
+
+    XOR32mi8 = 22292
+
+    XOR32mi8_EVEX = 22293
+
+    XOR32mi8_ND = 22294
+
+    XOR32mi8_NF = 22295
+
+    XOR32mi8_NF_ND = 22296
+
+    XOR32mi_EVEX = 22297
+
+    XOR32mi_ND = 22298
+
+    XOR32mi_NF = 22299
+
+    XOR32mi_NF_ND = 22300
+
+    XOR32mr = 22301
+
+    XOR32mr_EVEX = 22302
+
+    XOR32mr_ND = 22303
+
+    XOR32mr_NF = 22304
+
+    XOR32mr_NF_ND = 22305
+
+    XOR32ri = 22306
+
+    XOR32ri8 = 22307
+
+    XOR32ri8_EVEX = 22308
+
+    XOR32ri8_ND = 22309
+
+    XOR32ri8_NF = 22310
+
+    XOR32ri8_NF_ND = 22311
+
+    XOR32ri_EVEX = 22312
+
+    XOR32ri_ND = 22313
+
+    XOR32ri_NF = 22314
+
+    XOR32ri_NF_ND = 22315
+
+    XOR32rm = 22316
+
+    XOR32rm_EVEX = 22317
+
+    XOR32rm_ND = 22318
+
+    XOR32rm_NF = 22319
+
+    XOR32rm_NF_ND = 22320
+
+    XOR32rr = 22321
+
+    XOR32rr_EVEX = 22322
+
+    XOR32rr_EVEX_REV = 22323
+
+    XOR32rr_ND = 22324
+
+    XOR32rr_ND_REV = 22325
+
+    XOR32rr_NF = 22326
+
+    XOR32rr_NF_ND = 22327
+
+    XOR32rr_NF_ND_REV = 22328
+
+    XOR32rr_NF_REV = 22329
+
+    XOR32rr_REV = 22330
+
+    XOR64i32 = 22331
+
+    XOR64mi32 = 22332
+
+    XOR64mi32_EVEX = 22333
+
+    XOR64mi32_ND = 22334
+
+    XOR64mi32_NF = 22335
+
+    XOR64mi32_NF_ND = 22336
+
+    XOR64mi8 = 22337
+
+    XOR64mi8_EVEX = 22338
+
+    XOR64mi8_ND = 22339
+
+    XOR64mi8_NF = 22340
+
+    XOR64mi8_NF_ND = 22341
+
+    XOR64mr = 22342
+
+    XOR64mr_EVEX = 22343
+
+    XOR64mr_ND = 22344
+
+    XOR64mr_NF = 22345
+
+    XOR64mr_NF_ND = 22346
+
+    XOR64ri32 = 22347
+
+    XOR64ri32_EVEX = 22348
+
+    XOR64ri32_ND = 22349
+
+    XOR64ri32_NF = 22350
+
+    XOR64ri32_NF_ND = 22351
+
+    XOR64ri8 = 22352
+
+    XOR64ri8_EVEX = 22353
+
+    XOR64ri8_ND = 22354
+
+    XOR64ri8_NF = 22355
+
+    XOR64ri8_NF_ND = 22356
+
+    XOR64rm = 22357
+
+    XOR64rm_EVEX = 22358
+
+    XOR64rm_ND = 22359
+
+    XOR64rm_NF = 22360
+
+    XOR64rm_NF_ND = 22361
+
+    XOR64rr = 22362
+
+    XOR64rr_EVEX = 22363
+
+    XOR64rr_EVEX_REV = 22364
+
+    XOR64rr_ND = 22365
+
+    XOR64rr_ND_REV = 22366
+
+    XOR64rr_NF = 22367
+
+    XOR64rr_NF_ND = 22368
+
+    XOR64rr_NF_ND_REV = 22369
+
+    XOR64rr_NF_REV = 22370
+
+    XOR64rr_REV = 22371
+
+    XOR8i8 = 22372
+
+    XOR8mi = 22373
+
+    XOR8mi8 = 22374
+
+    XOR8mi_EVEX = 22375
+
+    XOR8mi_ND = 22376
+
+    XOR8mi_NF = 22377
+
+    XOR8mi_NF_ND = 22378
+
+    XOR8mr = 22379
+
+    XOR8mr_EVEX = 22380
+
+    XOR8mr_ND = 22381
+
+    XOR8mr_NF = 22382
+
+    XOR8mr_NF_ND = 22383
+
+    XOR8ri = 22384
+
+    XOR8ri8 = 22385
+
+    XOR8ri_EVEX = 22386
+
+    XOR8ri_ND = 22387
+
+    XOR8ri_NF = 22388
+
+    XOR8ri_NF_ND = 22389
+
+    XOR8rm = 22390
+
+    XOR8rm_EVEX = 22391
+
+    XOR8rm_ND = 22392
+
+    XOR8rm_NF = 22393
+
+    XOR8rm_NF_ND = 22394
+
+    XOR8rr = 22395
+
+    XOR8rr_EVEX = 22396
+
+    XOR8rr_EVEX_REV = 22397
+
+    XOR8rr_ND = 22398
+
+    XOR8rr_ND_REV = 22399
+
+    XOR8rr_NF = 22400
+
+    XOR8rr_NF_ND = 22401
+
+    XOR8rr_NF_ND_REV = 22402
+
+    XOR8rr_NF_REV = 22403
+
+    XOR8rr_NOREX = 22404
+
+    XOR8rr_REV = 22405
+
+    XORPDrm = 22406
+
+    XORPDrr = 22407
+
+    XORPSrm = 22408
+
+    XORPSrr = 22409
+
+    XRELEASE_PREFIX = 22410
+
+    XRESLDTRK = 22411
+
+    XRSTOR = 22412
+
+    XRSTOR64 = 22413
+
+    XRSTORS = 22414
+
+    XRSTORS64 = 22415
+
+    XSAVE = 22416
+
+    XSAVE64 = 22417
+
+    XSAVEC = 22418
+
+    XSAVEC64 = 22419
+
+    XSAVEOPT = 22420
+
+    XSAVEOPT64 = 22421
+
+    XSAVES = 22422
+
+    XSAVES64 = 22423
+
+    XSETBV = 22424
+
+    XSHA1 = 22425
+
+    XSHA256 = 22426
+
+    XSTORE = 22427
+
+    XSUSLDTRK = 22428
+
+    XTEST = 22429
+
+    INSTRUCTION_LIST_END = 22430
+
+class REG(enum.Enum):
+    NoRegister = 0
+
+    AH = 1
+
+    AL = 2
+
+    AX = 3
+
+    BH = 4
+
+    BL = 5
+
+    BP = 6
+
+    BPH = 7
+
+    BPL = 8
+
+    BX = 9
+
+    CH = 10
+
+    CL = 11
+
+    CS = 12
+
+    CX = 13
+
+    DF = 14
+
+    DH = 15
+
+    DI = 16
+
+    DIH = 17
+
+    DIL = 18
+
+    DL = 19
+
+    DS = 20
+
+    DX = 21
+
+    EAX = 22
+
+    EBP = 23
+
+    EBX = 24
+
+    ECX = 25
+
+    EDI = 26
+
+    EDX = 27
+
+    EFLAGS = 28
+
+    EIP = 29
+
+    EIZ = 30
+
+    ES = 31
+
+    ESI = 32
+
+    ESP = 33
+
+    FPCW = 34
+
+    FPSW = 35
+
+    FS = 36
+
+    FS_BASE = 37
+
+    GS = 38
+
+    GS_BASE = 39
+
+    HAX = 40
+
+    HBP = 41
+
+    HBX = 42
+
+    HCX = 43
+
+    HDI = 44
+
+    HDX = 45
+
+    HIP = 46
+
+    HSI = 47
+
+    HSP = 48
+
+    IP = 49
+
+    MXCSR = 50
+
+    RAX = 51
+
+    RBP = 52
+
+    RBX = 53
+
+    RCX = 54
+
+    RDI = 55
+
+    RDX = 56
+
+    RFLAGS = 57
+
+    RIP = 58
+
+    RIZ = 59
+
+    RSI = 60
+
+    RSP = 61
+
+    SI = 62
+
+    SIH = 63
+
+    SIL = 64
+
+    SP = 65
+
+    SPH = 66
+
+    SPL = 67
+
+    SS = 68
+
+    SSP = 69
+
+    _EFLAGS = 70
+
+    CR0 = 71
+
+    CR1 = 72
+
+    CR2 = 73
+
+    CR3 = 74
+
+    CR4 = 75
+
+    CR5 = 76
+
+    CR6 = 77
+
+    CR7 = 78
+
+    CR8 = 79
+
+    CR9 = 80
+
+    CR10 = 81
+
+    CR11 = 82
+
+    CR12 = 83
+
+    CR13 = 84
+
+    CR14 = 85
+
+    CR15 = 86
+
+    DR0 = 87
+
+    DR1 = 88
+
+    DR2 = 89
+
+    DR3 = 90
+
+    DR4 = 91
+
+    DR5 = 92
+
+    DR6 = 93
+
+    DR7 = 94
+
+    DR8 = 95
+
+    DR9 = 96
+
+    DR10 = 97
+
+    DR11 = 98
+
+    DR12 = 99
+
+    DR13 = 100
+
+    DR14 = 101
+
+    DR15 = 102
+
+    FP0 = 103
+
+    FP1 = 104
+
+    FP2 = 105
+
+    FP3 = 106
+
+    FP4 = 107
+
+    FP5 = 108
+
+    FP6 = 109
+
+    FP7 = 110
+
+    MM0 = 111
+
+    MM1 = 112
+
+    MM2 = 113
+
+    MM3 = 114
+
+    MM4 = 115
+
+    MM5 = 116
+
+    MM6 = 117
+
+    MM7 = 118
+
+    R8 = 119
+
+    R9 = 120
+
+    R10 = 121
+
+    R11 = 122
+
+    R12 = 123
+
+    R13 = 124
+
+    R14 = 125
+
+    R15 = 126
+
+    ST0 = 127
+
+    ST1 = 128
+
+    ST2 = 129
+
+    ST3 = 130
+
+    ST4 = 131
+
+    ST5 = 132
+
+    ST6 = 133
+
+    ST7 = 134
+
+    XMM0 = 135
+
+    XMM1 = 136
+
+    XMM2 = 137
+
+    XMM3 = 138
+
+    XMM4 = 139
+
+    XMM5 = 140
+
+    XMM6 = 141
+
+    XMM7 = 142
+
+    XMM8 = 143
+
+    XMM9 = 144
+
+    XMM10 = 145
+
+    XMM11 = 146
+
+    XMM12 = 147
+
+    XMM13 = 148
+
+    XMM14 = 149
+
+    XMM15 = 150
+
+    R8B = 151
+
+    R9B = 152
+
+    R10B = 153
+
+    R11B = 154
+
+    R12B = 155
+
+    R13B = 156
+
+    R14B = 157
+
+    R15B = 158
+
+    R8BH = 159
+
+    R9BH = 160
+
+    R10BH = 161
+
+    R11BH = 162
+
+    R12BH = 163
+
+    R13BH = 164
+
+    R14BH = 165
+
+    R15BH = 166
+
+    R8D = 167
+
+    R9D = 168
+
+    R10D = 169
+
+    R11D = 170
+
+    R12D = 171
+
+    R13D = 172
+
+    R14D = 173
+
+    R15D = 174
+
+    R8W = 175
+
+    R9W = 176
+
+    R10W = 177
+
+    R11W = 178
+
+    R12W = 179
+
+    R13W = 180
+
+    R14W = 181
+
+    R15W = 182
+
+    R8WH = 183
+
+    R9WH = 184
+
+    R10WH = 185
+
+    R11WH = 186
+
+    R12WH = 187
+
+    R13WH = 188
+
+    R14WH = 189
+
+    R15WH = 190
+
+    YMM0 = 191
+
+    YMM1 = 192
+
+    YMM2 = 193
+
+    YMM3 = 194
+
+    YMM4 = 195
+
+    YMM5 = 196
+
+    YMM6 = 197
+
+    YMM7 = 198
+
+    YMM8 = 199
+
+    YMM9 = 200
+
+    YMM10 = 201
+
+    YMM11 = 202
+
+    YMM12 = 203
+
+    YMM13 = 204
+
+    YMM14 = 205
+
+    YMM15 = 206
+
+    K0 = 207
+
+    K1 = 208
+
+    K2 = 209
+
+    K3 = 210
+
+    K4 = 211
+
+    K5 = 212
+
+    K6 = 213
+
+    K7 = 214
+
+    XMM16 = 215
+
+    XMM17 = 216
+
+    XMM18 = 217
+
+    XMM19 = 218
+
+    XMM20 = 219
+
+    XMM21 = 220
+
+    XMM22 = 221
+
+    XMM23 = 222
+
+    XMM24 = 223
+
+    XMM25 = 224
+
+    XMM26 = 225
+
+    XMM27 = 226
+
+    XMM28 = 227
+
+    XMM29 = 228
+
+    XMM30 = 229
+
+    XMM31 = 230
+
+    YMM16 = 231
+
+    YMM17 = 232
+
+    YMM18 = 233
+
+    YMM19 = 234
+
+    YMM20 = 235
+
+    YMM21 = 236
+
+    YMM22 = 237
+
+    YMM23 = 238
+
+    YMM24 = 239
+
+    YMM25 = 240
+
+    YMM26 = 241
+
+    YMM27 = 242
+
+    YMM28 = 243
+
+    YMM29 = 244
+
+    YMM30 = 245
+
+    YMM31 = 246
+
+    ZMM0 = 247
+
+    ZMM1 = 248
+
+    ZMM2 = 249
+
+    ZMM3 = 250
+
+    ZMM4 = 251
+
+    ZMM5 = 252
+
+    ZMM6 = 253
+
+    ZMM7 = 254
+
+    ZMM8 = 255
+
+    ZMM9 = 256
+
+    ZMM10 = 257
+
+    ZMM11 = 258
+
+    ZMM12 = 259
+
+    ZMM13 = 260
+
+    ZMM14 = 261
+
+    ZMM15 = 262
+
+    ZMM16 = 263
+
+    ZMM17 = 264
+
+    ZMM18 = 265
+
+    ZMM19 = 266
+
+    ZMM20 = 267
+
+    ZMM21 = 268
+
+    ZMM22 = 269
+
+    ZMM23 = 270
+
+    ZMM24 = 271
+
+    ZMM25 = 272
+
+    ZMM26 = 273
+
+    ZMM27 = 274
+
+    ZMM28 = 275
+
+    ZMM29 = 276
+
+    ZMM30 = 277
+
+    ZMM31 = 278
+
+    K0_K1 = 279
+
+    K2_K3 = 280
+
+    K4_K5 = 281
+
+    K6_K7 = 282
+
+    TMMCFG = 283
+
+    TMM0 = 284
+
+    TMM1 = 285
+
+    TMM2 = 286
+
+    TMM3 = 287
+
+    TMM4 = 288
+
+    TMM5 = 289
+
+    TMM6 = 290
+
+    TMM7 = 291
+
+    R16 = 292
+
+    R17 = 293
+
+    R18 = 294
+
+    R19 = 295
+
+    R20 = 296
+
+    R21 = 297
+
+    R22 = 298
+
+    R23 = 299
+
+    R24 = 300
+
+    R25 = 301
+
+    R26 = 302
+
+    R27 = 303
+
+    R28 = 304
+
+    R29 = 305
+
+    R30 = 306
+
+    R31 = 307
+
+    R16B = 308
+
+    R17B = 309
+
+    R18B = 310
+
+    R19B = 311
+
+    R20B = 312
+
+    R21B = 313
+
+    R22B = 314
+
+    R23B = 315
+
+    R24B = 316
+
+    R25B = 317
+
+    R26B = 318
+
+    R27B = 319
+
+    R28B = 320
+
+    R29B = 321
+
+    R30B = 322
+
+    R31B = 323
+
+    R16BH = 324
+
+    R17BH = 325
+
+    R18BH = 326
+
+    R19BH = 327
+
+    R20BH = 328
+
+    R21BH = 329
+
+    R22BH = 330
+
+    R23BH = 331
+
+    R24BH = 332
+
+    R25BH = 333
+
+    R26BH = 334
+
+    R27BH = 335
+
+    R28BH = 336
+
+    R29BH = 337
+
+    R30BH = 338
+
+    R31BH = 339
+
+    R16D = 340
+
+    R17D = 341
+
+    R18D = 342
+
+    R19D = 343
+
+    R20D = 344
+
+    R21D = 345
+
+    R22D = 346
+
+    R23D = 347
+
+    R24D = 348
+
+    R25D = 349
+
+    R26D = 350
+
+    R27D = 351
+
+    R28D = 352
+
+    R29D = 353
+
+    R30D = 354
+
+    R31D = 355
+
+    R16W = 356
+
+    R17W = 357
+
+    R18W = 358
+
+    R19W = 359
+
+    R20W = 360
+
+    R21W = 361
+
+    R22W = 362
+
+    R23W = 363
+
+    R24W = 364
+
+    R25W = 365
+
+    R26W = 366
+
+    R27W = 367
+
+    R28W = 368
+
+    R29W = 369
+
+    R30W = 370
+
+    R31W = 371
+
+    R16WH = 372
+
+    R17WH = 373
+
+    R18WH = 374
+
+    R19WH = 375
+
+    R20WH = 376
+
+    R21WH = 377
+
+    R22WH = 378
+
+    R23WH = 379
+
+    R24WH = 380
+
+    R25WH = 381
+
+    R26WH = 382
+
+    R27WH = 383
+
+    R28WH = 384
+
+    R29WH = 385
+
+    R30WH = 386
+
+    R31WH = 387
+
+    NUM_TARGET_REGS = 388
+
+class Instruction(lief.assembly.Instruction):
+    __match_args__: tuple = ...
+
+    @property
+    def operands(self) -> Iterator[Optional[Operand]]: ...
+
+    @property
+    def opcode(self) -> OPCODE: ...
+
+    @property
+    def has_lock_prefix(self) -> bool: ...
+
+    @property
+    def is_lockable(self) -> bool: ...
+
+    @property
+    def is_atomic(self) -> bool: ...
+
+    def lock(self) -> Optional[Instruction]: ...
+
+    def unlock(self) -> Optional[Instruction]: ...
+
+class Operand:
+    @property
+    def to_string(self) -> str: ...
+
+    def __str__(self) -> str: ...

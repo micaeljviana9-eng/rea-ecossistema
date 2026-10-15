@@ -1,7 +1,3 @@
-[submodule "bundle/projects/iso-reverse-engineering/lief"]
-	path = bundle/projects/iso-reverse-engineering/lief
-	url = https://github.com/lief-project/LIEF.git
-
 [submodule "bundle/projects/iso-reverse-engineering/pe-bear"]
 	path = bundle/projects/iso-reverse-engineering/pe-bear
 	url = https://github.com/hasherezade/pe-bear.git
