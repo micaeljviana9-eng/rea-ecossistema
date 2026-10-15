@@ -1,7 +1,3 @@
-[submodule "bundle/projects/iso-reverse-engineering/volatility3"]
-	path = bundle/projects/iso-reverse-engineering/volatility3
-	url = https://github.com/volatilityfoundation/volatility3.git
-
 [submodule "bundle/projects/iso-reverse-engineering/winbindex"]
 	path = bundle/projects/iso-reverse-engineering/winbindex
 	url = https://github.com/m417z/winbindex.git
