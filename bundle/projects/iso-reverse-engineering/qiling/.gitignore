@@ -1,0 +1,78 @@
+# IDE left over
+.DS_Store
+.vscode
+.idea
+*.cache
+*.cache2
+.*.swp
+*.raw
+
+# test and logs
+tests/mac_test_elf.sh
+jexamples/
+logs/
+log/
+test_qlog/
+log_test/
+qlog/
+qlogs/
+test_syscall_*.txt
+*.no.py
+.gitkeep
+test.file
+*.file
+*.qlog
+*.d
+*.o
+core
+*.perf
+tests/output.txt
+tests/testtest_*
+
+### Python ###
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+eggs/
+sdist/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Environments
+.env
+.venv
+venv/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Poetry local configuration file - https://python-poetry.org/docs/configuration/#local-configuration
+poetry.toml
+
+# ruff
+.ruff_cache/
+
+# LSP config files
+pyrightconfig.json
+
+# AI
+CLAUDE.md
+.claude
+.codex
+.AGENT.md

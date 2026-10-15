@@ -18,3 +18,4 @@ pe-parse	trailofbits/pe-parse	9e4e3587969ea2410dadda1ccfa909aec1121d09	bundle/pr
 pe-tree	blackberry/pe_tree	2be607fc55702293cd02cbc6cda5283452464aff	bundle/projects/iso-reverse-engineering/pe-tree	42	0
 pefile	erocarrera/pefile	58186a92164842cf758822e067bc79c59b3c80d9	bundle/projects/iso-reverse-engineering/pefile	23	0
 phnt	winsiderss/phnt	53fbbdc5b5d2b08761db1c7b26bfa8c820924356	bundle/projects/iso-reverse-engineering/phnt	47	0
+qiling	qilingframework/qiling	86c927cb329993b14e2586e04d1dd7a90deee5fb	bundle/projects/iso-reverse-engineering/qiling	1627	1
