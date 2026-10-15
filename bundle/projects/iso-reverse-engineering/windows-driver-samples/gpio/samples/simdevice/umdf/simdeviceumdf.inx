@@ -1,0 +1,70 @@
+;
+; SimdeviceUMDF.inf
+;
+
+[Version]
+Signature="$WINDOWS NT$"
+Class=Generic
+ClassGuid={ff494df1-c4ed-4fac-9b3f-3786f6e91e7e}
+Provider=%ProviderName%
+CatalogFile=gpiosamples.cat
+DriverVer=03/20/2003,5.00.3788.0
+PnpLockdown=1
+
+[Manufacturer]
+%ManufacturerName%=Standard,NT$ARCH$
+
+[Standard.NT$ARCH$]
+%SimdeviceUMDFName%=SimdeviceUMDF_Install,ACPI\TEST0004
+
+[SourceDisksFiles]
+SimdeviceUMDF.dll=1
+
+[SourceDisksNames]
+1 = %MediaDescription%
+
+; =================== Simdevice Sample UMDF Driver ==================================
+
+[SimdeviceUMDF_Install.NT]
+Include=WUDFRD.INF
+Needs=WUDFRD.NT
+CopyFiles=UMDriverCopy
+
+[SimdeviceUMDF_Install.NT.hw]
+Include=WUDFRD.INF
+Needs=WUDFRD.NT.HW
+
+[SimdeviceUMDF_Install.NT.Services]
+Include=WUDFRD.INF
+Needs=WUDFRD.NT.Services
+
+[SimdeviceUMDF_Install.NT.Wdf]
+UmdfService=SimdeviceUMDF,SimdeviceUMDF_Install
+UmdfServiceOrder=SimdeviceUMDF
+
+; this enables direct hardware access from UMDF driver
+UmdfDirectHardwareAccess=AllowDirectHardwareAccess
+
+; direct i/o devices cannot run in default pool.
+UmdfHostProcessSharing=ProcessSharingDisabled
+
+[SimdeviceUMDF_Install]
+UmdfLibraryVersion=$UMDFVERSION$
+ServiceBinary=%12%\UMDF\SimdeviceUMDF.dll
+
+[DestinationDirs]
+UMDriverCopy=12,UMDF ; copy to drivers\UMDF
+CoInstallers_CopyFiles=11
+
+[UMDriverCopy]
+SimdeviceUMDF.dll
+
+; =================== Generic ==================================
+
+[Strings]
+ProviderName="TODO-Set-Provider"
+ManufacturerName="TODO-Set-Manufacturer"
+MediaDescription="WUDF Sample Driver Installation Media"
+ClassName="Sample Device"
+SimdeviceUMDFDisplayName="Sample User-mode Driver Framework Reflector driver"
+SimdeviceUMDFName="Sample device UMDF Driver"

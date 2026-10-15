@@ -1,0 +1,233 @@
+;-------------------------------------------------------------------------------
+; Microsoft Virtual Ethernet Adapter
+;
+; Copyright (c) Microsoft Corporation.  All rights reserved.
+
+
+[version]
+Signature   = "$Windows NT$"
+Class       = Net
+ClassGUID   = {4d36e972-e325-11ce-bfc1-08002be10318}
+Provider    = %Msft%
+DriverVer   = 06/22/2010,6.1.7065.0
+PnpLockDown = 1
+CatalogFile = netvadapter.cat
+
+[Manufacturer]
+%Msft% = Msft,NT$ARCH$
+
+[Msft]
+; Empty section to block legacy operating systems that don't understand TargetOSVersion
+
+[Msft.NT$ARCH$]
+%netvadapter.DeviceDesc%    = netvadapter.ndi, root\netvadapter ; Root enumerated 
+%netvadapter.DeviceDesc%    = netvadapter.ndi, {b85b7c50-6a01-11d2-b841-00c04fad5171}\netvadapter
+%netvadapter.DeviceDesc%    = netvadapter.ndi, ndt\netvadapter
+%netvadapter.DeviceDesc%    = instance1.ndi, test\netvadapter1
+%netvadapter.DeviceDesc%    = instance2.ndi, test\netvadapter2
+
+;-------------------------------------------------------------------------------
+; Microsoft Virtual Ethernet Adapter
+;
+[netvadapter.ndi]
+Characteristics             = 0x1 ; NCF_VIRTUAL
+*IfType                     = 0x6 ; IF_TYPE_ETHERNET_CSMACD
+*MediaType                  = 0x0 ; NdisMedium802_3
+*PhysicalMediaType          = 0 ; NdisPhysicalMediumUnspecified 
+*IfConnectorPresent         = 0
+*AccessType                 = 2   ; NET_IF_ACCESS_BROADCAST
+*ConnectionType             = 1   ; NET_IF_CONNECTION_PASSIVE
+*DirectionType              = 0   ; NET_IF_DIRECTION_SENDRECEIVE
+AddReg                      = netvadapter.reg, netvadapter.params, RSC.kw, UDPRSC.kw, USO.kw
+BusType                     = 15
+CopyFiles                   = netvadapter.CopyFiles
+AddProperty                 = PciS0WakeSupported_AddProperty
+
+[instance1.ndi]
+Characteristics             = 0x1 ; NCF_VIRTUAL
+*IfType                     = 0x6 ; IF_TYPE_ETHERNET_CSMACD
+*MediaType                  = 0x0 ; NdisMedium802_3
+*PhysicalMediaType          = 0 ; NdisPhysicalMediumUnspecified 
+*IfConnectorPresent         = 0
+*AccessType                 = 2   ; NET_IF_ACCESS_BROADCAST
+*ConnectionType             = 1   ; NET_IF_CONNECTION_PASSIVE
+*DirectionType              = 0   ; NET_IF_DIRECTION_SENDRECEIVE
+AddReg                      = instance1.reg, netvadapter.params, RSC.kw, UDPRSC.kw, USO.kw
+BusType                     = 15
+CopyFiles                   = netvadapter.CopyFiles
+AddProperty                 = PciS0WakeSupported_AddProperty
+
+[instance2.ndi]
+Characteristics             = 0x1 ; NCF_VIRTUAL
+*IfType                     = 0x6 ; IF_TYPE_ETHERNET_CSMACD
+*MediaType                  = 0x0 ; NdisMedium802_3
+*PhysicalMediaType          = 0 ; NdisPhysicalMediumUnspecified 
+*IfConnectorPresent         = 0
+*AccessType                 = 2   ; NET_IF_ACCESS_BROADCAST
+*ConnectionType             = 1   ; NET_IF_CONNECTION_PASSIVE
+*DirectionType              = 0   ; NET_IF_DIRECTION_SENDRECEIVE
+AddReg                      = instance2.reg, netvadapter.params, RSC.kw, UDPRSC.kw, USO.kw
+BusType                     = 15
+CopyFiles                   = netvadapter.CopyFiles
+AddProperty                 = PciS0WakeSupported_AddProperty
+
+[netvadapter.ndi.Services]
+AddService         = netvadapter, 2, netvadapter.Service, netvadapter.EventLog
+
+[instance1.ndi.Services]
+AddService         = netvadapter, 2, netvadapter.Service, netvadapter.EventLog
+
+[instance2.ndi.Services]
+AddService         = netvadapter, 2, netvadapter.Service, netvadapter.EventLog
+
+;-----------------------------------------------------------------------------
+; Microsoft Virtual Miniport Common
+;
+[netvadapter.reg]
+HKR,    ,                         BusNumber,           0, "0" 
+HKR, Ndi,                         Service,             0, "netvadapter"
+HKR, Ndi\Interfaces,              UpperRange,          0, "ndis5"
+HKR, Ndi\Interfaces,              LowerRange,          0, "ethernet"
+HKR,    ,                         NetworkAddress,      0, "01-23-45-ab-cd-ef"
+; HKR,    ,                         AOACTest,   0x00010001, 0x1
+;-----------------------------------------------------------------------------
+
+;-----------------------------------------------------------------------------
+; Microsoft Virtual Miniport with MACLastByte set to 1
+;
+[instance1.reg]
+HKR,    ,                         BusNumber,           0, "0" 
+HKR, Ndi,                         Service,             0, "netvadapter"
+HKR, Ndi\Interfaces,              UpperRange,          0, "ndis5"
+HKR, Ndi\Interfaces,              LowerRange,          0, "ethernet"
+HKR,    ,                         NetworkAddress,      0, "01-23-45-ab-cd-ef"
+HKR,    ,                         MACLastByte,         0, "1"
+;-----------------------------------------------------------------------------
+
+;-----------------------------------------------------------------------------
+; Microsoft Virtual Miniport with MACLastByte set to 2
+;
+[instance2.reg]
+HKR,    ,                         BusNumber,           0, "0" 
+HKR, Ndi,                         Service,             0, "netvadapter"
+HKR, Ndi\Interfaces,              UpperRange,          0, "ndis5"
+HKR, Ndi\Interfaces,              LowerRange,          0, "ethernet"
+HKR,    ,                         NetworkAddress,      0, "01-23-45-ab-cd-ef"
+HKR,    ,                         MACLastByte,         0, "2"
+;-----------------------------------------------------------------------------
+
+; Driver and Service Section
+;
+[netvadapter.CopyFiles]
+netvadapter.sys,,,2
+
+[netvadapter.Service]
+DisplayName        = %netvadapter.Service.DispName%
+ServiceType        = 1 ;%SERVICE_KERNEL_DRIVER%
+StartType          = 3 ;%SERVICE_DEMAND_START%
+ErrorControl       = 1 ;%SERVICE_ERROR_NORMAL%
+ServiceBinary      = %12%\netvadapter.sys
+LoadOrderGroup     = NDIS
+AddReg             = TextModeFlags.Reg
+
+[netvadapter.EventLog]
+AddReg             = netvadapter.AddEventLog.reg
+
+[netvadapter.AddEventLog.Reg]
+HKR, , EventMessageFile, 0x00020000, "%%SystemRoot%%\System32\netevent.dll"
+HKR, , TypesSupported,   0x00010001, 7
+
+[TextModeFlags.Reg]
+HKR, , TextModeFlags,    0x00010001, 0x0001
+
+[SourceDisksNames]
+1 = %DiskId1%,,,""
+
+[SourceDisksFiles]
+netvadapter.sys  = 1,,
+
+;-----------------------------------------------------------------------------
+; DestinationDirs
+;
+[DestinationDirs]
+netvadapter.CopyFiles = 12
+
+;-----------------------------------------------------------------------------
+; Localizable Strings
+;
+[Strings]
+Msft                            = "Microsoft"                      
+netvadapter.DeviceDesc          = "KMDF Microsoft Virtual Ethernet Adapter (NDIS WDF)"
+netvadapter.Service.DispName    = "KMDF Microsoft Virtual Miniport (NDIS WDF)"
+DiskId1                         = "Microsoft Virtual Miniport Device Installation Disk #1"
+
+
+Disabled                     = "Disabled"
+Enabled                      = "Enabled"
+
+
+[netvadapter.params] 
+; MACLastByte
+ HKR, Ndi\params\MACLastByte,  ParamDesc,         0, "MACLastByte"
+ HKR, Ndi\params\MACLastByte,  default,           0, "0"
+ HKR, Ndi\params\MACLastByte,  type,              0, "int"
+ HKR, Ndi\params\MACLastByte,  min,               0, "0"
+ HKR, Ndi\params\MACLastByte,  max,               0, "254"
+ HKR, Ndi\params\MACLastByte,  step,              0, "1"
+ HKR, Ndi\params\MACLastByte,  Optional,          0, "0"
+ 
+ ; LinkProcIndex
+ HKR, Ndi\params\LinkProcIndex,  ParamDesc,         0, "LinkProcIndex"
+ HKR, Ndi\params\LinkProcIndex,  default,           0, "1000"
+ HKR, Ndi\params\LinkProcIndex,  type,              0, "int"
+ HKR, Ndi\params\LinkProcIndex,  min,               0, "0"
+ HKR, Ndi\params\LinkProcIndex,  max,               0, "1023"
+ HKR, Ndi\params\LinkProcIndex,  step,              0, "1"
+ HKR, Ndi\params\LinkProcIndex,  Optional,          0, "0"
+ 
+; EnableUsoUro
+ HKR, Ndi\params\EnableUsoUro,      ParamDesc,      0, "EnableUsoUro"
+ HKR, Ndi\params\EnableUsoUro,      default,        0, "0"
+ HKR, Ndi\params\EnableUsoUro,      type,           0, "enum"
+ HKR, Ndi\Params\EnableUsoUro\Enum, "0",            0, %Disabled%
+ HKR, Ndi\Params\EnableUsoUro\Enum, "1",            0, %Enabled%
+
+ ; PreallocatedRxBuffers
+ HKR, Ndi\params\PreallocatedRxBuffers,      ParamDesc,      0, "UsePreallocatedRxBuffers"
+ HKR, Ndi\params\PreallocatedRxBuffers,      default,        0, "0"
+ HKR, Ndi\params\PreallocatedRxBuffers,      type,           0, "enum"
+ HKR, Ndi\Params\PreallocatedRxBuffers\Enum, "0",            0, %Disabled%
+ HKR, Ndi\Params\PreallocatedRxBuffers\Enum, "1",            0, %Enabled%
+
+[RSC.kw]
+HKR,Ndi\Params\*RscIpv4,                      ParamDesc,      0,  "Receive Segment Coalescing (IPv4)"
+HKR,Ndi\Params\*RscIpv4,                      Type,           0,  "enum"
+HKR,Ndi\Params\*RscIpv4,                      Default,        0,  "0"
+HKR,Ndi\Params\*RscIpv4\enum,                 "0",            0,  %Disabled%
+HKR,Ndi\Params\*RscIpv4\enum,                 "1",            0,  %Enabled%
+
+HKR,Ndi\Params\*RscIpv6,                      ParamDesc,      0,  "Receive Segment Coalescing (IPv6)"
+HKR,Ndi\Params\*RscIpv6,                      Type,           0,  "enum"
+HKR,Ndi\Params\*RscIpv6,                      Default,        0,  "0"
+HKR,Ndi\Params\*RscIpv6\enum,                 "0",            0,  %Disabled%
+HKR,Ndi\Params\*RscIpv6\enum,                 "1",            0,  %Enabled%
+
+[UDPRSC.kw]
+HKR,Ndi\Params\*UdpRsc,                      ParamDesc,      0,  "UDP Receive Segment Coalescing"
+HKR,Ndi\Params\*UdpRsc,                      Type,           0,  "enum"
+HKR,Ndi\Params\*UdpRsc,                      Default,        0,  "0"
+HKR,Ndi\Params\*UdpRsc\enum,                 "0",            0,  %Disabled%
+HKR,Ndi\Params\*UdpRsc\enum,                 "1",            0,  %Enabled%
+
+[USO.kw]
+HKR, Ndi\Params\*UsoIPv4,               ParamDesc,      0, "UDP Segmentation (IPv4)"
+HKR, Ndi\Params\*UsoIPv4,               type,           0, "enum"
+HKR, Ndi\Params\*UsoIPv4,               default,        0, "0"
+HKR, Ndi\Params\*UsoIPv4\Enum,          "0",            0, %Disabled%
+HKR, Ndi\Params\*UsoIPv4\Enum,          "1",            0, %Enabled%
+
+HKR, Ndi\Params\*UsoIPv6,               ParamDesc,      0, "UDP Segmentation (IPv6)"
+HKR, Ndi\Params\*UsoIPv6,               type,           0, "enum"
+HKR, Ndi\Params\*UsoIPv6,               default,        0, "0"
+HKR, Ndi\Params\*UsoIPv6\Enum,          "0",            0, %Disabled%
+HKR, Ndi\Params\*UsoIPv6\Enum,          "1",            0, %Enabled%

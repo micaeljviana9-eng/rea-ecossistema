@@ -1,0 +1,75 @@
+;/*++
+;
+;Copyright (c) Microsoft Corporation.  All rights reserved.
+;
+;Module Name:
+;
+;    TREEOSServiceSample.INF
+;
+;Abstract:
+;    INF file for installing sample TrEE OS service
+;
+;--*/
+[Version]
+Signature="$WINDOWS NT$"
+Class=System
+ClassGuid={4D36E97D-E325-11CE-BFC1-08002BE10318}
+Provider=%MSFT%
+DriverVer=01/15/2015,10.0.9908.0
+CatalogFile=TREEOSServiceSample.cat
+PnpLockdown=1
+
+[DestinationDirs]
+DefaultDestDir = 12
+
+;*****************************************
+; SampleTREEDriver Device Install Section
+;*****************************************
+
+[Manufacturer]
+%StdMfg%=Standard,NTAMD64,NTARM,NTARM64
+
+[Standard.NTAMD64]
+%TREEOSServiceSample.DeviceDesc%=TREEOSServiceSample, ROOT\TrEESAMP
+%TREEOSServiceSample.DeviceDesc%=TREEOSServiceSample, ACPI\TrEESAMP
+
+[Standard.NTARM]
+%TREEOSServiceSample.DeviceDesc%=TREEOSServiceSample, ROOT\TrEESAMP
+%TREEOSServiceSample.DeviceDesc%=TREEOSServiceSample, ACPI\TrEESAMP
+
+[Standard.NTARM64]
+%TREEOSServiceSample.DeviceDesc%=TREEOSServiceSample, ROOT\TrEESAMP
+%TREEOSServiceSample.DeviceDesc%=TREEOSServiceSample, ACPI\TrEESAMP
+
+[TREEOSServiceSample.NT]
+CopyFiles=TREEOSServiceSample.NT.Copy
+
+[TREEOSServiceSample.NT.Copy]
+TREEOSServiceSample.sys
+
+;-------------- Service installation
+
+[TREEOSServiceSample.NT.Services]
+AddService = TREEOSServiceSample, %SPSVCINST_ASSOCSERVICE%, TREEOSServiceSample_Service_Inst
+
+[TREEOSServiceSample_Service_Inst]
+DisplayName    = %TREEOSServiceSample.SVCDESC%
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StartType      = 3               ; SERVICE_DEMAND_START
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\TREEOSServiceSample.sys
+
+[SourceDisksNames]
+1 = %DiskId1%,,,""
+
+[SourceDisksFiles]
+TREEOSServiceSample.sys = 1,,
+
+[Strings]
+SPSVCINST_ASSOCSERVICE = 0x00000002
+MSFT = "Microsoft"
+StdMfg = "(Standard system devices)"
+DiskId1 = "TREEOSServiceSample Installation Disk #1"
+TREEOSServiceSample.DeviceDesc = "Microsoft Sample TrEE Service"
+TREEOSServiceSample.SVCDESC = "Microsoft Sample TrEE Service Driver"
+REG_MULTI_SZ = 0x00010000

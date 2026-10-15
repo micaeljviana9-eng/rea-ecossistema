@@ -1,0 +1,86 @@
+/*++
+;
+;Copyright (c) Microsoft Corporation.  All rights reserved.
+;
+;Module Name:
+;    FusionSensor.INF
+;
+;Abstract:
+;    INF file for installing the Sensors 2.0 FusionSensor sample driver
+;
+;Installation Notes:
+;    Using Devcon: Type "devcon install FusionSensor.inf umdf2\FusionSensor" to install
+;
+;--*/
+
+[Version]
+Signature   = "$WINDOWS NT$"
+Class       = Sensor
+ClassGuid   = {5175D334-C371-4806-B3BA-71FD53C9258D}
+Provider    = %ProviderName%
+CatalogFile = FusionSensor.cat
+DriverVer   = 09/09/2014,2.0.0.1
+PnpLockdown = 1
+
+[DestinationDirs]
+;12 == Windows\System32\Drivers\UMDF
+DefaultDestDir = 12,UMDF
+
+[SourceDisksNames]
+1 = %MediaDescription%,,,""
+
+[SourceDisksFiles]
+FusionSensor.dll   = 1,,
+
+[Manufacturer]
+%ManufacturerName% = FusionSensor_Device, NT$ARCH$.10.0...22000
+
+;*******************************
+; FusionSensor Install Section
+;*******************************
+
+[FusionSensor_Device.NT$ARCH$.10.0...22000]
+; DisplayName       Section          DeviceId
+; -----------       -------          --------
+%FusionSensor_DevDesc% = FusionSensor_Inst, umdf2\FusionSensor
+
+[FusionSensor_Inst.NT]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT
+CopyFiles = FusionSensorDriverCopy
+
+[FusionSensorDriverCopy]
+FusionSensor.dll
+
+[FusionSensor_Inst.NT.HW]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT.HW
+
+;-------------- Service installation
+
+[FusionSensor_Inst.NT.Services]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT.Services
+
+;-------------- WDF specific section
+
+[FusionSensor_Inst.NT.Wdf]
+UmdfService              = FusionSensor, FusionSensor_Install
+UmdfServiceOrder         = FusionSensor
+UmdfDirectHardwareAccess = AllowDirectHardwareAccess
+UmdfFileObjectPolicy     = AllowNullAndUnknownFileObjects
+UmdfFsContextUsePolicy   = CannotUseFsContexts
+
+[FusionSensor_Install]
+UmdfLibraryVersion       = $UMDFVERSION$
+ServiceBinary            = %12%\UMDF\FusionSensor.dll
+UmdfExtensions           = SensorsCx0102
+
+[Strings]
+;Localizable Strings
+MediaDescription         = "Windows FusionSensor Driver"
+ProviderName             = "TODO-Set-Provider"
+ManufacturerName         = "TODO-Set-Manufacturer"
+FusionSensor_DevDesc     = "FusionSensor"
+
+;Non-Localizable Strings

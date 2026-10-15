@@ -1,0 +1,78 @@
+;/*++
+;
+;Copyright (c) Microsoft Corporation.  All rights reserved.
+;
+;   THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY
+;   KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+;   IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR
+;   PURPOSE.
+;
+;Module Name:
+;
+;    ufxclientsample.inf
+;
+;Abstract:
+;    INF for installing the sample USB function client driver.
+;
+;Important:
+;    This INF depends on features for the Driver Store DIRIDs which are available starting Windows 10 1709
+;
+;--*/
+
+[Version]
+Signature   = "$WINDOWS NT$"
+Class       = USBFunctionController
+ClassGuid   = {bbbe8734-08fa-4966-b6a6-4e5ad010cdd7}
+Provider    = %ProviderName%
+DriverVer   = 04/16/2015, 1.0.0.0
+CatalogFile = UfxClientSample.cat
+PnpLockdown = 1
+
+[DestinationDirs]
+DefaultDestDir = 13
+
+[SourceDisksNames]
+1=%Disk_Description%,,,
+
+[SourceDisksFiles]
+ufxclientsample.sys = 1
+
+; ================= Device section =====================
+[Manufacturer]
+%MfgName%=Standard,NT$ARCH$.10.0...16299
+
+[Standard.NT$ARCH$.10.0...16299]
+%UfxClientSample.DeviceDesc%=UfxClientSample.Install, UFXSAMPLEHWID
+
+[UfxClientSample.Install.NT]
+CopyFiles = UfxClientSample.CopyFiles
+
+[UfxClientSample.CopyFiles]
+ufxclientsample.sys
+
+[ufxclientsample.Install.NT.HW]
+AddReg=ufxclientsample.SecurityAddReg
+
+[ufxclientsample.SecurityAddReg]
+HKR,,DeviceCharacteristics,0x10001,0x100 ;FILE_DEVICE_SECURE_OPEN
+
+[UfxClientSample.Install.NT.Services]
+AddService = ufxclientsample, 2, UfxClientSample.AddService
+
+[UfxClientSample.AddService]
+DisplayName     = %UfxClientSample.ServiceName%
+ServiceType     = 1     ; SERVICE_KERNEL_DRIVER
+StartType       = 3     ; SERVICE_DEMAND_START
+ErrorControl    = 1     ; SERVICE_ERROR_NORMAL
+ServiceBinary   = %13%\ufxclientsample.sys
+LoadOrderGroup  = Base
+Dependencies    = ufx01000
+
+;---------------------------------------------------------------;
+
+[Strings]
+ProviderName = "TODO-Set-Provider"
+MfgName = "TODO-Set-Manufacturer"
+Disk_Description= "UfxClientSample Installation Disk"
+UfxClientSample.DeviceDesc = "Sample USB Function Controller"
+UfxClientSample.ServiceName = "UFX Sample Client Driver"

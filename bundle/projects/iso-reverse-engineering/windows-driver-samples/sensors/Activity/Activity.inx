@@ -1,0 +1,86 @@
+/*++
+;
+;Copyright (c) Microsoft Corporation.  All rights reserved.
+;
+;Module Name:
+;    Activity.INF
+;
+;Abstract:
+;    INF file for installing the Sensors 2.0 Activity sample driver
+;
+;Installation Notes:
+;    Using Devcon: Type "devcon install Activity.inf umdf2\Activity" to install
+;
+;--*/
+
+[Version]
+Signature   = "$WINDOWS NT$"
+Class       = Sensor
+ClassGuid   = {5175D334-C371-4806-B3BA-71FD53C9258D}
+Provider    = %ProviderName%
+CatalogFile = Activity.cat
+DriverVer   = 10/27/2014,2.0.0.1
+PnpLockdown = 1
+
+[DestinationDirs]
+;12 == Windows\System32\Drivers\UMDF
+DefaultDestDir = 12,UMDF
+
+[SourceDisksNames]
+1 = %MediaDescription%,,,""
+
+[SourceDisksFiles]
+Activity.dll   = 1,,
+
+[Manufacturer]
+%ManufacturerName% = Activity_Device, NT$ARCH$.10.0...22000
+
+;*******************************
+; Activity Install Section
+;*******************************
+
+[Activity_Device.NT$ARCH$.10.0...22000]
+; DisplayName       Section          DeviceId
+; -----------       -------          --------
+%Activity_DevDesc% = Activity_Inst, umdf2\Activity
+
+[Activity_Inst.NT]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT
+CopyFiles = ActivityDriverCopy
+
+[ActivityDriverCopy]
+Activity.dll
+
+[Activity_Inst.NT.HW]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT.HW
+
+;-------------- Service installation
+
+[Activity_Inst.NT.Services]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT.Services
+
+;-------------- WDF specific section
+
+[Activity_Inst.NT.Wdf]
+UmdfService              = Activity, Activity_Install
+UmdfServiceOrder         = Activity
+UmdfDirectHardwareAccess = AllowDirectHardwareAccess
+UmdfFileObjectPolicy     = AllowNullAndUnknownFileObjects
+UmdfFsContextUsePolicy   = CannotUseFsContexts
+
+[Activity_Install]
+UmdfLibraryVersion       = $UMDFVERSION$
+ServiceBinary            = %12%\UMDF\Activity.dll
+UmdfExtensions           = SensorsCx0102
+
+[Strings]
+;Localizable Strings
+MediaDescription         = "Windows Activity Driver"
+ProviderName             = "TODO-Set-Provider"
+ManufacturerName         = "TODO-Set-Manufacturer"
+Activity_DevDesc         = "Activity"
+
+;Non-Localizable Strings

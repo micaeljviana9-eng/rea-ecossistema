@@ -1,0 +1,100 @@
+;/*++
+;
+;Copyright (c) Microsoft Corporation.  All rights reserved.
+;
+;   THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY
+;   KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+;   IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR
+;   PURPOSE.
+;
+;Module Name:
+;
+;    GenPCI.INF
+;
+;Abstract:
+;    INF file for a generic PCI device.
+;
+; Important:
+;     This INF depends on features for the Driver Store DIRIDs which are available starting Windows 10 1709
+;--*/
+
+[Version]
+Signature      = "$WINDOWS NT$"
+Class          = Sample
+ClassGuid      = {78A1C341-4539-11d3-B88D-00C04FAD5171}
+Provider       = %ProviderString%
+DriverVer      = 03/20/2003,5.0.3788.0
+CatalogFile    = KmdfSamples.cat
+PnpLockdown    = 1
+
+[DestinationDirs]
+DefaultDestDir = 13
+
+[SourceDisksFiles]
+pcidrv.sys = 1
+
+[SourceDisksNames]
+1=%DISK_NAME%,
+
+;-------------------------------------------------------------------------
+; Class Section
+;-------------------------------------------------------------------------
+[ClassInstall32]
+Addreg         = SampleClassReg
+
+[SampleClassReg]
+HKR,,,0,%ClassName%
+HKR,,Icon,,-5
+HKR,,DeviceCharacteristics,0x10001,0x100     ;Use same security checks on relative opens
+HKR,,Security,,"D:P(A;;GA;;;SY)(A;;GA;;;BA)" ;Allow generic all access to system and built-in Admin.
+
+;-------------------------------------------------------------------------
+; Device Install Section
+;-------------------------------------------------------------------------
+[ControlFlags]
+ExcludeFromSelect = *
+
+[Manufacturer]
+%ManufacturerString%=MSFT,NT$ARCH$.10.0...16299
+
+[MSFT.NT$ARCH$.10.0...16299]
+; DisplayName            Section           DeviceId
+; -----------            -------           --------
+%GenPCI.DRVDESC%=GenPCI_Inst, PCI\VEN_8086&DEV_1229
+%GenPCI.DRVDESC%=GenPCI_Inst, PCI\VEN_8086&DEV_103D
+%GenPCI.DRVDESC%=GenPCI_Inst, PCI\VEN_8086&DEV_1031
+%GenPCI.DRVDESC%=GenPCI_Inst, PCI\VEN_8086&DEV_1038
+
+[GenPCI_Inst.NT]
+CopyFiles      = GenPCI.CopyFiles
+
+[GenPCI.CopyFiles]
+pcidrv.sys
+
+[GenPCI_Inst.NT.Services]
+AddService     = GenPCI,0x00000002,GenPCI_Service
+
+[GenPCI_Service]
+DisplayName    = %GenPCI.SVCDESC%
+ServiceType    = 1                  ; SERVICE_KERNEL_DRIVER
+StartType      = 3                  ; SERVICE_DEMAND_START
+ErrorControl   = 1                  ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %13%\pcidrv.sys
+
+[GenPCI_Inst.NT.Wdf]
+KmdfService    = GenPCI, GenPCI_wdfsect
+
+[GenPCI_wdfsect]
+KmdfLibraryVersion = $KMDFVERSION$
+
+;------------------------------------------------------------------------------
+;  String Definitions
+;------------------------------------------------------------------------------
+
+[Strings]
+ProviderString     = "TODO-Set-Provider"
+ManufacturerString = "TODO-Set-Manufacturer"
+ClassName          = "Sample Device"
+GenPCI.SVCDESC     = "Sample WDF PCI Driver Service for Intel 8255x Ethernet Controller"
+GenPCI.DRVDESC     = "Sample WDF PCI Driver for Intel 8255x Ethernet Controller"
+DISK_NAME          = "GenPCI Sample Install Disk"

@@ -1,0 +1,37 @@
+;;;
+;;; Copyright (c) Microsoft Corporation. All rights reserved
+;;;
+;;; Abstract:
+;;;    Stream Edit Callout sample driver install configuration.
+;;;
+
+[Version]
+    Signature   = "$Windows NT$"
+    Class       = WFPCALLOUTS
+    ClassGuid   = {57465043-616C-6C6F-7574-5F636C617373}
+    Provider    = %Contoso%
+    CatalogFile = StmEdit.cat
+    DriverVer   = 01/26/2024,1.0.09.24
+    PnpLockdown = 1
+
+[SourceDisksNames]
+   1 = %StmEditDisk%,,,""
+
+[SourceDisksFiles]
+   StmEdit.sys = 1,,
+
+[DestinationDirs]
+    StmEdit.DriverFiles = 13                              ; %WinDir%\System32\Drivers
+
+[DefaultInstall.NTAMD64]
+    OptionDesc = %StmEditServiceDesc%
+    CopyFiles  = StmEdit.DriverFiles
+
+[StmEdit.DriverFiles]
+    StmEdit.sys,,,0x00000040                              ; COPYFLG_OVERWRITE_OLDER_ONLY
+
+[Strings]
+    Contoso            = "Contoso Ltd."
+    StmEditDisk        = "Stream Edit Installation Disk"
+    StmEditServiceDesc = "Stream Edit Callout Driver"
+    StmEditServiceName = "StmEdit"

@@ -1,0 +1,84 @@
+/*++
+;
+;Copyright (c) Microsoft Corporation.  All rights reserved.
+;
+;Module Name:
+;    ADXL345Acc.INF
+;
+;Abstract:
+;    INF file for installing the Sensors 2.0 ADXL345 Accelerometer Sample Driver
+;
+;--*/
+
+[Version]
+Signature   = "$WINDOWS NT$"
+Class       = Sensor
+ClassGuid   = {5175D334-C371-4806-B3BA-71FD53C9258D}
+Provider    = %ProviderName% ;Put the name of your company here
+CatalogFile = ADXL345Acc.cat
+DriverVer   = 08/14/2014,2.0.0.1 ;Should be handled by tool that converts from inx to inf
+PnpLockdown = 1
+
+[DestinationDirs]
+;12 == Windows\System32\Drivers\UMDF
+DefaultDestDir = 12,UMDF
+
+[SourceDisksNames]
+1 = %MediaDescription%,,,""
+
+[SourceDisksFiles]
+ADXL345Acc.dll   = 1,,
+
+[Manufacturer]
+%ManufacturerName% = ADXL345Acc_Device, NT$ARCH$.10.0...22000
+
+
+;*******************************
+; ADXL345Acc Install Section
+;*******************************
+
+[ADXL345Acc_Device.NT$ARCH$.10.0...22000]
+; DisplayName       Section          DeviceId
+; -----------       -------          --------
+%ADXL345Acc_DevDesc% = ADXL345Acc_Inst, ACPI\ADXL345Acc
+
+[ADXL345Acc_Inst.NT]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT
+CopyFiles = ADXL345AccDriverCopy
+
+[ADXL345Acc_Inst.NT.hw]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT.HW
+
+[ADXL345AccDriverCopy]
+ADXL345Acc.dll
+
+;-------------- Service installation
+
+[ADXL345Acc_Inst.NT.Services]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT.Services
+
+;-------------- WDF specific section
+
+[ADXL345Acc_Inst.NT.Wdf]
+UmdfService              = ADXL345Acc, ADXL345Acc_Install
+UmdfServiceOrder         = ADXL345Acc
+UmdfDirectHardwareAccess = AllowDirectHardwareAccess
+UmdfFileObjectPolicy     = AllowNullAndUnknownFileObjects
+UmdfFsContextUsePolicy   = CannotUseFsContexts
+
+[ADXL345Acc_Install]
+UmdfLibraryVersion       = $UMDFVERSION$
+ServiceBinary            = %12%\UMDF\ADXL345Acc.dll
+UmdfExtensions           = SensorsCx0102
+
+[Strings]
+;Localizable Strings
+MediaDescription         = "ADXL345 accelerometer sample Driver"
+ProviderName             = "TODO-Set-Provider"
+ManufacturerName         = "TODO-Set-Manufacturer"
+ADXL345Acc_DevDesc       = "ADXL345 accelerometer sample"
+
+;Non-Localizable Strings

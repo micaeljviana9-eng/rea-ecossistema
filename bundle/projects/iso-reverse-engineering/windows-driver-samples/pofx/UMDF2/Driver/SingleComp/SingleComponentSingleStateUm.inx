@@ -1,0 +1,90 @@
+;/*++
+;
+;Copyright (c) Microsoft Corporation.  All rights reserved.
+;
+;Module Name:
+;    SingleComponentSingleStateUm.INF
+;
+;Abstract:
+;    INF file for installing the SingleComponentSingleStateUm Driver
+;
+;Installation Notes:
+;    Using Devcon: Type "devcon install SingleComponentSingleStateUm.inf root\SingleComponentSingleState" to install
+;
+;Important:
+;    This INF depends on WUDFRD.inf which is available starting Windows 11
+;
+;--*/
+
+[Version]
+Signature="$WINDOWS NT$"
+Class=Sample
+ClassGuid={78A1C341-4539-11d3-B88D-00C04FAD5171}
+Provider=%ProviderString%
+DriverVer=03/20/2003,5.0.3788.0
+CatalogFile=wudf.cat
+PnpLockdown=1
+
+[DestinationDirs]
+DefaultDestDir = 13
+
+[SourceDisksNames]
+1 = %DiskId1%,,,""
+
+[SourceDisksFiles]
+SingleComponentSingleStateUm.dll = 1,,
+
+; ================= Class section =====================
+
+[ClassInstall32]
+Addreg=SampleClassReg
+
+[SampleClassReg]
+HKR,,,0,%ClassName%
+HKR,,Icon,,-5
+
+
+;*****************************************
+; SCSS  Install Section
+;*****************************************
+
+[Manufacturer]
+%StdMfg%=Standard,NT$ARCH$.10.0...22000
+
+[Standard.NT$ARCH$.10.0...22000]
+%SCSS.DeviceDesc%=SCSS_Device, root\SingleComponentSingleState
+
+;---------------- copy files
+
+[SCSS_Device.NT]
+CopyFiles=UMDriverCopy
+Include=WUDFRD.inf
+Needs=WUDFRD.NT
+
+[SCSS_Device.NT.HW]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT.HW
+
+[UMDriverCopy]
+SingleComponentSingleStateUm.dll
+
+;-------------- Service installation
+[SCSS_Device.NT.Services]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT.Services
+
+;-------------- WDF specific section -------------
+[SCSS_Device.NT.Wdf]
+UmdfService=SingleComponentSingleStateUm, SCSS_Install
+UmdfServiceOrder=SingleComponentSingleStateUm
+
+[SCSS_Install]
+UmdfLibraryVersion=$UMDFVERSION$
+ServiceBinary=%13%\SingleComponentSingleStateUm.dll
+
+[Strings]
+ProviderString = "TODO-Set-Provider"
+StdMfg = "(Standard system devices)"
+DiskId1 = "WDF Sample Single Component Single State Device Installation Disk #1"
+SCSS.DeviceDesc = "UMDF 2.0 Single Component Single State Device"
+ClassName = "Sample Device"

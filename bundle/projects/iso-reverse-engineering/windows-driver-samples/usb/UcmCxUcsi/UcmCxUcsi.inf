@@ -1,0 +1,74 @@
+;
+; Copyright (c) Microsoft Corporation. All rights reserved.
+;
+; INF Name:
+;
+;     UcmCxUcsi.inf
+;
+; Abstract:
+;
+;     INF for installing the USB Connector Manager sample client driver for
+;     UCSI-compatible systems.
+;
+; Important:
+;     This INF depends on features for the Driver Store DIRIDs which are available starting Windows 10 1709
+;
+
+[Version]
+Signature="$WINDOWS NT$"
+Class=UCM
+ClassGuid={e6f1aa1c-7f3b-4473-b2e8-c97d8ac71d53}
+Provider=%ManufacturerName%
+CatalogFile=UcmCxUcsi.cat
+PnpLockdown = 1
+
+[DestinationDirs]
+DefaultDestDir = 13
+
+;*****************************************
+; Install Section
+;*****************************************
+
+[Manufacturer]
+%ManufacturerName%=Standard,NT$ARCH$.10.0...16299
+
+[Standard.NT$ARCH$.10.0...16299]
+%UcmCxUcsi.DeviceDesc%=UcmCxUcsi_Device, ACPI\USBC000, ACPI\PNP0CA0 ; TODO: edit hw-id to match your device.
+
+[UcmCxUcsi_Device.NT]
+CopyFiles=Drivers_Dir
+
+[Drivers_Dir]
+UcmCxUcsi.sys
+
+;-------------- Service installation
+[UcmCxUcsi_Device.NT.Services]
+AddService = UcmCxUcsi,%SPSVCINST_ASSOCSERVICE%, UcmCxUcsi_Service_Inst
+
+; -------------- UcmCxUcsi driver install sections
+[UcmCxUcsi_Service_Inst]
+DisplayName    = %UcmCxUcsi.SVCDESC%
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StartType      = 3               ; SERVICE_DEMAND_START
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %13%\UcmCxUcsi.sys
+Dependencies   = UcmCx
+
+[SourceDisksNames]
+3426 = windows cd
+
+[SourceDisksFiles]
+UcmCxUcsi.sys = 3426
+
+[UcmCxUcsi_Device.NT.Wdf]
+KmdfService =  UcmCxUcsi, UcmCxUcsi_wdfsect
+
+[UcmCxUcsi_wdfsect]
+KmdfLibraryVersion = $KMDFVERSION$
+
+[Strings]
+SPSVCINST_ASSOCSERVICE= 0x00000002
+ManufacturerName="<Your manufacturer name>" ;TODO: Replace with your manufacturer name
+DiskName = "UcmCxUcsi Installation Disk"
+UcmCxUcsi.DeviceDesc = "UcmCxUcsi Sample Device"
+UcmCxUcsi.SVCDESC = "UcmCxUcsi Sample Service"

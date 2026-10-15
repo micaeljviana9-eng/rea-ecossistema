@@ -1,0 +1,86 @@
+/*++
+;
+;Copyright (c) Microsoft Corporation.  All rights reserved.
+;
+;Module Name:
+;    CustomSensors.INF
+;
+;Abstract:
+;    INF file for installing the Sensors 2.0 Custom Sensor Driver
+;
+;Installation Notes:
+;    Using Devcon: Type "devcon install CustomSensors.inf umdf2\CustomSensors" to install
+;
+;--*/
+
+[Version]
+Signature   = "$WINDOWS NT$"
+Class       = Sensor
+ClassGuid   = {5175D334-C371-4806-B3BA-71FD53C9258D}
+Provider    = %ProviderName%
+CatalogFile = CustomSensors.cat
+DriverVer   = 08/14/2014,2.0.0.1
+PnpLockdown = 1
+
+[DestinationDirs]
+;12 == Windows\System32\Drivers\UMDF
+DefaultDestDir = 12,UMDF
+
+[SourceDisksNames]
+1 = %MediaDescription%,,,""
+
+[SourceDisksFiles]
+CustomSensors.dll   = 1,,
+
+[Manufacturer]
+%ManufacturerName% = CustomSensors_Device, NT$ARCH$.10.0...22000
+
+;*******************************
+; Custom Sensor Install Section
+;*******************************
+
+[CustomSensors_Device.NT$ARCH$.10.0...22000]
+; DisplayName       Section          DeviceId
+; -----------       -------          --------
+%CustomSensors_DevDesc% = CustomSensors_Inst, umdf2\CustomSensors
+
+[CustomSensors_Inst.NT]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT
+CopyFiles = CustomSensorsDriverCopy
+
+[CustomSensorsDriverCopy]
+CustomSensors.dll
+
+[CustomSensors_Inst.NT.HW]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT.HW
+
+;-------------- Service installation
+
+[CustomSensors_Inst.NT.Services]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT.Services
+
+;-------------- WDF specific section
+
+[CustomSensors_Inst.NT.Wdf]
+UmdfService              = CustomSensors, CustomSensors_Install
+UmdfServiceOrder         = CustomSensors
+UmdfDirectHardwareAccess = AllowDirectHardwareAccess
+UmdfFileObjectPolicy     = AllowNullAndUnknownFileObjects
+UmdfFsContextUsePolicy   = CannotUseFsContexts
+
+[CustomSensors_Install]
+UmdfLibraryVersion       = $UMDFVERSION$
+ServiceBinary            = %12%\UMDF\CustomSensors.dll
+UmdfExtensions           = SensorsCx0102
+
+[Strings]
+;Localizable Strings
+MediaDescription         = "Windows Custom Sensor sample Driver"
+ProviderName             = "TODO-Set-Provider"
+ManufacturerName         = "TODO-Set-Manufacturer"
+CustomSensors_DevDesc    = "Custom Sensor sample"
+
+;Non-Localizable Strings

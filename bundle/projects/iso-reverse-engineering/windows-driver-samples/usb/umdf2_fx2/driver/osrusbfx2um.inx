@@ -1,0 +1,102 @@
+;/*++
+;
+;Copyright (c) Microsoft Corporation.  All rights reserved.
+;
+;   THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY
+;   KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+;   IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR
+;   PURPOSE.
+;
+;Module Name:
+;
+;    OsrUsbFx2Um.INF
+;
+;Abstract:
+;    Installation inf for OSR USB User-mode driver on FX2 Learning Kit
+;
+;Important:
+;    This INF depends on wudfrd.inf which is available starting Windows 11
+;
+;--*/
+
+[Version]
+Signature="$Windows NT$"
+Class=Generic
+ClassGuid={ff494df1-c4ed-4fac-9b3f-3786f6e91e7e}
+Provider=%ProviderName%
+DriverVer=03/25/2005,0.0.0.1
+CatalogFile=wudf.cat
+PnpLockdown=1
+
+[DestinationDirs]
+UMDriverCopy=13
+
+[SourceDisksFiles]
+osrusbfx2um.dll=1
+
+[SourceDisksNames]
+1 = %MediaDescription%
+
+[Manufacturer]
+%MfgName%=OSR,NT$ARCH$.10.0...22000
+
+[OSR.NT$ARCH$.10.0...22000]
+%OsrUsbDeviceName%=OsrUsb_Install, USB\Vid_045e&Pid_94aa&mi_00
+%OsrUsbDeviceName%=OsrUsb_Install, USB\VID_0547&PID_1002
+
+; =================== UMDF OsrUsb Device ==================================
+
+[OsrUsb_Install.NT]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT
+CopyFiles=UMDriverCopy
+
+[OsrUsb_Install.NT.HW]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT.HW
+
+[OsrUsb_Install.NT.Services]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT.Services
+
+[OsrUsb_Install.NT.Wdf]
+UmdfDispatcher=NativeUSB
+UmdfService=WUDFOsrUsbFx2, WUDFOsrUsbFx2_Install
+UmdfServiceOrder=WUDFOsrUsbFx2
+
+[WUDFOsrUsbFx2_Install]
+UmdfLibraryVersion=$UMDFVERSION$
+ServiceBinary="%13%\osrusbfx2um.dll"
+
+[UMDriverCopy]
+osrusbfx2um.dll
+
+; ================= OsrUsb Interface Installation ============================
+; This sample sets the custom capability programatically in the code which
+; allows Windows store apps for device to access this device interface through
+; Windows.Devices.Custom namespace. If you prefer to set this in INF, uncomment
+; the below section (including relevant Strings) and remove the block of
+; code which refers to "Adding Custom Capability".
+
+;[OsrUsb_Install.NT.Interfaces]
+;AddInterface="{%GUID_DEVINTERFACE_OSRUSBFX2%}", , OsrUsbAddInterface
+
+;[OsrUsbAddInterface]
+;AddProperty=OsrUsbAddInterface.AddProps
+
+;[OsrUsbAddInterface.AddProps]
+;{%DEVPKEY_DeviceInterface_UnrestrictedAppCapabilities%}, 8, 0x2012,, %CustomCapability%
+
+
+; =================== Generic ==================================
+
+[Strings]
+ProviderName="TODO-Set-Provider"
+MfgName="OSR"
+MediaDescription="Sample Driver Installation Media"
+ClassName="Sample Device"
+WudfRdDisplayName="Windows Driver Foundation - User-mode Driver Framework Reflector"
+OsrUsbDeviceName="UMDF v2 Sample Driver for OSR USB Fx2 Learning Kit with NativeUSB"
+;GUID_DEVINTERFACE_OSRUSBFX2="573E8C73-0CB4-4471-A1BF-FAB26C31D384"
+;DEVPKEY_DeviceInterface_UnrestrictedAppCapabilities="026e516e-b814-414b-83cd-856d6fef4822"
+;CustomCapability="microsoft.hsaTestCustomCapability_q536wpkpf5cy2"

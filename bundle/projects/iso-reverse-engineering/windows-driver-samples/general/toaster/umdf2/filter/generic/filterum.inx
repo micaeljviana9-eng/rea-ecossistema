@@ -1,0 +1,95 @@
+;/*++
+;
+;Copyright (c) Microsoft Corporation.  All rights reserved.
+;
+;Module Name:
+;
+;    filterum.INF
+;
+; Important:
+;    This INF depends on WUDFRD.inf which is available starting Windows 11
+;
+;--*/
+
+[Version]
+Signature="$WINDOWS NT$"
+Class=TOASTER
+ClassGuid={B85B7C50-6A01-11d2-B841-00C04FAD5171}
+Provider=%ProviderString%
+DriverVer=06/16/1999,5.0.2064.0
+CatalogFile=wudf.cat
+PnpLockdown=1
+
+[DestinationDirs]
+DefaultDestDir = 13
+
+[SourceDisksNames]
+1 = %DiskId1%,,,""
+
+[SourceDisksFiles]
+wdfsimpleum.dll  = 1,,
+filterum.dll  = 1,,
+
+; ================= Class section =====================
+
+[ClassInstall32]
+Addreg=ToasterClassReg
+
+[ToasterClassReg]
+HKR,,,0,%ClassName%
+HKR,,Icon,,100
+HKR,,DeviceCharacteristics,0x10001,0x100     ;Use same security checks on relative opens
+HKR,,Security,,"D:P(A;;GA;;;SY)(A;;GA;;;BA)" ;Allow generic all access to system and built-in Admin.
+                                             ;This one overrides the security set by the driver
+
+;*****************************************
+; Toaster Device  Install Section
+;*****************************************
+
+[Manufacturer]
+%StdMfg%=Standard,NT$ARCH$.10.0...22000
+
+[Standard.NT$ARCH$.10.0...22000]
+%WdfSimpleDevice.DeviceDesc%=Toaster_Device, root\toaster
+
+[Toaster_Device.NT]
+CopyFiles=UMDriverCopy
+Include=WUDFRD.inf
+Needs=WUDFRD.NT
+
+[Toaster_Device.NT.HW]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT.HW
+
+; ---------------- file copy
+[UMDriverCopy]
+wdfsimpleum.dll
+filterum.dll
+
+;-------------- Service installation
+
+[Toaster_Device.NT.Services]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT.Services
+
+;-------------- WDF specific section -------------
+[Toaster_Device.NT.Wdf]
+UmdfService=wdfsimpleum, wdfsimple_Install
+UmdfService=filterum, filter_Install
+UmdfServiceOrder=wdfsimpleum, filterum
+
+[wdfsimple_Install]
+UmdfLibraryVersion=$UMDFVERSION$
+ServiceBinary=%13%\wdfsimpleum.dll
+
+[filter_Install]
+UmdfLibraryVersion=$UMDFVERSION$
+ServiceBinary=%13%\filterum.dll
+
+[Strings]
+SPSVCINST_ASSOCSERVICE= 0x00000002
+ProviderString = "TODO-Set-Provider"
+StdMfg = "(Standard system devices)"
+DiskId1 = "WDF Sample Toaster Installation Disk #1"
+WdfSimpleDevice.DeviceDesc = "Sample WDF Toaster Service + Filter"
+ClassName = "Toaster"

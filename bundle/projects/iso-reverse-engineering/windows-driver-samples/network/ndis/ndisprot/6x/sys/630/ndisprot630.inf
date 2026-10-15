@@ -1,0 +1,123 @@
+;-------------------------------------------------------------------------
+; NDISPROT630.INF -- Sample NDIS Protocol Driver
+;
+; Copyright (c) 2003, Microsoft Corporation
+;-------------------------------------------------------------------------
+[version]
+Signature   = "$Windows NT$"
+Class       = NetTrans
+ClassGUID   = {4d36e975-e325-11ce-bfc1-08002be10318}
+Provider    = %ProviderString%
+DriverVer   = 07/16/2010,4.2.0.0
+CatalogFile = ndisprot630.cat
+PnpLockdown = 1
+
+; Note: Starting with OS build version 25319 there is an update to the Network Installation UI
+; that allows for installation in the driver package's Driver store directory. All builds 
+; above 25319 can and should install drivers using DIRID 13.
+[Manufacturer]
+%ManufacturerName%=Standard,NT$ARCH$,NT$ARCH$.10.0...25319 
+
+[Standard.NT$ARCH$.10.0...25319]
+%NDISPROT_Desc%=Install, MS_NDISPROT
+
+[Standard.NT$ARCH$]
+%NDISPROT_Desc%=Install_NC, MS_NDISPROT
+
+;-------------------------------------------------------------------------
+; Installation Section
+;-------------------------------------------------------------------------
+[Install]
+AddReg=Inst_Ndi
+Characteristics=0x0 ; 
+CopyFiles=CpyFiles_Sys
+
+[Install_NC]
+AddReg=Inst_Ndi
+Characteristics=0x0 ; 
+CopyFiles=CpyFiles_Sys_NC
+
+;-------------------------------------------------------------------------
+; Ndi installation support
+;-------------------------------------------------------------------------
+[Inst_Ndi]
+HKR,Ndi,Service,,"Ndisprot"
+HKR,Ndi,HelpText,,%NDISPROT_HelpText%
+HKR,Ndi\Interfaces, UpperRange,, noupper
+HKR,"Ndi\Interfaces","LowerRange",,"ndis5,ndis4,ndis5_prot"
+
+;-------------------------------------------------------------------------
+; Service installation support
+;-------------------------------------------------------------------------
+[Install.Services]
+AddService=Ndisprot630,,NDISPROT_Service_Inst
+
+[NDISPROT_Service_Inst]
+DisplayName     = %NDISPROT_Desc%
+ServiceType     = 1 ;SERVICE_KERNEL_DRIVER
+StartType       = 3 ;SERVICE_DEMAND_START
+ErrorControl    = 1 ;SERVICE_ERROR_NORMAL
+ServiceBinary   = %13%\ndisprot630.sys
+Description     = %NDISPROT_Desc%
+AddReg          = NdisImPlatformBinding_Reg
+
+[Install_NC.Services]
+AddService=Ndisprot630,,NDISPROT_Service_Inst_NC
+
+[NDISPROT_Service_Inst_NC]
+DisplayName     = %NDISPROT_Desc%
+ServiceType     = 1 ;SERVICE_KERNEL_DRIVER
+StartType       = 3 ;SERVICE_DEMAND_START
+ErrorControl    = 1 ;SERVICE_ERROR_NORMAL
+ServiceBinary   = %12%\ndisprot630.sys
+Description     = %NDISPROT_Desc%
+AddReg          = NdisImPlatformBinding_Reg
+
+[NdisImPlatformBinding_Reg]
+; By default, when an LBFO team or Bridge is created, all protocols will be
+; unbound from the underlying members and bound to the TNic(s). This keyword
+; allows a component to opt out of the default behavior
+; To prevent binding this protocol to the TNic(s):
+;   HKR, Parameters, NdisImPlatformBindingOptions,0x00010001,1 ; Do not bind to TNic
+; To prevent unbinding this protocol from underlying members:
+;   HKR, Parameters, NdisImPlatformBindingOptions,0x00010001,2 ; Do not unbind from Members
+; To prevent both binding to TNic and unbinding from members:
+;   HKR, Parameters, NdisImPlatformBindingOptions,0x00010001,3 ; Do not bind to TNic or unbind from Members
+HKR, Parameters, NdisImPlatformBindingOptions,0x00010001,0 ; Subscribe to default behavior
+
+[Install.Remove.Services]
+DelService=Ndisprot630,0x200
+
+[Install_NC.Remove.Services]
+DelService=Ndisprot630,0x200
+
+;-------------------------------------------------------------------------
+; Declare Destination Directories for file copy/deletion
+;-------------------------------------------------------------------------
+[SourceDisksNames]
+1=%DiskDescription%,"",,
+
+[SourceDisksFiles]
+ndisprot630.sys=1
+
+
+[DestinationDirs]
+CpyFiles_Sys        = 13
+CpyFiles_Sys_NC     = 12
+
+
+;-------------------------------------------------------------------------
+; Files to Copy/Delete - Referenced by Install and Remove sections above
+;-------------------------------------------------------------------------
+[CpyFiles_Sys]
+Ndisprot630.sys,,,2
+
+[CpyFiles_Sys_NC]
+Ndisprot630.sys,,,2
+
+[Strings]
+ManufacturerName = "TODO-Set-Manufacturer"
+ProviderString = "TODO-Set-Provider"
+DiskDescription = "Ndisprot Sample Protocol Driver Disk"
+NDISPROT_Desc = "Sample NDIS Protocol Driver"
+NDISPROT_HelpText = "A driver to support user-mode I/O on NDIS devices"

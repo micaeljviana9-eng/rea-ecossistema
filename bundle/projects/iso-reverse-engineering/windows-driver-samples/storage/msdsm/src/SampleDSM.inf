@@ -1,0 +1,85 @@
+;
+; Sample Multi-Path IO Device-Specific Module (DSM)
+; Copyright (c) Microsoft Corporation.  All rights reserved.
+;
+
+[Version]
+Signature   = "$WINDOWS NT$"
+Class       = System
+ClassGuid   = {4D36E97D-E325-11CE-BFC1-08002BE10318}
+Provider    = %ProviderString%
+CatalogFile = SampleDSM.cat
+PnpLockdown = 1
+
+[Manufacturer]
+%ManufacturerName% = Standard,NT$ARCH$
+
+[Standard.NT$ARCH$]
+%SampleDSM% = SampleDSM_Install, ROOT\SAMPLEDSM
+
+[DestinationDirs]
+DefaultDestDir = 12         ; system32\drivers
+
+[SourceDisksNames]
+3426=windows cd
+
+[SourceDisksFiles]
+SampleDSM.sys               = 3426
+
+[SampleDSM_Install]
+Copyfiles = SampleDSM_Copyfiles
+
+[SampleDSM_Copyfiles]
+SampleDSM.sys,,,0x100
+
+[SampleDSM_Install.Services]
+AddService = SampleDSM, %SPSVCINST_ASSOCSERVICE%, SampleDSM_Service
+
+[SampleDSM_Service]
+DisplayName    = %SampleDSM%
+ServiceType    = %SERVICE_KERNEL_DRIVER%
+StartType      = %SERVICE_BOOT_START%
+ErrorControl   = %SERVICE_ERROR_NORMAL%
+ServiceBinary  = %12%\SampleDSM.sys
+LoadOrderGroup = "System Bus Extender"
+AddReg         = SampleDSM_Addreg
+
+[SampleDSM_Addreg]
+HKR, Parameters, DsmSupportedDeviceList, 0x00010002, "Vendor 8Product       16"
+
+;
+; The following cannot be grouped (as above).
+; Make sure the hardware IDs your DSM is going to claim support for (in DsmInquire) are added to this registry key.  
+;
+HKLM, SYSTEM\CurrentControlSet\Control\MPDEV, MPIOSupportedDeviceList, %REG_MULTI_SZ_APPEND%, "Vendor 8Product       16"
+
+
+[Strings]
+; localizable
+ProviderString   = "TODO-Set-Provider"
+ManufacturerName = "TODO-Set-Manufacturer"
+SampleDSM        = "Sample Multi-Path Device Specific Module"
+
+;
+;Non-localizable, Handy macro substitutions
+;
+
+SERVICE_KERNEL_DRIVER  = 1
+
+SERVICE_BOOT_START     = 0
+SERVICE_SYSTEM_START   = 1
+SERVICE_DEMAND_START   = 3
+
+SERVICE_ERROR_IGNORE   = 0
+SERVICE_ERROR_NORMAL   = 1
+SERVICE_ERROR_CRITICAL = 3
+
+SPSVCINST_ASSOCSERVICE = 2
+
+REG_MULTI_SZ           = 0x00010000
+REG_MULTI_SZ_APPEND    = 0x00010008
+REG_MULTI_SZ_DELETE    = 0x00018002
+REG_EXPAND_SZ          = 0x00020000
+REG_DWORD              = 0x00010001
+REG_BINARY_NOCLOBBER   = 0x00030003
+

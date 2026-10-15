@@ -1,0 +1,103 @@
+;
+; THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
+; ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+; THE IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
+; PARTICULAR PURPOSE.
+;
+; Copyright (c) Microsoft Corporation. All rights reserved
+;
+
+; /*
+; *************************************************************************
+; *                                                                       *
+; *   Copyright 1994-2008 LSI Corporation. All rights reserved.           *
+; *                                                                       *
+; ************************************************************************/
+
+[version]
+signature="$Windows NT$"
+Class=SCSIAdapter
+ClassGUID={4D36E97B-E325-11CE-BFC1-08002BE10318}
+Provider=%LSI%
+DriverVer=06/12/2008,5.09.10.04
+CatalogFile=lsi_u3.cat
+PnpLockdown=1
+
+;
+; Source file information
+;
+
+[SourceDisksNames]
+1 = %DiskDesc%,,,
+
+[SourceDisksFiles]
+lsi_u3.sys = 1
+
+[DestinationDirs]
+DefaultDestDir = 12 ; DIRID_DRIVERS
+
+; Use NT$ARCH$ for platform-specific stamping via Stampinf
+[Manufacturer]
+%LSI%=LSI,NT$ARCH$
+
+[LSI.NT$ARCH$]
+%DevDesc1% = LSI_U3_Inst, PCI\VEN_1000&DEV_0020
+%DevDesc2% = LSI_U3_Inst, PCI\VEN_1000&DEV_0021
+
+[ControlFlags]
+ExcludeFromSelect = *
+
+[LSI_U3_Inst]
+CopyFiles = LSI_U3_CopyFiles
+
+[LSI_U3_Inst.HW]
+DelReg = LegacyScsiportValues
+
+[LSI_U3_Inst.Services]
+AddService = LSI_U3, %SPSVCINST_ASSOCSERVICE%, LSI_U3_Service_Inst, Miniport_EventLog_Inst
+
+[LSI_U3_Service_Inst]
+ServiceType    = %SERVICE_KERNEL_DRIVER%
+StartType      = %SERVICE_BOOT_START%
+ErrorControl   = %SERVICE_ERROR_NORMAL%
+ServiceBinary  = %12%\lsi_u3.sys
+LoadOrderGroup = SCSI Miniport
+AddReg         = pnpsafe_pci_addreg
+AddReg         = bus_type_scsi
+
+[LSI_U3_CopyFiles]
+lsi_u3.sys,,,1
+
+[LegacyScsiportValues]
+HKR,Scsiport,BusNumber
+HKR,Scsiport,LegacyInterfaceType
+HKR,Scsiport,SlotNumber
+
+[pnpsafe_pci_addreg]
+HKR, "Parameters\PnpInterface", "5", 0x00010001, 0x00000001
+
+[bus_type_scsi]
+HKR, "Parameters", "BusType", 0x00010001, 0x00000001
+
+[Miniport_EventLog_Inst]
+AddReg = Miniport_EventLog_AddReg
+
+[Miniport_EventLog_AddReg]
+HKR,,EventMessageFile,%REG_EXPAND_SZ%,"%%SystemRoot%%\System32\IoLogMsg.dll"
+HKR,,TypesSupported,%REG_DWORD%,7
+
+[Strings]
+;Localizable Strings needed for HBA naming in Windows UI
+LSI = "LSI"
+DevDesc1 = "LSI Ultra3 PCI SCSI Adapter; 53C1010-33 (StorPort)"
+DevDesc2 = "LSI Ultra3 PCI SCSI Adapter; 53C1010-66 (StorPort)"
+DiskDesc = "LSI Ultra3 PCI SCSI Driver"
+
+;*******************************************
+;Non-Localizable strings
+SPSVCINST_ASSOCSERVICE = 0x00000002
+SERVICE_KERNEL_DRIVER  = 1
+SERVICE_BOOT_START     = 0
+SERVICE_ERROR_NORMAL   = 1
+REG_EXPAND_SZ          = 0x00020000
+REG_DWORD              = 0x00010001

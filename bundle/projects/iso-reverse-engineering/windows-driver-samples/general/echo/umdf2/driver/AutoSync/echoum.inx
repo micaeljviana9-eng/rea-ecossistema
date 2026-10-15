@@ -1,0 +1,100 @@
+;/*++
+;
+;Copyright (c) 1990-2000  Microsoft Corporation
+;
+;Module Name:
+;    EchoUm.INF
+;
+;Abstract:
+;    INF file for installing the Usermode Driver Frameworks Echo Driver
+;
+;Installation Notes:
+;    Using Devcon: Type "devcon install EchoUm.inf root\ECHO" to install
+;
+;Important:
+;    This INF depends on features for the Driver Store DIRIDs which are available starting Windows 10 1809
+;
+;--*/
+
+[Version]
+Signature="$WINDOWS NT$"
+Class=Generic
+ClassGuid={ff494df1-c4ed-4fac-9b3f-3786f6e91e7e}
+Provider=%ProviderString%
+DriverVer=03/20/2003,5.0.3788.0
+CatalogFile=wudf.cat
+PnpLockdown = 1
+
+[DestinationDirs]
+DefaultDestDir = 13
+
+[SourceDisksNames]
+1 = %DiskId1%,,,""
+
+[SourceDisksFiles]
+Echo.dll = 1,,
+
+;*****************************************
+; ECHO  Install Section
+;*****************************************
+
+[Manufacturer]
+%StdMfg%=Standard, NT$ARCH$.10.0...17763, NT$ARCH$.10.0...22000
+
+[Standard.NT$ARCH$.10.0...17763]
+%ECHO.DeviceDesc%=ECHO_Device_Win10, root\ECHO
+
+[Standard.NT$ARCH$.10.0...22000]
+%ECHO.DeviceDesc%=ECHO_Device_Win11, root\ECHO
+
+;---------------- copy files
+
+[ECHO_Device_Win10.NT]
+CopyFiles=UMDriverCopy
+
+[ECHO_Device_Win11.NT]
+CopyFiles=UMDriverCopy
+Include=WUDFRD.inf
+Needs=WUDFRD.NT
+
+[UMDriverCopy]
+ECHO.dll
+
+[ECHO_Device_Win11.NT.HW]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT.HW
+
+;-------------- Service installation
+[ECHO_Device_Win10.NT.Services]
+AddService=WUDFRd,0x000001fa,WUDFRD_ServiceInstall
+
+[WUDFRD_ServiceInstall]
+DisplayName = %WudfRdDisplayName%
+ServiceType = 1
+StartType = 3
+ErrorControl = 1
+ServiceBinary = %12%\WUDFRd.sys
+
+[ECHO_Device_Win11.NT.Services]
+Include=WUDFRD.inf
+Needs=WUDFRD.NT.Services
+
+;-------------- WDF specific section -------------
+[ECHO_Device_Win10.NT.Wdf]
+UmdfService=Echo, Echo_Install
+UmdfServiceOrder=Echo
+
+[ECHO_Device_Win11.NT.Wdf]
+UmdfService=Echo, Echo_Install
+UmdfServiceOrder=Echo
+
+[Echo_Install]
+UmdfLibraryVersion=$UMDFVERSION$
+ServiceBinary=%13%\echo.dll
+
+[Strings]
+ProviderString = "TODO-Set-Provider"
+StdMfg = "(Standard system devices)"
+DiskId1 = "WDF Sample ECHO Installation Disk #1"
+ECHO.DeviceDesc = "Sample UMDF v2 ECHO Driver"
+WudfRdDisplayName="Windows Driver Foundation - User-mode Driver Framework Reflector"

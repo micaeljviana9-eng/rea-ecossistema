@@ -1,0 +1,77 @@
+;/*++
+;
+;Copyright (c) Microsoft Corporation.  All rights reserved.
+;
+;Module Name:
+;
+;    TREEMiniportSample.INF
+;
+;Abstract:
+;    INF file for installing sample TrEE miniport driver
+;
+;--*/
+[Version]
+Signature="$WINDOWS NT$"
+Class=System
+ClassGuid={4D36E97D-E325-11CE-BFC1-08002BE10318}
+Provider=%ProviderString%
+DriverVer=01/15/2015,10.0.9908.0
+CatalogFile=TREEMiniportSample.cat
+PnpLockdown=1
+
+[DestinationDirs]
+DefaultDestDir = 12
+
+;*****************************************
+; SampleTREEDriver Device Install Section
+;*****************************************
+
+[Manufacturer]
+%StdMfg%=Standard,NTAMD64,NTARM,NTARM64
+
+[Standard.NTAMD64]
+%TrEEMiniportSample.DeviceDesc%=TrEEMiniportSample, ROOT\TrEECSMP
+%TrEEMiniportSample.DeviceDesc%=TrEEMiniportSample, ACPI\TrEECSMP
+
+[Standard.NTARM]
+%TrEEMiniportSample.DeviceDesc%=TrEEMiniportSample, ROOT\TrEECSMP
+%TrEEMiniportSample.DeviceDesc%=TrEEMiniportSample, ACPI\TrEECSMP
+
+[Standard.NTARM64]
+%TrEEMiniportSample.DeviceDesc%=TrEEMiniportSample, ROOT\TrEECSMP
+%TrEEMiniportSample.DeviceDesc%=TrEEMiniportSample, ACPI\TrEECSMP
+
+[TrEEMiniportSample.NT]
+CopyFiles=TrEEMiniportSample.NT.Copy
+
+[TrEEMiniportSample.NT.Copy]
+TrEEMiniportSample.sys
+
+;-------------- Service installation
+
+[TrEEMiniportSample.NT.Services]
+AddService = TrEEMiniportSample, %SPSVCINST_ASSOCSERVICE%, TrEEMiniportSample_Service_Inst
+
+[TrEEMiniportSample_Service_Inst]
+DisplayName    = %TrEEMiniportSample.SVCDESC%
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StartType      = 3               ; SERVICE_DEMAND_START
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\TrEEMiniportSample.sys
+Dependencies   = WindowsTrustedRT
+
+[SourceDisksNames]
+1 = %DiskId1%,,,""
+
+[SourceDisksFiles]
+TrEEMiniportSample.sys = 1,,
+
+[Strings]
+SPSVCINST_ASSOCSERVICE = 0x00000002
+ProviderString = "TODO-Set-Provider"
+StdMfg = "(Standard system devices)"
+ClassName = "TrEEMiniportSample"
+DiskId1 = "TrEEMiniportSample Installation Disk #1"
+TrEEMiniportSample.DeviceDesc = "Microsoft Sample TrEE Device"
+TrEEMiniportSample.SVCDESC = "Microsoft Sample TrEE Device Driver"
+REG_MULTI_SZ = 0x00010000
