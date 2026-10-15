@@ -1,0 +1,22 @@
+NAME=PE: corkami ddsect.exe - open
+FILE=bins/pe/ddsect.exe
+CMDS=q!
+EXPECT=<<EOF
+EOF
+RUN
+
+# merged: PE: corkami ddsect.exe - pi 1
+NAME=PE: corkami ddsect.exe - entrypoint
+FILE=bins/pe/ddsect.exe
+CMDS=<<EOF
+s
+?e --
+e asm.sub.names=false
+pi 1
+EOF
+EXPECT=<<EOF
+0x401000
+--
+push 0x401018
+EOF
+RUN

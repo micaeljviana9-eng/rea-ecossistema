@@ -1,0 +1,22 @@
+NAME=PE: corkami appendeddata.exe - open
+FILE=bins/pe/appendeddata.exe
+ARGS=-A
+CMDS=q!
+EXPECT=<<EOF
+EOF
+RUN
+
+# merged: PE: corkami appendeddata.exe - pi 1
+NAME=PE: corkami appendeddata.exe - entrypoint
+FILE=bins/pe/appendeddata.exe
+CMDS=<<EOF
+s
+?e --
+pi 1
+EOF
+EXPECT=<<EOF
+0x401000
+--
+push 0x401018
+EOF
+RUN

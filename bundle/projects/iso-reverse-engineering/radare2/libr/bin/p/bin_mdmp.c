@@ -1,0 +1,628 @@
+/* radare2 - LGPL - Copyright 2016-2025 - Davis, Alex Kornitzer */
+
+#include <r_util/r_print.h>
+#include <r_bin.h>
+#include <r_endian.h>
+#include "mdmp/mdmp.h"
+
+static Sdb *get_sdb(RBinFile *bf) {
+	R_RETURN_VAL_IF_FAIL (bf && bf->bo, NULL);
+	RBinMdmpObj *mdmp = (RBinMdmpObj*)bf->bo->bin_obj;
+	return (mdmp && mdmp->kv) ? mdmp->kv: NULL;
+}
+
+static void destroy(RBinFile *bf) {
+	r_bin_mdmp_free ((RBinMdmpObj *)bf->bo->bin_obj);
+}
+
+static RList* entries(RBinFile *bf) {
+	RBinMdmpObj *mdmp = (RBinMdmpObj*)bf->bo->bin_obj;
+	RListIter *it;
+
+	RList *ret = r_list_newf (free);
+	if (R_LIKELY (ret)) {
+		struct Pe32_r_bin_mdmp_pe_bin *pe32_bin;
+		r_list_foreach (mdmp->pe32_bins, it, pe32_bin) {
+			RList *list = Pe32_r_bin_mdmp_pe_get_entrypoint (pe32_bin);
+			r_list_join (ret, list);
+			r_list_free (list);
+		}
+		struct Pe64_r_bin_mdmp_pe_bin *pe64_bin;
+		r_list_foreach (mdmp->pe64_bins, it, pe64_bin) {
+			RList *list = Pe64_r_bin_mdmp_pe_get_entrypoint (pe64_bin);
+			r_list_join (ret, list);
+			r_list_free (list);
+		}
+	}
+
+	return ret;
+}
+
+/* Extract RTM revision from system modules (ntoskrnl.exe or ntdll.dll).
+ * Returns revision number if found and validated, 0 otherwise. */
+static ut32 extract_rtm_from_modules(RBinMdmpObj *mdmp, ut32 major, ut32 minor, ut32 build) {
+	R_RETURN_VAL_IF_FAIL (mdmp && mdmp->streams.modules, 0);
+
+	struct minidump_module *module;
+	RListIter *it;
+	ut8 b[512];
+	char module_name[1024];
+	ut32 revision = 0;
+	ut32 mod_major, mod_minor, mod_build;
+	ut32 str_length;
+	int t;
+
+	/* Try ntoskrnl.exe first (kernel), then ntdll.dll */
+	static const char * const target_modules[] = { "ntoskrnl.exe", "ntdll.dll", NULL };
+
+	for (t = 0; target_modules[t]; t++) {
+		r_list_foreach (mdmp->streams.modules, it, module) {
+			if (module->module_name_rva + sizeof (struct minidump_string) >= r_buf_size (mdmp->b)) {
+				continue;
+			}
+			if (r_buf_read_at (mdmp->b, module->module_name_rva, (ut8 *)&b, sizeof (b)) < sizeof (struct minidump_string)) {
+				continue;
+			}
+			/* Read length field using endian-safe API */
+			str_length = r_read_le32 (b);
+			/* Validate string length (max reasonable length for a module name) */
+			if (str_length == 0 || str_length > 256) {
+				continue;
+			}
+			if (module->module_name_rva + sizeof (struct minidump_string) + str_length > r_buf_size (mdmp->b)) {
+				continue;
+			}
+			memset (module_name, 0, sizeof (module_name));
+			r_str_utf16_to_utf8 ((ut8 *)module_name, str_length * 4,
+				(const ut8 *)(b + sizeof (ut32)), str_length, false);
+
+			/* Extract just the filename from the full path */
+			const char *filename = strrchr (module_name, '\\');
+			if (!filename) {
+				filename = strrchr (module_name, '/');
+			}
+			if (filename) {
+				filename++;
+			} else {
+				filename = module_name;
+			}
+
+			/* Case-insensitive comparison */
+			if (!r_str_casecmp (filename, target_modules[t])) {
+				/* Validate version_info signature before extracting version */
+				if (module->version_info.dw_signature != 0xFEEF04BD) {
+					continue;
+				}
+				/* Extract version from vs_fixedfileinfo */
+				mod_major = (module->version_info.dw_file_version_ms >> 16) & 0xFFFF;
+				mod_minor = module->version_info.dw_file_version_ms & 0xFFFF;
+				mod_build = (module->version_info.dw_file_version_ls >> 16) & 0xFFFF;
+				revision = module->version_info.dw_file_version_ls & 0xFFFF;
+
+				/* For ntdll.dll (user-mode dumps), use revision if valid
+				 * For ntoskrnl.exe (kernel-mode), require exact version match */
+				if (t == 1 && revision > 0) {
+					/* ntdll.dll found - use its revision */
+					return revision;
+				}
+				if (t == 0 && mod_major == major && mod_minor == minor && mod_build == build && revision > 0) {
+					/* ntoskrnl.exe with matching version */
+					return revision;
+				}
+			}
+		}
+	}
+
+	return 0;
+}
+
+static RBinInfo *info(RBinFile *bf) {
+	RBinInfo *ret = R_NEW0 (RBinInfo);
+	RBinMdmpObj *mdmp = bf->bo->bin_obj;
+	if (!mdmp) {
+		return NULL;
+	}
+	ret->big_endian = mdmp->endian;
+	ret->claimed_checksum = r_str_newf ("0x%08x", mdmp->hdr->check_sum);  // FIXME: Leaks
+	ret->file = bf->file ? strdup (bf->file) : NULL;
+	ret->has_va = true;
+	ret->rclass = strdup ("mdmp");
+	ret->rpath = strdup ("NONE");
+	ret->type = strdup ("MDMP (MiniDump crash report data)");
+
+	// FIXME: Needed to fix issue with PLT resolving. Can we get away with setting this for all children bins?
+	ret->has_lit = true;
+
+	r_strf_var (k, 32, "0x%08"PFMT64x, mdmp->hdr->flags);
+	sdb_set (bf->sdb, "mdmp.flags", k, 0);
+	sdb_num_set (bf->sdb, "mdmp.streams", mdmp->hdr->number_of_streams, 0);
+
+	if (mdmp->streams.system_info) {
+		switch (mdmp->streams.system_info->processor_architecture) {
+		case MDMP_PROCESSOR_ARCHITECTURE_INTEL:
+			ret->machine = strdup ("i386");
+			ret->arch = strdup ("x86");
+			ret->bits = 32;
+			break;
+		case MDMP_PROCESSOR_ARCHITECTURE_ARM:
+			ret->machine = strdup ("ARM");
+			ret->big_endian = false;
+			break;
+		case MDMP_PROCESSOR_ARCHITECTURE_IA64:
+			ret->machine = strdup ("IA64");
+			ret->arch = strdup ("IA64");
+			ret->bits = 64;
+			break;
+		case MDMP_PROCESSOR_ARCHITECTURE_AMD64:
+			ret->machine = strdup ("AMD64");
+			ret->arch = strdup ("x86");
+			ret->bits = 64;
+			break;
+		default:
+			ret->machine = strdup ("Unknown");
+			break;
+		}
+
+		ut32 major = mdmp->streams.system_info->major_version;
+		ut32 minor = mdmp->streams.system_info->minor_version;
+		ut32 build = mdmp->streams.system_info->build_number;
+		ut32 revision = extract_rtm_from_modules (mdmp, major, minor, build);
+		char *version_str = NULL;
+		const char *product_type_str = "Unknown";
+
+		/* Store detailed version information in SDB for iV command */
+		switch (mdmp->streams.system_info->product_type) {
+		case MDMP_VER_NT_WORKSTATION:
+			product_type_str = "Workstation";
+			if (revision > 0) {
+				ret->os = r_str_newf ("Windows NT Workstation %d.%d.%d.%d",
+					major, minor, build, revision);
+			} else {
+				ret->os = r_str_newf ("Windows NT Workstation %d.%d.%d",
+					major, minor, build);
+			}
+			break;
+		case MDMP_VER_NT_DOMAIN_CONTROLLER:
+			product_type_str = "Server Domain Controller";
+			if (revision > 0) {
+				ret->os = r_str_newf ("Windows NT Server Domain Controller %d.%d.%d.%d",
+					major, minor, build, revision);
+			} else {
+				ret->os = r_str_newf ("Windows NT Server Domain Controller %d.%d.%d",
+					major, minor, build);
+			}
+			break;
+		case MDMP_VER_NT_SERVER:
+			product_type_str = "Server";
+			if (revision > 0) {
+				ret->os = r_str_newf ("Windows NT Server %d.%d.%d.%d",
+					major, minor, build, revision);
+			} else {
+				ret->os = r_str_newf ("Windows NT Server %d.%d.%d",
+					major, minor, build);
+			}
+			break;
+		default:
+			ret->os = strdup ("windows");
+			break;
+		}
+		if (revision > 0) {
+			version_str = r_str_newf ("Windows NT %s %d.%d.%d.%d",
+				product_type_str, major, minor, build, revision);
+		} else {
+			version_str = r_str_newf ("Windows NT %s %d.%d.%d",
+				product_type_str, major, minor, build);
+		}
+		sdb_set (bf->sdb, "mdmp.os_version", version_str, 0);
+		sdb_num_set (bf->sdb, "mdmp.os_major", major, 0);
+		sdb_num_set (bf->sdb, "mdmp.os_minor", minor, 0);
+		sdb_num_set (bf->sdb, "mdmp.os_build", build, 0);
+		if (revision > 0) {
+			sdb_num_set (bf->sdb, "mdmp.os_revision", revision, 0);
+		}
+		sdb_set (bf->sdb, "mdmp.os_product_type", product_type_str, 0);
+		R_FREE (version_str);
+	}
+
+	return ret;
+}
+
+static RList* libs(RBinFile *bf) {
+	char *ptr = NULL;
+	RVecPELib *libs = NULL;
+	struct Pe32_r_bin_mdmp_pe_bin *pe32_bin;
+	struct Pe64_r_bin_mdmp_pe_bin *pe64_bin;
+	RList *ret = NULL;
+	RListIter *it;
+
+	if (!bf || !bf->bo || !bf->bo->bin_obj) {
+		return NULL;
+	}
+	if (!(ret = r_list_newf (free))) {
+		return NULL;
+	}
+
+	RBinMdmpObj *mdmp = (RBinMdmpObj*)bf->bo->bin_obj;
+
+	/* TODO: Resolve module name for lib, or filter to remove duplicates,
+	** rather than the vaddr :) */
+	r_list_foreach (mdmp->pe32_bins, it, pe32_bin) {
+		if (!(libs = Pe32_r_bin_pe_get_libs (pe32_bin->bin))) {
+			return ret;
+		}
+		struct r_bin_pe_lib_t *lib;
+		R_VEC_FOREACH (libs, lib) {
+			ptr = r_str_newf ("[0x%.08" PFMT64x "] - %s", pe32_bin->vaddr, lib->name);
+			r_list_append (ret, ptr);
+		}
+		RVecPELib_free (libs);
+	}
+	r_list_foreach (mdmp->pe64_bins, it, pe64_bin) {
+		if (!(libs = Pe64_r_bin_pe_get_libs (pe64_bin->bin))) {
+			return ret;
+		}
+		struct r_bin_pe_lib_t *lib;
+		R_VEC_FOREACH (libs, lib) {
+			ptr = r_str_newf ("[0x%.08"PFMT64x"] - %s", pe64_bin->vaddr, lib->name);
+			r_list_append (ret, ptr);
+		}
+		RVecPELib_free (libs);
+	}
+	return ret;
+}
+
+static bool load(RBinFile *bf, RBuffer *buf, ut64 loadaddr) {
+	R_RETURN_VAL_IF_FAIL (buf, false);
+	struct r_bin_mdmp_obj *res = r_bin_mdmp_new_buf (buf, bf->rbin->sdbdir);
+	if (R_LIKELY (res)) {
+		sdb_ns_set (bf->sdb, "info", res->kv);
+		bf->bo->bin_obj = res;
+		return true;
+	}
+	return false;
+}
+
+static bool sections_vec(RBinFile *bf) {
+	struct minidump_memory_descriptor *memory;
+	struct minidump_memory_descriptor64 *memory64;
+	struct minidump_module *module;
+	struct Pe32_r_bin_mdmp_pe_bin *pe32_bin;
+	struct Pe64_r_bin_mdmp_pe_bin *pe64_bin;
+	RListIter *it, *it0;
+	RBinSection *ptr;
+	ut64 index;
+
+	struct r_bin_mdmp_obj *obj = (struct r_bin_mdmp_obj *)bf->bo->bin_obj;
+
+	RVecRBinSection_clear (&bf->bo->sections_vec);
+
+	/* TODO: Can't remove the memories from this section until get_vaddr is
+	** implemented correctly, currently it is never called!?!? Is it a
+	** relic? */
+	r_list_foreach (obj->streams.memories, it, memory) {
+		ptr = RVecRBinSection_emplace_back (&bf->bo->sections_vec);
+		ptr->name = strdup ("Memory_Section");
+		ptr->paddr = (memory->memory).rva;
+		ptr->size = (memory->memory).data_size;
+		ptr->vaddr = memory->start_of_memory_range;
+		ptr->vsize = (memory->memory).data_size;
+		ptr->add = true;
+		ptr->has_strings = false;
+
+		ptr->perm = r_bin_mdmp_get_perm (obj, ptr->vaddr);
+	}
+
+	index = obj->streams.memories64.base_rva;
+	r_list_foreach (obj->streams.memories64.memories, it, memory64) {
+		ptr = RVecRBinSection_emplace_back (&bf->bo->sections_vec);
+		ptr->name = strdup ("Memory_Section");
+		ptr->paddr = index;
+		ptr->size = memory64->data_size;
+		ptr->vaddr = memory64->start_of_memory_range;
+		ptr->vsize = memory64->data_size;
+		ptr->add = true;
+		ptr->has_strings = false;
+
+		ptr->perm = r_bin_mdmp_get_perm (obj, ptr->vaddr);
+
+		index += memory64->data_size;
+	}
+
+	/* Module ranges already overlap the memory sections added above, so each
+	 * module entry must stay informational (add = false, perm = 0) — its role
+	 * is just to name the region and host the PE subsections parsed below. */
+	r_list_foreach (obj->streams.modules, it, module) {
+		ut8 b[512] = {0};
+		st64 nread = r_buf_read_at (obj->b, module->module_name_rva, b, sizeof (b));
+		if (nread < (st64)sizeof (ut32)) {
+			continue;
+		}
+		ut32 str_length = r_read_le32 (b);
+		if (str_length == 0 || str_length > (ut32)nread - sizeof (ut32)) {
+			continue;
+		}
+		/* utf8 expansion is at most 3/2 of utf16 bytes; *2+1 fits with a nul */
+		char *name = calloc (1, str_length * 2 + 1);
+		if (!name) {
+			continue;
+		}
+		r_str_utf16_to_utf8 ((ut8 *)name, str_length * 2,
+				b + sizeof (ut32), str_length, false);
+		ptr = RVecRBinSection_emplace_back (&bf->bo->sections_vec);
+		ptr->name = name;
+		ptr->vaddr = module->base_of_image;
+		ptr->vsize = module->size_of_image;
+		ptr->paddr = r_bin_mdmp_get_paddr (obj, ptr->vaddr);
+		ptr->size = module->size_of_image;
+		ptr->add = false;
+		ptr->has_strings = false;
+		ptr->perm = 0;
+
+		/* Grab the pe sections */
+		r_list_foreach (obj->pe32_bins, it0, pe32_bin) {
+			if (pe32_bin->vaddr == module->base_of_image && pe32_bin->bin) {
+				Pe32_r_bin_mdmp_pe_load_sections (pe32_bin, &bf->bo->sections_vec);
+			}
+		}
+		r_list_foreach (obj->pe64_bins, it0, pe64_bin) {
+			if (pe64_bin->vaddr == module->base_of_image && pe64_bin->bin) {
+				Pe64_r_bin_mdmp_pe_load_sections (pe64_bin, &bf->bo->sections_vec);
+			}
+		}
+	}
+	R_LOG_INFO ("Parsing data sections for large dumps can take time");
+	R_LOG_INFO ("Please be patient (but if strings ain't your thing try with -z)");
+	return true;
+}
+
+static RList *mem(RBinFile *bf) {
+	struct minidump_location_descriptor *location = NULL;
+	struct minidump_memory_descriptor *module;
+	struct minidump_memory_descriptor64 *module64;
+	struct minidump_memory_info *mem_info;
+	RListIter *it;
+	RBinMem *ptr;
+	ut64 index;
+	ut64 state, type, a_protect;
+
+	RList *ret = r_list_newf (r_bin_mem_free);
+	if (!ret) {
+		return NULL;
+	}
+
+	struct r_bin_mdmp_obj *obj = (struct r_bin_mdmp_obj *)R_UNWRAP3 (bf, bo, bin_obj);
+	if (!obj) {
+		return ret;
+	}
+
+	/* [1] As there isnt a better place to put this info at the moment we will
+	** mash it into the name field, but without enumeration for now  */
+	r_list_foreach (obj->streams.memories, it, module) {
+		ptr = R_NEW0 (RBinMem);
+		ptr->addr = module->start_of_memory_range;
+		ptr->size = location? location->data_size: 0;
+		ptr->perms = r_bin_mdmp_get_perm (obj, ptr->addr);
+
+		/* [1] */
+		state = type = a_protect = 0;
+		if ((mem_info = r_bin_mdmp_get_mem_info (obj, ptr->addr))) {
+			state = mem_info->state;
+			type = mem_info->type;
+			a_protect = mem_info->allocation_protect;
+		}
+		location = &(module->memory);
+		ptr->name = r_str_newf ("paddr=0x%08"PFMT32x" state=0x%08"PFMT64x
+					" type=0x%08"PFMT64x" allocation_protect=0x%08"PFMT64x" Memory_Section",
+					location->rva, state, type, a_protect);
+
+		r_list_append (ret, ptr);
+	}
+
+	index = obj->streams.memories64.base_rva;
+	r_list_foreach (obj->streams.memories64.memories, it, module64) {
+		ptr = R_NEW0 (RBinMem);
+		ptr->addr = module64->start_of_memory_range;
+		ptr->size = module64->data_size;
+		ptr->perms = r_bin_mdmp_get_perm (obj, ptr->addr);
+
+		/* [1] */
+		state = type = a_protect = 0;
+		if ((mem_info = r_bin_mdmp_get_mem_info (obj, ptr->addr))) {
+			state = mem_info->state;
+			type = mem_info->type;
+			a_protect = mem_info->allocation_protect;
+		}
+		ptr->name = r_str_newf ("paddr=0x%08"PFMT64x" state=0x%08"PFMT64x
+					" type=0x%08"PFMT64x" allocation_protect=0x%08"PFMT64x" Memory_Section",
+					index, state, type, a_protect);
+
+		index += module64->data_size;
+
+		r_list_append (ret, ptr);
+	}
+
+	return ret;
+}
+
+static RVecRBinReloc *relocs(RBinFile *bf) {
+	RBinMdmpObj *mdmp = (RBinMdmpObj*)bf->bo->bin_obj;
+	RVecRBinReloc *ret = RVecRBinReloc_new ();
+	if (ret) {
+		// filled by imports_vec
+		RVecRBinReloc_swap (ret, &mdmp->relocs);
+	}
+	return ret;
+}
+
+static bool imports_vec(RBinFile *bf) {
+	struct Pe32_r_bin_mdmp_pe_bin *pe32_bin;
+	struct Pe64_r_bin_mdmp_pe_bin *pe64_bin;
+	RListIter *it;
+
+	RVecRBinImport *ret = &bf->bo->imports_vec;
+	RBinMdmpObj *mdmp = (RBinMdmpObj*)bf->bo->bin_obj;
+	RVecRBinReloc_clear (&mdmp->relocs);
+	r_list_foreach (mdmp->pe32_bins, it, pe32_bin) {
+		Pe32_r_bin_mdmp_pe_load_imports (pe32_bin, ret, &mdmp->relocs);
+	}
+	r_list_foreach (mdmp->pe64_bins, it, pe64_bin) {
+		Pe64_r_bin_mdmp_pe_load_imports (pe64_bin, ret, &mdmp->relocs);
+	}
+	return true;
+}
+
+static bool symbols_vec(RBinFile *bf) {
+	struct Pe32_r_bin_mdmp_pe_bin *pe32_bin;
+	struct Pe64_r_bin_mdmp_pe_bin *pe64_bin;
+	RListIter *it;
+
+	RVecRBinSymbol *ret = &bf->bo->symbols_vec;
+	RBinMdmpObj *mdmp = (RBinMdmpObj*)bf->bo->bin_obj;
+
+	r_list_foreach (mdmp->pe32_bins, it, pe32_bin) {
+		Pe32_r_bin_mdmp_pe_load_symbols (bf->rbin, pe32_bin, ret);
+	}
+	r_list_foreach (mdmp->pe64_bins, it, pe64_bin) {
+		Pe64_r_bin_mdmp_pe_load_symbols (bf->rbin, pe64_bin, ret);
+	}
+	return true;
+}
+
+static char *module_name(RBinMdmpObj *mdmp, ut64 vaddr) {
+	struct minidump_module *module;
+	RListIter *it;
+	r_list_foreach (mdmp->streams.modules, it, module) {
+		if (module->base_of_image != vaddr) {
+			continue;
+		}
+		ut64 at = module->module_name_rva;
+		ut64 size = r_buf_size (mdmp->b);
+		if (at > size || sizeof (ut32) > size - at) {
+			break;
+		}
+		ut32 utf16_size = r_buf_read_le32_at (mdmp->b, at);
+		at += sizeof (ut32);
+		if (!utf16_size || utf16_size > 4096 || at > size || utf16_size > size - at) {
+			break;
+		}
+		ut8 *utf16 = malloc (utf16_size);
+		char *name = calloc (1, utf16_size * 2 + 1);
+		if (!utf16 || !name || r_buf_read_at (mdmp->b, at, utf16, utf16_size) != utf16_size) {
+			free (utf16);
+			free (name);
+			break;
+		}
+		r_str_utf16_to_utf8 ((ut8 *)name, utf16_size * 2, utf16, utf16_size, false);
+		free (utf16);
+		const char *basename = strrchr (name, '\\');
+		if (!basename) {
+			basename = strrchr (name, '/');
+		}
+		if (basename) {
+			basename++;
+		} else {
+			basename = name;
+		}
+		char *result = strdup (basename);
+		free (name);
+		return result;
+	}
+	return r_str_newf ("0x%08" PFMT64x, vaddr);
+}
+
+static bool rebase_resources(RVecRBinResource *resources, size_t start, ut64 paddr, ut64 vaddr, ut64 image_base, const char *origin) {
+	size_t i;
+	for (i = start; i < RVecRBinResource_length (resources); i++) {
+		RBinResource *resource = RVecRBinResource_at (resources, i);
+		resource->origin = strdup (origin);
+		if (!resource->origin || resource->vaddr < image_base || i > UT32_MAX) {
+			return false;
+		}
+		ut64 offset = resource->vaddr - image_base;
+		if (offset > UT64_MAX - vaddr
+			|| (resource->paddr != UT64_MAX && resource->paddr > UT64_MAX - paddr)) {
+			return false;
+		}
+		resource->vaddr = vaddr + offset;
+		if (resource->paddr != UT64_MAX) {
+			resource->paddr += paddr;
+		}
+		resource->index = (ut32)i;
+	}
+	return true;
+}
+
+static bool load_resources(RBinFile *bf) {
+	R_RETURN_VAL_IF_FAIL (bf && bf->bo && bf->bo->bin_obj, false);
+	RBinMdmpObj *mdmp = bf->bo->bin_obj;
+	struct Pe32_r_bin_mdmp_pe_bin *pe32_bin;
+	struct Pe64_r_bin_mdmp_pe_bin *pe64_bin;
+	RListIter *it;
+	r_list_foreach (mdmp->pe32_bins, it, pe32_bin) {
+		size_t start = RVecRBinResource_length (&bf->bo->resources_vec);
+		if (!Pe32_r_bin_pe_load_resources (pe32_bin->bin, &bf->bo->resources_vec)) {
+			return false;
+		}
+		char *origin = module_name (mdmp, pe32_bin->vaddr);
+		bool ok = origin && rebase_resources (&bf->bo->resources_vec, start,
+			pe32_bin->paddr, pe32_bin->vaddr,
+			Pe32_r_bin_pe_get_image_base (pe32_bin->bin), origin);
+		free (origin);
+		if (!ok) {
+			return false;
+		}
+	}
+	r_list_foreach (mdmp->pe64_bins, it, pe64_bin) {
+		size_t start = RVecRBinResource_length (&bf->bo->resources_vec);
+		if (!Pe64_r_bin_pe_load_resources (pe64_bin->bin, &bf->bo->resources_vec)) {
+			return false;
+		}
+		char *origin = module_name (mdmp, pe64_bin->vaddr);
+		bool ok = origin && rebase_resources (&bf->bo->resources_vec, start,
+			pe64_bin->paddr, pe64_bin->vaddr,
+			Pe64_r_bin_pe_get_image_base (pe64_bin->bin), origin);
+		free (origin);
+		if (!ok) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool check(RBinFile *bf, RBuffer *b) {
+	ut8 magic[6];
+	if (r_buf_read_at (b, 0, magic, sizeof (magic)) == 6) {
+		return !memcmp (magic, MDMP_MAGIC, 6);
+	}
+	return false;
+}
+
+RBinPlugin r_bin_plugin_mdmp = {
+	.meta = {
+		.name = "mdmp",
+		.author = "Davis,Alex Kornitzer",
+		.desc = "Windows minidump crash snapshot",
+		.license = "LGPL-3.0-only",
+	},
+	.destroy = &destroy,
+	.entries = entries,
+	.get_sdb = &get_sdb,
+	.imports_vec = &imports_vec,
+	.info = &info,
+	.libs = &libs,
+	.load = &load,
+	.check = &check,
+	.mem = &mem,
+	.relocs = &relocs,
+	.sections_vec = &sections_vec,
+	.symbols_vec = &symbols_vec,
+	.load_resources = &load_resources,
+};
+
+#ifndef R2_PLUGIN_INCORE
+R_API RLibStruct radare_plugin = {
+	.type = R_LIB_TYPE_BIN,
+	.data = &r_bin_plugin_mdmp,
+	.version = R2_VERSION
+};
+#endif

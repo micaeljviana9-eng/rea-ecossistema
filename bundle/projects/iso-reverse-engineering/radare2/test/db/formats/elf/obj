@@ -1,0 +1,59 @@
+NAME=relocatable obj has no entry at base zero
+FILE=bins/elf/analysis/test.obj
+ARGS=-B 0
+CMDS=ie~?
+EXPECT=<<EOF
+0
+EOF
+EXPECT_ERR=<<EOF
+EOF
+RUN
+
+NAME=relocatable obj has no entry when rebased
+FILE=bins/elf/analysis/test.obj
+ARGS=-B 0x200000
+CMDS=ie~?
+EXPECT=<<EOF
+0
+EOF
+RUN
+
+NAME=obj main address
+FILE=bins/elf/analysis/test.obj
+ARGS=-B 0
+CMDS=?v sym.main
+EXPECT=<<EOF
+0x50
+EOF
+RUN
+
+NAME=obj main address when rebased
+FILE=bins/elf/analysis/test.obj
+ARGS=-B 0x200000
+CMDS=?v sym.main
+EXPECT=<<EOF
+0x200050
+EOF
+RUN
+
+NAME=obj main
+FILE=bins/elf/analysis/test.obj
+ARGS=-B 0
+CMDS=pi 3@ sym.main
+EXPECT=<<EOF
+push rbp
+mov rbp, rsp
+call test
+EOF
+RUN
+
+NAME=obj main baddr
+FILE=bins/elf/analysis/test.obj
+ARGS=-B 0x200000
+CMDS=pi 3@sym.main
+EXPECT=<<EOF
+push rbp
+mov rbp, rsp
+call test
+EOF
+RUN

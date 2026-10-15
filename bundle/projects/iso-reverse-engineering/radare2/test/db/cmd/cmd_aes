@@ -1,0 +1,344 @@
+NAME=aes help changing seek
+FILE=-
+CMDS=<<EOF
+wx 55
+e asm.arch=x86
+e asm.bits=32
+aes
+sr PC
+s
+EOF
+EXPECT=<<EOF
+0x1
+EOF
+RUN
+
+NAME=cmd.esil.intr unset
+FILE=-
+CMDS=<<EOF
+wx b8010000000f34b801000000cd80ebfe
+10aes
+EOF
+EXPECT=<<EOF
+EOF
+RUN
+
+NAME=aes without initialize
+FILE=-
+CMDS=<<EOF
+e asm.arch=x86
+e asm.bits=32
+wx bb10000000 # mov ebx, 10
+aes
+ar~ebx
+EOF
+EXPECT=<<EOF
+ebx = 0x00000010
+EOF
+RUN
+
+NAME=aes with pin
+FILE=-
+CMDS=<<EOF
+wx bb10000000bb10000000bb10000000 
+aeim
+e asm.arch=x86
+e asm.bits=32
+e cmd.esil.pin=?e
+aepc $$
+aep test @ 5
+aep
+aes
+EOF
+EXPECT_ERR=<<EOF
+EOF
+RUN
+
+NAME=aes with pin after aeim
+FILE=-
+CMDS=<<EOF
+wx bb10000000bb10000000bb10000000 
+e asm.arch=x86
+e asm.bits=32
+e cmd.esil.pin=?e
+aeim
+aepc $$
+aep test @ 5
+aep
+aes
+aes
+EOF
+EXPECT=<<EOF
+'aep ret0=dr R0=0;aexa ret
+'@0x5'aep test
+'aep memcpy=wf `dr?A1` `dr?A2` @ `dr?A0`;aexa ret
+'aep strlen=dr R0=`pszl@r:A0`;aexa ret
+'aep puts=psz@r:A0; aexa ret
+test
+EOF
+EXPECT_ERR=<<EOF
+ERROR: Missing file argument. Use 'test -[v]fdx [file]'
+EOF
+RUN
+
+NAME=emulate imports
+FILE=bins/mach0/hello-puts
+CMDS=<<EOF
+s main
+aepc $$
+aeim
+aaep
+aep
+aecs
+EOF
+EXPECT=<<EOF
+'aep ret0=dr R0=0;aexa ret
+'@0x1040'aep ret0
+'aep memcpy=wf `dr?A1` `dr?A2` @ `dr?A0`;aexa ret
+'aep strlen=dr R0=`pszl@r:A0`;aexa ret
+'aep puts=psz@r:A0; aexa ret
+'@0x1050'aep puts
+Hello World
+EOF
+RUN
+
+NAME=esil plugins
+FILE=malloc://128
+CMDS=<<EOF
+aeim
+aeL
+?e --
+aeL dummy
+?e --
+ae dummy_op
+EOF
+EXPECT=<<EOF
+dummy
+forth
+null
+--
+--
+EOF
+EXPECT_ERR=<<EOF
+INFO: esil.dummy: Activated
+INFO: Dummy: Operation executed
+EOF
+RUN
+
+NAME=esil soft pins
+FILE=bins/elf/ls
+ARGS=-e bin.relocs.apply=true -e asm.lines=0 -e asm.bytes=0 -e asm.cmt.col=40
+CMDS=<<EOF
+'aep soft.dr9=dr?r9
+aep hard.rbp=dr?rbp
+pd 3
+aep hard.rbp @ 0x5ae4
+aep soft.dr9 @ 0x5ae6
+e emu.str=1
+dr r9=0x666
+pd 3
+aeim
+dr PC=$$
+3ds
+dr?rbp
+EOF
+EXPECT=<<EOF
+;-- entry0:
+0x00005ae0      endbr64
+0x00005ae4      xor ebp, ebp
+0x00005ae6      mov r9, rdx
+;-- entry0:
+0x00005ae0      endbr64
+0x00005ae4      xor ebp, ebp            ; [aep: hard.rbp]
+0x00005ae6      mov r9, rdx             ; [aep: soft.dr9]
+0x00000666
+
+0x00178000
+0x00178000
+EOF
+RUN
+
+NAME=aeso steps over direct call until return
+FILE=malloc://4096
+ARGS=-a x86 -b 64
+CMDS=<<EOF
+wx e803000000909090b878560000c3
+s 0
+aei
+aeim
+aeip
+aeso
+?e pc=`dr rip`
+?e eax=`dr eax`
+EOF
+EXPECT=<<EOF
+pc=0x00000005
+eax=0x00005678
+EOF
+RUN
+
+NAME=aeso steps over indirect call until return
+FILE=malloc://4096
+ARGS=-a x86 -b 64
+CMDS=<<EOF
+wx ffd0909090909090bb34120000c3
+s 0
+aei
+aeim
+aeip
+dr rax=8
+aeso
+?e pc=`dr rip`
+?e ebx=`dr ebx`
+EOF
+EXPECT=<<EOF
+pc=0x00000002
+ebx=0x00001234
+EOF
+RUN
+
+NAME=aeso executes plain jump
+FILE=malloc://4096
+ARGS=-a x86 -b 64
+CMDS=<<EOF
+wx eb0390909090
+s 0
+aei
+aeim
+aeip
+aeso
+?e pc=`dr rip`
+EOF
+EXPECT=<<EOF
+pc=0x00000005
+EOF
+RUN
+
+NAME=aeso executes ret
+FILE=malloc://4096
+ARGS=-a x86 -b 64
+CMDS=<<EOF
+wx c390
+s 0
+aei
+aeim 0x1000 0x100
+aeip
+dr rsp=0x1000
+wx 2301000000000000 @ 0x1000
+aeso
+?e pc=`dr rip`
+EOF
+EXPECT=<<EOF
+pc=0x00000123
+EOF
+RUN
+
+NAME=aeso strict stops on maxsteps before call returns
+FILE=malloc://4096
+ARGS=-a x86 -b 64
+CMDS=<<EOF
+e esil.maxsteps=3
+wx e80300000090909090ebfd
+s 0
+aei
+aeim
+aeip
+aeso
+?e pc=`dr rip`
+EOF
+EXPECT=<<EOF
+pc=0x00000008
+EOF
+EXPECT_ERR=<<EOF
+WARN: ESIL step-over stopped at 0x00000008 before return to 0x00000005: maximum steps exceeded
+EOF
+RUN
+
+NAME=aeso force recovers from maxsteps before call returns
+FILE=malloc://4096
+ARGS=-a x86 -b 64
+CMDS=<<EOF
+e esil.maxsteps=3
+e esil.stepover.force=true
+wx e80300000090909090ebfd
+s 0
+aei
+aeim
+aeip
+aeso
+?e pc=`dr rip`
+EOF
+EXPECT=<<EOF
+pc=0x00000005
+EOF
+EXPECT_ERR=<<EOF
+WARN: ESIL step-over stopped at 0x00000008 before return to 0x00000005: maximum steps exceeded
+WARN: ESIL step-over forced PC to 0x00000005 (see e??esil.stepover.force)
+EOF
+RUN
+
+NAME=aeso force respects breakpoint in call
+FILE=malloc://4096
+ARGS=-a x86 -b 64
+CMDS=<<EOF
+e esil.stepover.force=true
+wx e803000000909090b878560000c3
+db 0x8
+s 0
+aei
+aeim
+aeip
+aeso
+?e pc=`dr rip`
+EOF
+EXPECT=<<EOF
+pc=0x00000008
+EOF
+EXPECT_ERR=<<EOF
+WARN: ESIL step-over stopped at 0x00000008 before return to 0x00000005: breakpoint hit
+EOF
+RUN
+
+NAME=aeso strict stops on invalid instruction in call
+FILE=malloc://4096
+ARGS=-a x86 -b 64
+CMDS=<<EOF
+wx e80300000090909006c3
+s 0
+aei
+aeim
+aeip
+aeso
+?e pc=`dr rip`
+EOF
+EXPECT=<<EOF
+pc=0x00000008
+EOF
+EXPECT_ERR=<<EOF
+WARN: ESIL step-over stopped at 0x00000008 before return to 0x00000005: invalid instruction
+EOF
+RUN
+
+NAME=aeso force recovers from iotrap in call
+FILE=malloc://4096
+ARGS=-a x86 -b 64
+CMDS=<<EOF
+e esil.stepover.force=true
+wx e8030000009090908b00c3
+s 0
+aei
+aeim
+aeip
+dr rax=0xdeadbeef
+aeso
+?e pc=`dr rip`
+EOF
+EXPECT=<<EOF
+pc=0x00000005
+EOF
+EXPECT_ERR=<<EOF
+WARN: ESIL step-over stopped at 0x00000008 before return to 0x00000005: I/O trap
+WARN: ESIL trap 'read-err' (3735928559) at 0x00000008
+WARN: ESIL step-over forced PC to 0x00000005 (see e??esil.stepover.force)
+EOF
+RUN

@@ -1,0 +1,12 @@
+prefix=@PREFIX@
+exec_prefix=${prefix}
+libdir=@LIBDIR@
+includedir=${prefix}/include
+
+Name: r_util
+Description: radare foundation libraries
+Version: @VERSION@
+Requires: 
+Libs: -L${libdir} -lr_util  @DL_LIBS@ @LZ4_LDFLAGS@
+Libs.private: @PKGCFG_ZLIBS@
+Cflags: -I${includedir}/libr 

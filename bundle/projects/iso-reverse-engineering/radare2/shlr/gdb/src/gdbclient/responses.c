@@ -1,0 +1,345 @@
+/* libgdbr - LGPL - Copyright 2014 - defragger */
+
+#include "arch.h"
+#include "gdbclient/responses.h"
+#include "gdbr_common.h"
+#include "utils.h"
+#include "r_util/r_str.h"
+#include "r_util/r_log.h"
+
+int handle_g(libgdbr_t *g) {
+	if (unpack_hex (g->data, g->data_len, g->data) < 0) {
+		return -1;
+	}
+	g->data_len = g->data_len / 2;
+	return send_ack (g);
+}
+
+int handle_G(libgdbr_t *g) {
+	return send_ack (g);
+}
+
+int handle_M(libgdbr_t *g) {
+	return send_ack (g);
+}
+
+int handle_P(libgdbr_t *g) {
+	g->last_code = g->data_len? MSG_OK: MSG_NOT_SUPPORTED;
+	return send_ack (g);
+}
+
+int handle_m(libgdbr_t *g) {
+	if (g->data_len == 3 && g->data[0] == 'E') {
+		// TODO: figure out if this is a problem
+		send_ack (g);
+		return -1;
+	}
+	int len = strlen (g->data);
+	g->data_len = len / 2;
+	unpack_hex (g->data, len, g->data);
+	return send_ack (g);
+}
+
+int handle_qStatus(libgdbr_t *g) {
+	if (!g || !g->data || !*g->data) {
+		return -1;
+	}
+	char *data = strdup (g->data);
+	char *save_ptr = NULL;
+	char *tok = r_str_tok_r (data, ";", &save_ptr);
+	if (!tok) {
+		free (data);
+		return -1;
+	}
+	// TODO: We do not yet handle the case where a trace is already running
+	if (!r_str_startswith (tok, "T0")) {
+		send_ack (g);
+		free (data);
+		return -1;
+	}
+	// Ensure that trace was never run
+	while (tok) {
+		if (r_str_startswith (tok, "tnotrun:0")) {
+			free (data);
+			return send_ack (g);
+		}
+		tok = r_str_tok_r (NULL, ";", &save_ptr);
+	}
+	send_ack (g);
+	free (data);
+	return -1;
+}
+
+int handle_qC(libgdbr_t *g) {
+	// We get process and thread ID
+	if (strncmp (g->data, "QC", 2)) {
+		send_ack (g);
+		return -1;
+	}
+	g->data[g->data_len] = '\0';
+	if (read_thread_id (g->data + 2, &g->pid, &g->tid, g->stub_features.multiprocess) < 0) {
+		send_ack (g);
+		return -1;
+	}
+	return send_ack (g);
+}
+
+int handle_setbp(libgdbr_t *g) {
+	return send_ack (g);
+}
+
+int handle_removebp(libgdbr_t *g) {
+	return send_ack (g);
+}
+
+int handle_attach(libgdbr_t *g) {
+	if (g->data_len > 0 && g->data[0] == 'E') {
+		send_ack (g);
+		return -1;
+	}
+	return send_ack (g);
+}
+
+int handle_vFile_open(libgdbr_t *g) {
+	if (g->data_len < 2 || g->data[0] != 'F' || g->data[1] == '-'
+	    || !isxdigit ((unsigned char)g->data[1])) {
+		send_ack (g);
+		return -1;
+	}
+	g->data[g->data_len] = '\0';
+	if ((g->remote_file_fd = strtol (g->data + 1, NULL, 16)) <= 0) {
+		send_ack (g);
+		return -1;
+	}
+	return send_ack (g);
+}
+
+int handle_vFile_pread(libgdbr_t *g, ut8 *buf, size_t max_len) {
+	send_ack (g);
+	char *ptr, *end;
+	if (g->data_len < 3 || g->data[0] != 'F') {
+		return -1;
+	}
+	// F-1 is an error, yes, but it probably should not be fatal, since it might
+	// mean we're reading beyond file end. So this is handled in gdbr_read_file
+	if (g->data[1] == '-') {
+		return 0;
+	}
+	if (!isxdigit ((ut8)g->data[1])) {
+		return -1;
+	}
+	ptr = memchr (g->data + 2, ';', g->data_len - 2);
+	if (!ptr) {
+		return -1;
+	}
+	unsigned long declared_len = strtoul (g->data + 1, &end, 16);
+	if (end != ptr || declared_len > INT_MAX) {
+		return -1;
+	}
+	// Again, this is probably the end of file
+	if (!declared_len) {
+		return 0;
+	}
+	ptr++;
+	size_t available_len = g->data_len - (ptr - g->data);
+	size_t copy_len = R_MIN ((size_t)declared_len, max_len);
+	copy_len = R_MIN (copy_len, available_len);
+	if (copy_len > 0) {
+		memcpy (buf, ptr, copy_len);
+	}
+	return (int)copy_len;
+}
+
+int handle_vFile_close(libgdbr_t *g) {
+	if (g->data_len < 2 || g->data[0] != 'F' || g->data[1] == '-'
+	    || !isxdigit ((unsigned char)g->data[1])) {
+		send_ack (g);
+		return -1;
+	}
+	return send_ack (g);
+}
+
+#include <r_debug.h>
+#include <gdbclient/commands.h>
+
+static bool parse_thread_stop(const char *data, const char *prefix, int *pid, int *tid, bool multiprocess, bool *present) {
+	if (*present || !r_str_startswith (data, prefix)) {
+		return false;
+	}
+	const char *colon = strchr (data, ':');
+	if (!colon || read_thread_id (colon + 1, pid, tid, multiprocess) < 0) {
+		return false;
+	}
+	*present = true;
+	return true;
+}
+
+// A stop reply pair "n:r" whose n is a hex number states register n.
+// Its value is kept unless 'g' is known to fetch the whole block anyway.
+static bool stop_reason_register(libgdbr_t *g, const char *tok) {
+	const char *colon = tok;
+	while (isxdigit ((ut8)*colon)) {
+		colon++;
+	}
+	if (colon == tok || *colon != ':') {
+		return false;
+	}
+	if (g->caps.g != 1) {
+		gdbr_regs_store (g, strtoull (tok, NULL, 16), colon + 1, strlen (colon + 1));
+	}
+	return true;
+}
+
+static int stop_reason_death(libgdbr_t *g, bool is_signal) {
+	int value = 0, pid = g->pid;
+	bool multi = g->stub_features.multiprocess && g->data_len > 3;
+	if (multi) {
+		if (sscanf (g->data + 1, "%x;process:%x", &value, &pid) != 2) {
+			R_LOG_DEBUG ("Message from remote: %s", g->data);
+			return -1;
+		}
+	} else if (!isxdigit ((unsigned char)g->data[1])) {
+		R_LOG_DEBUG ("Message from remote: %s", g->data);
+		return -1;
+	} else {
+		value = (int) strtol (g->data + 1, NULL, 16);
+	}
+	R_LOG_DEBUG ("Process %d %s %d", pid,
+		is_signal? "terminated with signal": "exited with status", value);
+	gdbr_stop_reason_reset (&g->stop_reason);
+	g->stop_reason.reason = R_DEBUG_REASON_DEAD;
+	g->stop_reason.thread.pid = pid;
+	g->stop_reason.thread.tid = pid;
+	if (is_signal) {
+		g->stop_reason.signum = value;
+	}
+	g->stop_reason.is_valid = true;
+	return multi? 0: gdbr_disconnect (g);
+}
+
+int handle_stop_reason(libgdbr_t *g) {
+	send_ack (g);
+	if (g->data_len < 3) {
+		return -1;
+	}
+	switch (g->data[0]) {
+	case 'O':
+		unpack_hex (g->data + 1, g->data_len - 1, g->data + 1);
+		R_LOG_DEBUG ("%s: %s", __func__, g->data + 1);
+		if (send_ack (g) < 0) {
+			return -1;
+		}
+		gdbr_stop_reason_reset (&g->stop_reason);
+		g->stop_reason.signum = -1;
+		g->stop_reason.reason = R_DEBUG_REASON_NONE;
+		return 0;
+	case 'W':
+		return stop_reason_death (g, false);
+	case 'X':
+		return stop_reason_death (g, true);
+	}
+	if (g->data[0] != 'T') {
+		return -1;
+	}
+	char *ptr1, *ptr2;
+	char *save_ptr = NULL;
+	g->data[g->data_len] = '\0';
+	gdbr_stop_reason_reset (&g->stop_reason);
+	g->stop_reason.core = -1;
+	if (sscanf (g->data + 1, "%02x", &g->stop_reason.signum) != 1) {
+		return -1;
+	}
+	g->stop_reason.is_valid = true;
+	g->stop_reason.reason = R_DEBUG_REASON_SIGNAL;
+	for (ptr1 = r_str_tok_r (g->data + 3, ";", &save_ptr); ptr1; ptr1 = r_str_tok_r (NULL, ";", &save_ptr)) {
+		if (stop_reason_register (g, ptr1)) {
+			continue;
+		}
+		if (parse_thread_stop (ptr1, "thread", &g->stop_reason.thread.pid,
+				&g->stop_reason.thread.tid, g->stub_features.multiprocess,
+				&g->stop_reason.thread.present)) {
+			continue;
+		}
+		if (r_str_startswith (ptr1, "core")) {
+			if (!(ptr2 = strchr (ptr1, ':'))) {
+				continue;
+			}
+			ptr2++;
+			if (!isxdigit ((unsigned char)*ptr2)) {
+				continue;
+			}
+			g->stop_reason.core = (int) strtol (ptr2, NULL, 16);
+			continue;
+		}
+		if (g->stop_reason.signum == 5) {
+			if (r_str_startswith (ptr1, "watch")
+			    || r_str_startswith (ptr1, "rwatch")
+			    || r_str_startswith (ptr1, "awatch")) {
+				if (!(ptr2 = strchr (ptr1, ':'))) {
+					continue;
+				}
+				ptr2++;
+				if (!isxdigit ((ut8)*ptr2)) {
+					continue;
+				}
+				g->stop_reason.watchpoint.addr = strtoll (ptr2, NULL, 16);
+				g->stop_reason.watchpoint.present = true;
+				continue;
+			}
+			if (r_str_startswith (ptr1, "exec") && !g->stop_reason.exec.present) {
+				if (!(ptr2 = strchr (ptr1, ':'))) {
+					continue;
+				}
+				ptr2++;
+				if (!(g->stop_reason.exec.path = calloc (strlen (ptr1) / 2, 1))) {
+					continue;
+				}
+				unpack_hex (ptr2, strlen (ptr2), g->stop_reason.exec.path);
+				g->stop_reason.exec.present = true;
+				continue;
+			}
+			if (parse_thread_stop (ptr1, "fork", &g->stop_reason.fork.pid,
+					&g->stop_reason.fork.tid, g->stub_features.multiprocess,
+					&g->stop_reason.fork.present)) {
+				continue;
+			}
+			if (parse_thread_stop (ptr1, "vfork", &g->stop_reason.vfork.pid,
+					&g->stop_reason.vfork.tid, g->stub_features.multiprocess,
+					&g->stop_reason.vfork.present)) {
+				continue;
+			}
+			if (r_str_startswith (ptr1, "vforkdone")) {
+				g->stop_reason.vforkdone = true;
+				continue;
+			}
+			if (r_str_startswith (ptr1, "library")) {
+				g->stop_reason.library = true;
+				continue;
+			}
+			if (r_str_startswith (ptr1, "swbreak")) {
+				g->stop_reason.swbreak = true;
+				continue;
+			}
+			if (r_str_startswith (ptr1, "hwbreak")) {
+				g->stop_reason.hwbreak = true;
+				continue;
+			}
+			if (r_str_startswith (ptr1, "create")) {
+				g->stop_reason.create = true;
+				continue;
+			}
+		}
+	}
+	if (g->stop_reason.signum == 5) {
+		g->stop_reason.reason = R_DEBUG_REASON_BREAKPOINT;
+	}
+	// The registers a stop reply states are its thread's, not those of the thread register packets address
+	if (g->stop_reason.thread.present && g->tid > 0 && g->stop_reason.thread.tid != g->tid) {
+		gdbr_regs_invalidate (g);
+	}
+	return 0;
+}
+
+int handle_cont(libgdbr_t *g) {
+	return handle_stop_reason (g);
+}

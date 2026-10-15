@@ -1,0 +1,261 @@
+/* radare - LGPL3 - 2017-2019 - usrshare */
+
+#include <r_bin.h>
+#include <r_lib.h>
+#include "sfc/sfc_specs.h"
+#include <r_endian.h>
+
+static bool check(RBinFile *bf, RBuffer *b) {
+	ut16 cksum1, cksum2;
+	ut64 length = r_buf_size (b);
+	// FIXME: this was commented out because it always evaluates to false.
+	//        Need to be fixed by someone with SFC knowledge
+	// if ((length & 0x8000) == 0x200) {
+	// 	buf_hdr += 0x200;
+	// }
+	if (length < 0x8000) {
+		return false;
+	}
+	//determine if ROM is headered, and add a 0x200 gap if so.
+	cksum1 = r_buf_read_le16_at (b, 0x7fdc);
+	cksum2 = r_buf_read_le16_at (b, 0x7fde);
+
+	if (cksum1 == (ut16)~cksum2) {
+		return true;
+	}
+	if (length < 0xffee) {
+		return false;
+	}
+	cksum1 = r_buf_read_le16_at (b, 0xffdc);
+	cksum2 = r_buf_read_le16_at (b, 0xffde);
+	return (cksum1 == (ut16)~cksum2);
+}
+
+static bool load(RBinFile *bf, RBuffer *b, ut64 loadaddr) {
+	return check (bf, b);
+}
+
+static bool sfc_header_valid(const sfc_int_hdr *hdr, bool is_hirom) {
+	ut16 comp_check = r_read_le16 (&hdr->comp_check);
+	ut16 checksum = r_read_le16 (&hdr->checksum);
+	return comp_check == (ut16)~checksum && (hdr->rom_setup & 1) == (is_hirom? 1: 0);
+}
+
+static RBinInfo* info(RBinFile *bf) {
+	sfc_int_hdr sfchdr = {{0}};
+	RBinInfo *ret = NULL;
+	int hdroffset = 0;
+#if THIS_IS_ALWAYS_FALSE_WTF
+	if ((bf->size & 0x8000) == 0x200) {
+		hdroffset = 0x200;
+	}
+#endif
+	int reat = r_buf_read_at (bf->buf, 0x7FC0 + hdroffset,
+		(ut8*)&sfchdr, SFC_HDR_SIZE);
+	if (reat != SFC_HDR_SIZE) {
+		R_LOG_ERROR ("Unable to read SFC/SNES header");
+		return NULL;
+	}
+
+	if (!sfc_header_valid (&sfchdr, false)) {
+		// if the fixed 0x33 byte or the LoROM indication are not found, then let's try interpreting the ROM as HiROM
+		reat = r_buf_read_at (bf->buf, 0xFFC0 + hdroffset, (ut8*)&sfchdr, SFC_HDR_SIZE);
+		if (reat != SFC_HDR_SIZE) {
+			R_LOG_ERROR ("Unable to read SFC/SNES header");
+			return NULL;
+		}
+		if (!sfc_header_valid (&sfchdr, true)) {
+			R_LOG_WARN ("Cannot determine if this is a LoROM or HiROM file");
+			// return NULL;
+		}
+	}
+
+	ret = R_NEW0 (RBinInfo);
+	ret->file = strdup (bf->file);
+	ret->type = strdup ("ROM");
+	ret->machine = strdup ("Super NES / Super Famicom");
+	ret->os = strdup ("snes");
+	ret->arch = strdup ("snes");
+	ret->bits = 16;
+	ret->has_va = 1;
+	return ret;
+}
+
+static void addrom(RBinFile *bf, const char *name, int i, ut64 paddr, ut64 vaddr, ut32 size) {
+	RBinSection *ptr = RVecRBinSection_emplace_back (&bf->bo->sections_vec);
+	ptr->name = r_str_newf ("%s_%02x", name, i);
+	ptr->paddr = paddr;
+	ptr->vaddr = vaddr;
+	ptr->size = ptr->vsize = size;
+	ptr->perm = R_PERM_RX;
+	ptr->add = true;
+}
+
+#if 0
+static void addsym(RList *ret, const char *name, ut64 addr, ut32 size) {
+	RBinSymbol *ptr = R_NEW0 (RBinSymbol);
+	if (!ptr) {
+		return;
+	}
+	ptr->name = strdup (r_str_get (name));
+	ptr->paddr = ptr->vaddr = addr;
+	ptr->size = size;
+	ptr->ordinal = 0;
+	r_list_append (ret, ptr);
+}
+#endif
+
+static bool sections_vec(RBinFile *bf) {
+	int hdroffset = 0;
+	bool is_hirom = false;
+	int i;
+#if THIS_IS_ALWAYS_FALSE_WTF
+	if ((bf->size & 0x8000) == 0x200) {
+		hdroffset = 0x200;
+	}
+#endif
+	sfc_int_hdr sfchdr = {{0}};
+
+	int reat = r_buf_read_at (bf->buf, 0x7FC0 + hdroffset, (ut8*)&sfchdr, SFC_HDR_SIZE);
+	if (reat != SFC_HDR_SIZE) {
+		R_LOG_ERROR ("Unable to read SFC/SNES header");
+		return false;
+	}
+
+	if (!sfc_header_valid (&sfchdr, false)) {
+		// if the fixed 0x33 byte or the LoROM indication are not found, then let's try interpreting the ROM as HiROM
+		reat = r_buf_read_at (bf->buf, 0xFFC0 + hdroffset, (ut8*)&sfchdr, SFC_HDR_SIZE);
+		if (reat != SFC_HDR_SIZE) {
+			R_LOG_ERROR ("Unable to read SFC/SNES header");
+			return false;
+		}
+
+		if (!sfc_header_valid (&sfchdr, true)) {
+			R_LOG_WARN ("Cannot determine if this is a LoROM or HiROM file");
+		}
+		is_hirom = true;
+	}
+
+	RVecRBinSection_clear (&bf->bo->sections_vec);
+	if (is_hirom) {
+		for (i = 0; i < ((bf->size - hdroffset) / 0x8000) ; i++) {
+			// XXX check integer overflow here
+			addrom (bf, "ROM", i, hdroffset + i * 0x8000, 0x400000 + (i * 0x8000), 0x8000);
+			if (i % 2) {
+				addrom (bf, "ROM_MIRROR", i, hdroffset + i * 0x8000, i * 0x8000, 0x8000);
+			}
+		}
+
+	} else {
+		for (i = 0; i < ((bf->size - hdroffset)/ 0x8000) ; i++) {
+			addrom (bf, "ROM", i, hdroffset + i * 0x8000, 0x8000 + (i * 0x10000), 0x8000);
+		}
+	}
+	return true;
+}
+
+static RList *mem(RBinFile *bf) {
+	RList *ret = r_list_newf (free);
+	if (!ret) {
+		return NULL;
+	}
+
+	RBinMem *m = R_NEW0 (RBinMem);
+	m->name = strdup ("LOWRAM");
+	m->addr = LOWRAM_START_ADDRESS;
+	m->size = LOWRAM_SIZE;
+	m->perms = r_str_rwx ("rwx");
+	m->mirrors = r_list_new ();
+	r_list_append (ret, m);
+
+	RBinMem *mirror = R_NEW0 (RBinMem);
+	mirror->name = strdup ("LOWRAM_MIRROR");
+	mirror->addr = LOWRAM_MIRROR_START_ADDRESS;
+	mirror->size = LOWRAM_MIRROR_SIZE;
+	mirror->perms = r_str_rwx ("rwx");
+	r_list_append (m->mirrors, mirror);
+
+	m = R_NEW0 (RBinMem);
+	m->name = strdup ("HIRAM");
+	m->addr = HIRAM_START_ADDRESS;
+	m->size = HIRAM_SIZE;
+	m->perms = r_str_rwx ("rwx");
+	r_list_append (ret, m);
+
+	m = R_NEW0 (RBinMem);
+	m->name = strdup ("EXTRAM");
+	m->addr = EXTRAM_START_ADDRESS;
+	m->size = EXTRAM_SIZE;
+	m->perms = r_str_rwx ("rwx");
+	r_list_append (ret, m);
+
+	m = R_NEW0 (RBinMem);
+	m->name = strdup ("PPU1_REG");
+	m->addr = PPU1_REG_ADDRESS;
+	m->size = PPU1_REG_SIZE;
+	m->perms = r_str_rwx ("rwx");
+	r_list_append (ret, m);
+
+	m = R_NEW0 (RBinMem);
+	m->name = strdup ("DSP_REG");
+	m->addr = DSP_REG_ADDRESS;
+	m->size = DSP_REG_SIZE;
+	m->perms = r_str_rwx ("rwx");
+	r_list_append (ret, m);
+
+	m = R_NEW0 (RBinMem);
+	m->name = strdup ("OLDJOY_REG");
+	m->addr = OLDJOY_REG_ADDRESS;
+	m->size = OLDJOY_REG_SIZE;
+	m->perms = r_str_rwx ("rwx");
+	r_list_append (ret, m);
+
+	m = R_NEW0 (RBinMem);
+	m->name = strdup ("PPU2_REG");
+	m->addr = PPU2_REG_ADDRESS;
+	m->size = PPU2_REG_SIZE;
+	m->perms = r_str_rwx ("rwx");
+	r_list_append (ret, m);
+	return ret;
+}
+
+static RList* entries(RBinFile *bf) { //Should be 3 offsets pointed by NMI, RESET, IRQ after mapping && default = 1st CHR
+	RList *ret;
+	if (!(ret = r_list_new ())) {
+		return NULL;
+	}
+	/*
+	RBinAddr *ptr = NULL;
+	if (!(ptr = R_NEW0 (RBinAddr))) {
+		return ret;
+	}
+	ptr->paddr = INES_HDR_SIZE;
+	ptr->vaddr = ROM_START_ADDRESS;
+	r_list_append (ret, ptr);
+	*/
+	return ret;
+}
+
+RBinPlugin r_bin_plugin_sfc = {
+	.meta = {
+		.name = "sfc",
+		.desc = "Super NES / Super Famicom ROM",
+		.author = "usrshare",
+		.license = "LGPL-3.0-only",
+	},
+	.weak_guess = true,
+	.load = &load,
+	.check = &check,
+	.entries = &entries,
+	.sections_vec = &sections_vec,
+	.info = &info,
+	.mem = &mem,
+};
+
+#ifndef R2_PLUGIN_INCORE
+R_API RLibStruct radare_plugin = {
+	.type = R_LIB_TYPE_BIN,
+	.data = &r_bin_plugin_sfc,
+	.version = R2_VERSION
+};
+#endif

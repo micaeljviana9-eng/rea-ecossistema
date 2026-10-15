@@ -1,0 +1,63 @@
+NAME=ELF: dynimports
+FILE=bins/elf/analysis/dynimports
+CMDS=ii~?
+EXPECT=<<EOF
+7
+EOF
+RUN
+
+NAME=ELF: dynstrings section
+FILE=bins/elf/elf-solaris-sparc-ls
+CMDS=<<EOF
+s section..dynstr
+pd 10
+EOF
+EXPECT=<<EOF
+            ;-- section..dynstr:
+            0x00011b20 (1 bytes hidden)                                ; [04] -r-- section size 3037 named .dynstr
+            0x00011b21     .string "xrealloc" ; len=9
+            0x00011b2a     .string "nstrftime" ; len=10
+            0x00011b34     .string "argmatch_to_argument" ; len=21
+            0x00011b49     .string "xzalloc" ; len=8
+            0x00011b51     .string "wmemchr" ; len=8
+            0x00011b59     .string "hash_get_n_entries" ; len=19
+            0x00011b6c     .string "_obstack_begin" ; len=15
+            0x00011b7b     .string "_environ" ; len=9
+            0x00011b84     .string "strncmp" ; len=8
+EOF
+RUN
+
+NAME=ELF: section-less dynsym ends at the gnu hash table
+FILE=bins/elf/pltrel/aarch64-bti-lld-one-noshdr.so
+CMDS=<<EOF
+iiq
+isq
+EOF
+EXPECT=<<EOF
+0x000013b8 16 foo
+0x000013c8 28 call_foo
+EOF
+RUN
+
+NAME=ELF: section-less dynsym with no sysv hash table
+FILE=bins/elf/pltrel/x86_64-retpoline-one-noshdr.so
+CMDS=<<EOF
+iiq
+isq
+EOF
+EXPECT=<<EOF
+0x00001340 4 add2
+0x00001350 5 caller
+EOF
+RUN
+
+NAME=ELF: section-less mips defined symbol is not an import
+FILE=bins/elf/analysis/mipsbe-ubusd
+CMDS=<<EOF
+iiq~_ftext
+isq~_ftext
+EOF
+EXPECT=<<EOF
+0x00400ec0 0 _ftext
+EOF
+RUN

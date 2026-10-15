@@ -1,0 +1,373 @@
+/* radare - LGPL - Copyright 2015-2026 nodepad, pancake */
+
+#include "mz.h"
+#include <r_list.h>
+
+static ut64 r_bin_mz_va_to_la(const ut16 segment, const ut16 offset) {
+	return (segment << 4) + offset;
+}
+
+static ut64 r_bin_mz_la_to_pa(const struct r_bin_mz_obj_t *bin, ut64 la) {
+	return la + (bin->dos_header->header_paragraphs << 4);
+}
+
+RBinAddr *r_bin_mz_get_entrypoint (const struct r_bin_mz_obj_t *bin) {
+	if (!bin || !bin->dos_header) {
+		return NULL;
+	}
+
+	const MZ_image_dos_header *dh = bin->dos_header;
+	ut64 la = r_bin_mz_va_to_la (dh->cs, dh->ip);
+	la &= 0xfffff;
+	if (la >= bin->load_module_size) {
+		R_LOG_ERROR ("entry point outside load module");
+		return NULL;
+	}
+	RBinAddr *ep = R_NEW0 (RBinAddr);
+	ep->vaddr = la;
+	ep->paddr = r_bin_mz_la_to_pa (bin, la);
+	return ep;
+}
+
+static int cmp_sections(const RBinSection *s_a, const RBinSection *s_b) {
+	return s_a->vaddr > s_b->vaddr? 1: s_a->vaddr < s_b->vaddr? -1: 0;
+}
+
+static RBinSection *r_bin_mz_init_section(RVecRBinSection *segments, ut64 laddr) {
+	RBinSection *section = RVecRBinSection_emplace_back (segments);
+	section->vaddr = laddr;
+	return section;
+}
+
+static bool r_bin_mz_has_segment(RVecRBinSection *segments, ut64 laddr) {
+	RBinSection *section;
+	R_VEC_FOREACH (segments, section) {
+		if (section->vaddr == laddr) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool r_bin_mz_load_segments(const struct r_bin_mz_obj_t *bin, ut64 filesize, RVecRBinSection *segments) {
+	MZ_image_relocation_entry *relocs;
+	int i, num_relocs;
+	ut16 ss;
+
+	if (!bin || !bin->dos_header || !segments) {
+		return false;
+	}
+
+	RVecRBinSection_clear (segments);
+
+	/* Add address of first segment to make sure that it is present
+	 * even if there are no relocations or there isn't first segment in
+	 * the relocations. */
+	RBinSection *section = r_bin_mz_init_section (segments, 0);
+
+	relocs = bin->relocation_entries;
+	num_relocs = bin->dos_header->num_relocs;
+	for (i = 0; i < num_relocs; i++) {
+		ut64 laddr, paddr, section_laddr;
+		ut16 curr_seg;
+
+		laddr = r_bin_mz_va_to_la (relocs[i].segment, relocs[i].offset);
+		if ((laddr + 2) >= bin->load_module_size) {
+			continue;
+		}
+
+		paddr = r_bin_mz_la_to_pa (bin, laddr);
+		if (r_buf_size (bin->b) < paddr + 2) {
+			continue;
+		}
+		curr_seg = r_buf_read_le16_at (bin->b, paddr);
+
+		section_laddr = r_bin_mz_va_to_la (curr_seg, 0);
+		if (section_laddr > bin->load_module_size) {
+			continue;
+		}
+
+		if (r_bin_mz_has_segment (segments, section_laddr)) {
+			continue;
+		}
+
+		section = r_bin_mz_init_section (segments, section_laddr);
+	}
+
+	/* Add address of stack segment if it's inside the load module. */
+	ss = bin->dos_header->ss;
+	if (r_bin_mz_va_to_la (ss, 0) < bin->load_module_size) {
+		section = r_bin_mz_init_section (segments, r_bin_mz_va_to_la (ss, 0));
+	}
+
+	RVecRBinSection_sort (segments, cmp_sections);
+
+	/* Fixup sizes and addresses, set name, permissions and set add flag */
+	int section_number = 0;
+	size_t n_segments = RVecRBinSection_length (segments);
+	for (i = 0; i < n_segments; i++) {
+		section = RVecRBinSection_at (segments, i);
+		section->name = r_str_newf ("seg_%03d", section_number);
+		if (section_number) {
+			RBinSection *p_section = RVecRBinSection_at (segments, i - 1);
+			p_section->size = section->vaddr - p_section->vaddr;
+			p_section->vsize = p_section->size;
+		}
+		section->vsize = section->size;
+		section->paddr = r_bin_mz_la_to_pa (bin, section->vaddr);
+		section->perm = r_str_rwx ("rwx");
+		section->add = true;
+		section->is_segment = true;
+		section_number++;
+	}
+	section = RVecRBinSection_at (segments, n_segments - 1);
+	section->size = bin->load_module_size - section->vaddr;
+	section->vsize = section->size;
+
+	const MZ_image_dos_header *dh = bin->dos_header;
+
+	ut64 hdroff = dh->header_paragraphs * 16;
+	section = RVecRBinSection_emplace_back (segments);
+	section->name = strdup (".mzhdr");
+	section->paddr = 0;
+	section->vsize = hdroff;
+	section->size = hdroff;
+	section->perm = R_PERM_R;
+
+	section = RVecRBinSection_emplace_back (segments);
+	section->name = strdup (".text");
+	section->paddr = hdroff;
+	section->vsize = (dh->blocks_in_file * 512) + (dh->bytes_in_last_block);
+	section->size = section->vsize;
+	section->size = R_MIN (filesize - hdroff, section->size); // enforce file size boundaries
+	section->perm = R_PERM_RWX;
+
+	return true;
+}
+
+RVecRBinReloc *r_bin_mz_get_relocs(const struct r_bin_mz_obj_t *bin) {
+	int i;
+	const int num_relocs = bin->dos_header->num_relocs;
+	const MZ_image_relocation_entry *const rel_entry = bin->relocation_entries;
+
+	RVecRBinReloc *relocs = RVecRBinReloc_new ();
+	if (!relocs) {
+		return NULL;
+	}
+	RVecRBinReloc_reserve (relocs, num_relocs);
+	for (i = 0; i < num_relocs; i++) {
+		const ut64 vaddr = r_bin_mz_va_to_la (rel_entry[i].segment, rel_entry[i].offset);
+		/* Add only relocations which resides inside dos executable */
+		if (vaddr < bin->load_module_size) {
+			RBinReloc *rel = RVecRBinReloc_emplace_back (relocs);
+			rel->type = R_BIN_RELOC_16;
+			rel->vaddr = vaddr;
+			rel->paddr = r_bin_mz_la_to_pa (bin, vaddr);
+		}
+	}
+	return relocs;
+}
+
+void *r_bin_mz_free (struct r_bin_mz_obj_t *bin) {
+	if (!bin) {
+		return NULL;
+	}
+	free ((void *)bin->dos_header);
+	free ((void *)bin->dos_extended_header);
+	free ((void *)bin->relocation_entries);
+	r_unref (bin->b);
+	bin->b = NULL;
+	free (bin);
+	return NULL;
+}
+
+static int r_bin_mz_init_hdr(struct r_bin_mz_obj_t *bin) {
+	int i, relocations_size, dos_file_size;
+	MZ_image_dos_header *mz = R_NEW0 (MZ_image_dos_header);
+	bin->dos_header = mz;
+
+	ut8 raw[sizeof (*mz)];
+	if (r_buf_read_at (bin->b, 0, raw, sizeof (raw)) == -1) {
+		R_LOG_ERROR ("read (MZ_image_dos_header)");
+		return false;
+	}
+	mz->signature = r_read_le16 (&raw[0]);
+	mz->bytes_in_last_block = r_read_le16 (&raw[2]);
+	mz->blocks_in_file = r_read_le16 (&raw[4]);
+	mz->num_relocs = r_read_le16 (&raw[6]);
+	mz->header_paragraphs = r_read_le16 (&raw[8]);
+	mz->min_extra_paragraphs = r_read_le16 (&raw[10]);
+	mz->max_extra_paragraphs = r_read_le16 (&raw[12]);
+	mz->ss = r_read_le16 (&raw[14]);
+	mz->sp = r_read_le16 (&raw[16]);
+	mz->checksum = r_read_le16 (&raw[18]);
+	mz->ip = r_read_le16 (&raw[20]);
+	mz->cs = r_read_le16 (&raw[22]);
+	mz->reloc_table_offset = r_read_le16 (&raw[24]);
+	mz->overlay_number = r_read_le16 (&raw[26]);
+
+	if (mz->blocks_in_file < 1) {
+		return false;
+	}
+	if (mz->bytes_in_last_block == 0) {
+		// last block is full
+		dos_file_size = mz->blocks_in_file << 9;
+	} else {
+		// last block is partially full
+		dos_file_size = ((mz->blocks_in_file - 1) << 9) +
+			mz->bytes_in_last_block;
+	}
+
+	if (dos_file_size > bin->size) {
+		// Old DOS files e.g. QuickBasic-compiled programs will declare
+		// a bigger size than the size on disk. Trim it.
+		dos_file_size = bin->size;
+	}
+	bin->dos_file_size = dos_file_size;
+	// eprintf ("ii %d %d\n", dos_file_size , (mz->header_paragraphs << 4));
+	if (dos_file_size < (mz->header_paragraphs << 4)) {
+		bin->load_module_size = dos_file_size;
+	} else {
+		bin->load_module_size = dos_file_size - (mz->header_paragraphs << 4);
+	}
+	relocations_size = mz->num_relocs * sizeof (MZ_image_relocation_entry);
+	if ((mz->reloc_table_offset + relocations_size) > bin->size) {
+		return false;
+	}
+
+	sdb_num_set (bin->kv, "mz.initial.cs", mz->cs, 0);
+	sdb_num_set (bin->kv, "mz.initial.ip", mz->ip, 0);
+	sdb_num_set (bin->kv, "mz.initial.ss", mz->ss, 0);
+	sdb_num_set (bin->kv, "mz.initial.sp", mz->sp, 0);
+	sdb_num_set (bin->kv, "mz.overlay_number", mz->overlay_number, 0);
+	sdb_num_set (bin->kv, "mz.dos_header.offset", 0, 0);
+	sdb_set (bin->kv, "mz.dos_header.format", "[2]zwwwwwwwwwwwww"
+						  " signature bytes_in_last_block blocks_in_file num_relocs "
+						  " header_paragraphs min_extra_paragraphs max_extra_paragraphs "
+						  " ss sp checksum ip cs reloc_table_offset overlay_number ",
+		0);
+
+	bin->dos_extended_header_size = mz->reloc_table_offset -
+		sizeof (MZ_image_dos_header);
+
+	if (bin->dos_extended_header_size > 0) {
+		if (!(bin->dos_extended_header =
+				    malloc (bin->dos_extended_header_size))) {
+			r_sys_perror ("malloc (dos extended header)");
+			return false;
+		}
+		if (r_buf_read_at (bin->b, sizeof (MZ_image_dos_header),
+			    (ut8 *)bin->dos_extended_header,
+			    bin->dos_extended_header_size) == -1) {
+			R_LOG_ERROR ("read (dos extended header)");
+			return false;
+		}
+	}
+
+	if (relocations_size > 0) {
+		ut8 *relocation_entries = malloc (relocations_size);
+		if (!relocation_entries) {
+			r_sys_perror ("malloc (dos relocation entries)");
+			return false;
+		}
+		if (r_buf_read_at (bin->b, bin->dos_header->reloc_table_offset,
+			    relocation_entries, relocations_size) != relocations_size) {
+			R_LOG_ERROR ("read (dos relocation entries)");
+			free (relocation_entries);
+			return false;
+		}
+		bin->relocation_entries = calloc (mz->num_relocs, sizeof (*bin->relocation_entries));
+		if (!bin->relocation_entries) {
+			free (relocation_entries);
+			return false;
+		}
+		for (i = 0; i < mz->num_relocs; i++) {
+			const ut8 *reloc = relocation_entries + (i * sizeof (MZ_image_relocation_entry));
+			bin->relocation_entries[i].offset = r_read_le16 (reloc);
+			bin->relocation_entries[i].segment = r_read_le16 (reloc + 2);
+		}
+		free (relocation_entries);
+	}
+	return true;
+}
+
+static bool r_bin_mz_init(struct r_bin_mz_obj_t *bin) {
+	bin->dos_header = NULL;
+	bin->dos_extended_header = NULL;
+	bin->relocation_entries = NULL;
+	bin->kv = sdb_new0 ();
+	if (!r_bin_mz_init_hdr (bin)) {
+		R_LOG_WARN ("File is not MZ");
+		return false;
+	}
+	return true;
+}
+
+struct r_bin_mz_obj_t *r_bin_mz_new (const char *file) {
+	struct r_bin_mz_obj_t *bin = R_NEW0 (struct r_bin_mz_obj_t);
+	bin->file = file;
+	size_t binsz;
+	ut8 *buf = (ut8*)r_file_slurp (file, &binsz);
+	bin->size = binsz;
+	if (!buf) {
+		return r_bin_mz_free (bin);
+	}
+	bin->b = r_buf_new ();
+	if (!r_buf_set_bytes (bin->b, buf, bin->size)) {
+		free ((void *)buf);
+		return r_bin_mz_free (bin);
+	}
+	free ((void *)buf);
+	if (!r_bin_mz_init (bin)) {
+		return r_bin_mz_free (bin);
+	}
+	return bin;
+}
+
+struct r_bin_mz_obj_t *r_bin_mz_new_buf(RBuffer *buf) {
+	struct r_bin_mz_obj_t *bin = R_NEW0 (struct r_bin_mz_obj_t);
+	bin->b = r_buf_new_with_buf (buf);
+	if (!bin->b) {
+		return r_bin_mz_free (bin);
+	}
+	bin->size = r_buf_size (buf);
+	return r_bin_mz_init (bin)? bin: r_bin_mz_free (bin);
+}
+
+RBinAddr *r_bin_mz_get_main_vaddr (struct r_bin_mz_obj_t *bin) {
+	int n;
+	ut8 b[512];
+	if (!bin || !bin->b) {
+		return NULL;
+	}
+	RBinAddr *entry = r_bin_mz_get_entrypoint (bin);
+	if (!entry) {
+		return NULL;
+	}
+	ZERO_FILL (b);
+	if (r_buf_read_at (bin->b, entry->paddr, b, sizeof (b)) < 0) {
+		R_LOG_WARN ("Cannot read entry at 0x%16" PFMT64x, (ut64)entry->paddr);
+		free (entry);
+		return NULL;
+	}
+	// MSVC
+	if (b[0] == 0xb4 && b[1] == 0x30) {
+		// ff 36 XX XX			push	XXXX
+		// ff 36 XX XX			push	argv
+		// ff 36 XX XX			push	argc
+		// 9a XX XX XX XX		lcall	_main
+		// 50				push	ax
+		for (n = 0; n < sizeof (b) - 18; n++) {
+			if (b[n] == 0xff && b[n + 4] == 0xff && b[n + 8] == 0xff && b[n + 12] == 0x9a && b[n + 17] == 0x50) {
+				const ut16 call_addr = r_read_ble16 (b + n + 13, 0);
+				const ut16 call_seg = r_read_ble16 (b + n + 15, 0);
+				entry->vaddr = r_bin_mz_va_to_la (call_seg, call_addr);
+				entry->paddr = r_bin_mz_la_to_pa (bin, entry->vaddr);
+				return entry;
+			}
+		}
+	}
+
+	R_FREE (entry);
+	return NULL;
+}

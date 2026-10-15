@@ -1,0 +1,32 @@
+NAME=MZ: chkdsk.exe - open
+FILE=bins/mz/chkdsk.exe
+ARGS=-A
+CMDS=q!
+EXPECT=<<EOF
+EOF
+RUN
+
+# merged: MZ: chkdsk.exe - pi 1
+NAME=MZ: chkdsk.exe - entrypoint
+FILE=bins/mz/chkdsk.exe
+CMDS=<<EOF
+s
+?e --
+pi 1
+EOF
+EXPECT=<<EOF
+0x0
+--
+mov cx, 0x515e
+EOF
+RUN
+
+NAME=MZ: chkdsk.exe text section
+FILE=bins/mz/chkdsk.exe
+CMDS=<<EOF
+iS~.text
+EOF
+EXPECT=<<EOF
+1   0x00000020  0xa312 0x00000000  0xa532 -rwx 0x0   ---- .text
+EOF
+RUN

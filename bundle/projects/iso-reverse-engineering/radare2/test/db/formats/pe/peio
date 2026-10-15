@@ -1,0 +1,23 @@
+# merged: pe section; pe symbol addr
+NAME=pe entrypoint
+FILE=bins/pe/base.exe
+CMDS=<<EOF
+s entry0
+?v entry0
+p8 8
+?e --
+?v section..text
+?e --
+?v sym._malloc
+p8 4
+EOF
+EXPECT=<<EOF
+0x401280
+5589e583ec08c704
+--
+0x401000
+--
+0x401838
+5589e583
+EOF
+RUN

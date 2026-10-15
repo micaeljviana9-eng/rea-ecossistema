@@ -1,0 +1,21 @@
+NAME=PE: corkami bigib.exe - open
+FILE=bins/pe/bigib.exe
+CMDS=q!
+EXPECT=<<EOF
+EOF
+RUN
+
+# merged: PE: corkami bigib.exe - pi 1
+NAME=PE: corkami bigib.exe - entrypoint
+FILE=bins/pe/bigib.exe
+CMDS=<<EOF
+s
+?e --
+pi 1
+EOF
+EXPECT=<<EOF
+0x7efd1000
+--
+push 0x7efd1018
+EOF
+RUN

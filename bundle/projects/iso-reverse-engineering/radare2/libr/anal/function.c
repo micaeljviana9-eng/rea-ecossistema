@@ -1,0 +1,534 @@
+/* radare - LGPL - Copyright 2019-2025 - pancake, thestr4ng3r */
+
+#include <r_anal_priv.h>
+
+static bool get_functions_block_cb(RAnalBlock *block, void *user) {
+	RList *list = user;
+	RListIter *iter;
+	RAnalFunction *fcn;
+	r_list_foreach (block->fcns, iter, fcn) {
+		if (r_list_contains (list, fcn)) {
+			continue;
+		}
+		r_list_push (list, fcn);
+	}
+	return true;
+}
+
+R_API RList *r_anal_get_functions_in(RAnal *anal, ut64 addr) {
+	R_RETURN_VAL_IF_FAIL (anal, NULL);
+	RList *list = r_list_new ();
+	if (list) {
+		r_anal_blocks_foreach_in (anal, addr, get_functions_block_cb, list);
+	}
+	return list;
+}
+
+static bool __fcn_exists(RAnal *anal, const char *name, ut64 addr) {
+	// check if name is already registered
+	bool found = false;
+	if (addr == UT64_MAX) {
+		R_LOG_ERROR ("Invalid function address (-1) '%s'", name);
+		return true;
+	}
+	if (!name) {
+		R_LOG_ERROR ("TODO: Empty function name, we must auto generate one");
+		return true;
+	}
+	RAnalFunction *f = ht_pp_find (anal->ht_name_fun, name, &found);
+	if (f && found) {
+		if (f->addr != addr) {
+			const char *const nopskipmsg = (anal->opt.nopskip)? "Try disabling `e anal.nopskip=false`": "";
+			R_LOG_WARN ("Unaligned function '%s' at 0x%08"PFMT64x" (vs 0x%08"PFMT64x")%s", name, addr, f->addr, nopskipmsg);
+		}
+		return true;
+	}
+	// check if there's a function already in the given address
+	found = false;
+	f = ht_up_find (anal->ht_addr_fun, addr, &found);
+	if (f && found) {
+		R_LOG_WARN ("Function already defined in 0x%08"PFMT64x, addr);
+		return true;
+	}
+	return false;
+}
+
+R_IPI void r_anal_var_free(RAnalVar *av);
+
+static void inst_vars_kv_free(HtUPKv *kv) {
+	RVecAnalVarPtr *vec = kv->value;
+	RVecAnalVarPtr_free (vec);
+}
+
+static void labels_kv_free(HtUPKv *kv) {
+	if (kv) {
+		free (kv->value);
+	}
+}
+
+static void label_addrs_kv_free(HtPPKv *kv) {
+	if (kv) {
+		free (kv->key);
+		free (kv->value);
+	}
+}
+
+R_API RAnalFunction *r_anal_function_new(RAnal *anal) {
+	// XXX fcn->name is null because its r_anal_create_function the one that must be called
+	R_RETURN_VAL_IF_FAIL (anal, NULL);
+	RAnalFunction *fcn = R_NEW0 (RAnalFunction);
+	fcn->anal = anal;
+	fcn->addr = UT64_MAX;
+	fcn->callconv = r_str_constpool_get (&anal->constpool, r_anal_cc_default (anal));
+	fcn->bits = anal->config->bits;
+	fcn->bbs = r_list_new ();
+	fcn->diff = r_anal_diff_new ();
+	fcn->has_changed = true;
+	fcn->bp_frame = true;
+	fcn->swift_roles = UT8_MAX;
+	fcn->is_noreturn = false;
+	fcn->meta._min = UT64_MAX;
+	fcn->meta.stack_pop = R_ANAL_CC_STACK_POP_UNKNOWN;
+	fcn->meta.numrefs = -1;
+	fcn->meta.numcallrefs = -1;
+	RVecAnalVarPtr_init (&fcn->vars);
+	fcn->inst_vars = ht_up_new (NULL, inst_vars_kv_free, NULL);
+	fcn->labels = ht_up_new (NULL, labels_kv_free, NULL);
+	fcn->label_addrs = ht_pp_new (NULL, label_addrs_kv_free, NULL);
+	fcn->ts = r_time_now ();
+	return fcn;
+}
+
+R_API void r_anal_function_free(RAnalFunction *fcn) {
+	if (!fcn) {
+		return;
+	}
+
+	RAnalBlock *block;
+	RListIter *iter, *iter2;
+	r_list_foreach_safe (fcn->bbs, iter, iter2, block) {
+		r_anal_function_remove_block (fcn, block);
+		// r_list_delete_data (block->fcns, fcn);
+		// r_anal_block_unref (block);
+	}
+	// fcn->bbs->free = r_anal_block_unref;
+	r_list_free (fcn->bbs);
+
+	RAnal *anal = fcn->anal;
+	if (ht_up_find (anal->ht_addr_fun, fcn->addr, NULL) == fcn) {
+		ht_up_delete (anal->ht_addr_fun, fcn->addr);
+	}
+	if (ht_pp_find (anal->ht_name_fun, fcn->name, NULL) == fcn) {
+		ht_pp_delete (anal->ht_name_fun, fcn->name);
+	}
+
+	ht_up_free (fcn->inst_vars);
+	fcn->inst_vars = NULL;
+	r_anal_function_delete_all_vars (fcn);
+	RVecAnalVarPtr_fini (&fcn->vars);
+
+	ht_up_free (fcn->labels);
+	ht_pp_free (fcn->label_addrs);
+
+	free (fcn->name);
+	free (fcn->realname);
+	free (fcn->pin);
+	fcn->bbs = NULL;
+	free (fcn->fingerprint);
+	r_anal_diff_free (fcn->diff);
+	r_list_free (fcn->imports);
+	free (fcn);
+}
+
+R_API bool r_anal_add_function(RAnal *anal, RAnalFunction *fcn) {
+	R_RETURN_VAL_IF_FAIL (anal && fcn, false);
+	if (R_STR_ISEMPTY (fcn->name)) {
+		R_LOG_WARN ("Unnamed function at 0x%08"PFMT64x, fcn->addr);
+		// r_sys_breakpoint ();
+		free (fcn->name);
+		const char *fcnprefix = r_anal_fcn_prefix_at (anal, fcn->addr);
+		if (R_STR_ISEMPTY (fcnprefix)) {
+			fcn->name = r_str_newf ("fcn_%08"PFMT64x, fcn->addr);
+		} else {
+			fcn->name = r_str_newf ("%s.%"PFMT64x, fcnprefix, fcn->addr);
+		}
+	}
+	if (__fcn_exists (anal, fcn->name, fcn->addr)) {
+		return false;
+	}
+	// The address is final here, so a bare dyncc marker resolves against it.
+	r_anal_function_store_callconv (anal, fcn, fcn->callconv);
+	if (anal->cb.on_fcn_new) {
+		anal->cb.on_fcn_new (anal, anal->user, fcn);
+	}
+	if (anal->flg_fcn_set) {
+		anal->flg_fcn_set (anal->flb.f, fcn->name, fcn->addr, r_anal_function_size_from_entry (fcn));
+	}
+	fcn->is_noreturn = r_anal_noreturn_at_addr (anal, fcn->addr);
+	r_list_append (anal->fcns, fcn);
+	ht_pp_insert (anal->ht_name_fun, fcn->name, fcn);
+	ht_up_insert (anal->ht_addr_fun, fcn->addr, fcn);
+	{
+		REventFunction event = { .addr = fcn->addr, .fcn = fcn };
+		r_event_send (anal->ev, R_EVENT_FUNCTION_ADDED, &event);
+	}
+	return true;
+}
+
+R_API RAnalFunction *r_anal_create_function(RAnal *anal, const char *name, ut64 addr, int type, RAnalDiff *diff) {
+	R_RETURN_VAL_IF_FAIL (anal && addr != UT64_MAX, NULL);
+	RAnalFunction *fcn = r_anal_function_new (anal);
+	fcn->addr = addr;
+	fcn->type = type;
+	fcn->callconv = r_str_constpool_get (&anal->constpool, r_anal_cc_default (anal));
+	fcn->bits = anal->config->bits;
+	if (name) {
+		free (fcn->name);
+		fcn->name = strdup (name);
+	} else {
+		const char *fcnprefix = r_anal_fcn_prefix_at (anal, fcn->addr);
+		if (R_STR_ISEMPTY (fcnprefix)) {
+			fcn->name = r_str_newf ("fcn_%08"PFMT64x, fcn->addr);
+		} else {
+			fcn->name = r_str_newf ("%s.%08"PFMT64x, fcnprefix, fcn->addr);
+		}
+	}
+	if (diff) {
+		fcn->diff->type = diff->type;
+		fcn->diff->addr = diff->addr;
+		R_FREE (fcn->diff->name);
+		if (diff->name) {
+			fcn->diff->name = strdup (diff->name);
+		}
+	}
+	if (!r_anal_add_function (anal, fcn)) {
+		r_anal_function_free (fcn);
+		return NULL;
+	}
+	return fcn;
+}
+
+R_API bool r_anal_function_delete(RAnal *anal, RAnalFunction *fcn) {
+	R_RETURN_VAL_IF_FAIL (fcn, false);
+	ut64 fcn_addr = fcn->addr;
+	bool found = r_list_delete_data (fcn->anal->fcns, fcn);
+	if (found) {
+		REventFunction event = { .addr = fcn_addr };
+		r_event_send (anal->ev, R_EVENT_FUNCTION_DELETED, &event);
+	}
+	return found;
+}
+
+R_API RAnalFunction *r_anal_get_function_at(RAnal *anal, ut64 addr) {
+	R_RETURN_VAL_IF_FAIL (anal, NULL);
+	bool found = false;
+	RAnalFunction *f = ht_up_find (anal->ht_addr_fun, addr, &found);
+	if (f && found) {
+		return f;
+	}
+	return NULL;
+}
+
+R_API bool r_anal_function_relocate(RAnalFunction *fcn, ut64 addr) {
+	R_RETURN_VAL_IF_FAIL (fcn, false);
+	if (fcn->addr == addr) {
+		return true;
+	}
+	if (r_anal_get_function_at (fcn->anal, addr)) {
+		return false;
+	}
+	ht_up_delete (fcn->anal->ht_addr_fun, fcn->addr);
+	fcn->addr = addr;
+	fcn->meta.numrefs = -1;
+	ht_up_insert (fcn->anal->ht_addr_fun, addr, fcn);
+	r_anal_function_bump_dirty_epoch (fcn);
+	return true;
+}
+
+R_API bool r_anal_function_rename(RAnalFunction *fcn, const char *name) {
+	R_RETURN_VAL_IF_FAIL (fcn && R_STR_ISNOTEMPTY (name), false);
+	RAnal *anal = fcn->anal;
+	RAnalFunction *existing = ht_pp_find (anal->ht_name_fun, name, NULL);
+	if (existing) {
+		if (existing == fcn) {
+			// fcn->name == name, nothing to do
+			return true;
+		}
+		return false;
+	}
+	char *newname = strdup (name);
+	if (R_LIKELY (newname)) {
+		bool in_tree = ht_pp_delete (anal->ht_name_fun, fcn->name);
+		free (fcn->name);
+		fcn->name = newname;
+		if (in_tree) {
+			// only re-insert if it really was in the tree before
+			ht_pp_insert (anal->ht_name_fun, fcn->name, fcn);
+		}
+		{
+			// TODO: maybe we want to know which was the old name?
+			REventFunction event = { .addr = fcn->addr, .fcn = fcn };
+			r_event_send (anal->ev, R_EVENT_FUNCTION_RENAMED, &event);
+		}
+		r_anal_function_bump_dirty_epoch (fcn);
+		return true;
+	}
+	return false;
+}
+
+R_API void r_anal_function_add_block(RAnalFunction *fcn, RAnalBlock *bb) {
+	R_RETURN_IF_FAIL (fcn && bb);
+	if (r_list_contains (bb->fcns, fcn)) {
+		return;
+	}
+	r_list_append (bb->fcns, fcn);
+	r_list_append (fcn->bbs, r_ref (bb));
+	fcn->meta.numcallrefs = -1;
+
+	if (fcn->meta._min != UT64_MAX) {
+		if (bb->addr + bb->size > fcn->meta._max) {
+			fcn->meta._max = bb->addr + bb->size;
+		}
+		if (bb->addr < fcn->meta._min) {
+			fcn->meta._min = bb->addr;
+		}
+	}
+
+	if (fcn->anal->cb.on_fcn_bb_new) {
+		fcn->anal->cb.on_fcn_bb_new (fcn->anal, fcn->anal->user, fcn, bb);
+	}
+}
+
+R_API void r_anal_function_remove_block(RAnalFunction *fcn, RAnalBlock *bb) {
+	R_RETURN_IF_FAIL (fcn && bb);
+	r_list_delete_data (bb->fcns, fcn);
+
+	if (fcn->meta._min != UT64_MAX
+		&& (fcn->meta._min == bb->addr || fcn->meta._max == bb->addr + bb->size)) {
+		// If a block is removed at the beginning or end, updating min/max is not trivial anymore, just invalidate
+		fcn->meta._min = UT64_MAX;
+	}
+
+	r_list_delete_data (fcn->bbs, bb);
+	fcn->meta.numcallrefs = -1;
+	r_unref (bb);
+}
+
+static void ensure_fcn_range(RAnalFunction *fcn) {
+	if (fcn->meta._min != UT64_MAX) { // recalculate only if invalid
+		return;
+	}
+	ut64 minval = UT64_MAX;
+	ut64 maxval = UT64_MIN;
+	RAnalBlock *block;
+	RListIter *iter;
+	r_list_foreach (fcn->bbs, iter, block) {
+		if (block->addr < minval) {
+			minval = block->addr;
+		}
+		if (block->addr + block->size > maxval) {
+			maxval = block->addr + block->size;
+		}
+	}
+	fcn->meta._min = minval;
+	fcn->meta._max = minval == UT64_MAX ? UT64_MAX : maxval;
+}
+
+R_API ut64 r_anal_function_linear_size(RAnalFunction *fcn) {
+	R_RETURN_VAL_IF_FAIL (fcn, 0);
+	ensure_fcn_range (fcn);
+	return fcn->meta._max - fcn->meta._min;
+}
+
+R_API ut64 r_anal_function_min_addr(RAnalFunction *fcn) {
+	R_RETURN_VAL_IF_FAIL (fcn, 0);
+	ensure_fcn_range (fcn);
+	return fcn->meta._min;
+}
+
+R_API ut64 r_anal_function_max_addr(RAnalFunction *fcn) {
+	R_RETURN_VAL_IF_FAIL (fcn, 0);
+	ensure_fcn_range (fcn);
+	return fcn->meta._max;
+}
+
+
+
+R_API ut64 r_anal_function_size_from_entry(RAnalFunction *fcn) {
+	R_RETURN_VAL_IF_FAIL (fcn, 0);
+	ensure_fcn_range (fcn);
+	return fcn->meta._min == UT64_MAX ? 0 : fcn->meta._max - fcn->addr;
+}
+
+R_API ut64 r_anal_function_realsize(const RAnalFunction *fcn) {
+	R_RETURN_VAL_IF_FAIL (fcn, UT64_MAX);
+	RListIter *iter;
+	RAnalBlock *bb;
+	ut64 sz = 0;
+	r_list_foreach (fcn->bbs, iter, bb) {
+		sz += bb->size;
+	}
+	return sz;
+}
+
+static bool fcn_in_cb(RAnalBlock *block, void *user) {
+	RListIter *iter;
+	RAnalFunction *fcn;
+	r_list_foreach (block->fcns, iter, fcn) {
+		if (fcn == user) {
+			return false;
+		}
+	}
+	return true;
+}
+
+R_API bool r_anal_function_contains(RAnalFunction *fcn, ut64 addr) {
+	R_RETURN_VAL_IF_FAIL (fcn, false);
+	if (addr == UT64_MAX) {
+		return false;
+	}
+	// fcn_in_cb breaks with false if it finds the fcn
+	return !r_anal_blocks_foreach_in (fcn->anal, addr, fcn_in_cb, fcn);
+}
+
+R_API bool r_anal_function_was_modified(RAnalFunction *fcn) {
+	R_RETURN_VAL_IF_FAIL (fcn, false);
+	RListIter *it;
+	RAnalBlock *bb;
+	r_list_foreach (fcn->bbs, it, bb) {
+		if (r_anal_block_was_modified (bb)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+R_API int r_anal_function_coverage(RAnalFunction *fcn) {
+	R_RETURN_VAL_IF_FAIL (fcn, 0);
+	int total = r_list_length (fcn->bbs);
+	if (total == 0) {
+		return 0;
+	}
+	RListIter *iter;
+	RAnalBlock *bb;
+	int traced = 0;
+	r_list_foreach (fcn->bbs, iter, bb) {
+		if (bb->traced != 0) {
+			traced++;
+		}
+	}
+	return (traced * 100) / total;
+}
+
+R_API ut64 r_anal_function_dirty_epoch(const RAnalFunction *fcn) {
+	R_RETURN_VAL_IF_FAIL (fcn, 0);
+	return fcn->dirty_epoch;
+}
+
+R_API ut64 r_anal_function_bump_dirty_epoch(RAnalFunction *fcn) {
+	R_RETURN_VAL_IF_FAIL (fcn, 0);
+	fcn->dirty_epoch++;
+	if (!fcn->dirty_epoch) {
+		fcn->dirty_epoch++;
+	}
+	fcn->has_changed = true;
+	return fcn->dirty_epoch;
+}
+
+// The convention a bare "dyncc" stands for: what the bin plugin says about the
+// function's address, or "reg" when nothing does. Only once the address is known.
+static const char *resolved_callconv(RAnal *anal, RAnalFunction *fcn, const char *callconv) {
+	if (strcmp (callconv, "dyncc") || fcn->addr == UT64_MAX) {
+		return callconv;
+	}
+	const char *resolved = anal->binb.get_cc? anal->binb.get_cc (anal->binb.bin, fcn->addr): NULL;
+	return resolved? resolved: "reg";
+}
+
+// Store the convention a caller decided on, resolved. The one writer; a
+// NULL or empty name clears the convention, and interning a name that fails
+// leaves the function as it was.
+R_API bool r_anal_function_store_callconv(RAnal *anal, RAnalFunction *fcn, const char *callconv) {
+	R_RETURN_VAL_IF_FAIL (anal && fcn, false);
+	const char *pooled = NULL;
+	if (R_STR_ISNOTEMPTY (callconv)) {
+		pooled = r_str_constpool_get (&anal->constpool, resolved_callconv (anal, fcn, callconv));
+		if (!pooled) {
+			return false;
+		}
+	}
+	if (fcn->callconv == pooled) {
+		return true;
+	}
+	fcn->callconv = pooled;
+	r_anal_function_bump_dirty_epoch (fcn);
+	return true;
+}
+
+// The convention a user named, which has to be one the target defines.
+R_API bool r_anal_function_set_callconv(RAnal *anal, RAnalFunction *fcn, const char *callconv) {
+	R_RETURN_VAL_IF_FAIL (anal && fcn && R_STR_ISNOTEMPTY (callconv), false);
+	if (!r_anal_cc_exist (anal, callconv)) {
+		return false;
+	}
+	return r_anal_function_store_callconv (anal, fcn, callconv);
+}
+
+typedef struct {
+	RGraph *graph;
+	HtUP *nodes;
+	RGraphNode *from;
+} EdgeCtx;
+
+// a successor outside the function (tail jump, noreturn split) is not an edge
+static bool add_edge_cb(ut64 addr, void *user) {
+	EdgeCtx *ctx = user;
+	RGraphNode *to = ht_up_find (ctx->nodes, addr, NULL);
+	if (to) {
+		r_graph_add_edge (ctx->graph, ctx->from, to);
+	}
+	return true;
+}
+
+R_API RGraph *r_anal_function_get_graph(RAnalFunction *fcn, RGraphNode **node_ptr, ut64 addr) {
+	R_RETURN_VAL_IF_FAIL (fcn && fcn->bbs && r_list_length (fcn->bbs), NULL);
+	HtUP *nodes = ht_up_new0 ();
+	RGraph *g = r_graph_new ();
+	if (node_ptr) {
+		*node_ptr = NULL;
+	}
+	RListIter *iter;
+	RAnalBlock *bb;
+	r_list_foreach (fcn->bbs, iter, bb) {
+		RGraphNode *node = r_graph_add_node (g, bb);
+		if (node_ptr && !node_ptr[0] && bb->addr <= addr && addr < (bb->addr + bb->size)) {
+			*node_ptr = node;
+		}
+		ht_up_insert (nodes, bb->addr, node);
+	}
+	EdgeCtx ctx = { g, nodes, NULL };
+	r_list_foreach (fcn->bbs, iter, bb) {
+		if (bb->jump == UT64_MAX && bb->fail == UT64_MAX && (!bb->switch_op || r_list_empty (bb->switch_op->cases))) {
+			continue;
+		}
+		ctx.from = ht_up_find (nodes, bb->addr, NULL);
+		r_anal_block_successor_addrs_foreach (bb, add_edge_cb, &ctx);
+	}
+	ht_up_free (nodes);
+	return g;
+}
+
+R_API bool r_anal_function_switches_foreach(RAnalFunction *fcn, RAnalFunctionSwitchCb cb, void *user) {
+	R_RETURN_VAL_IF_FAIL (fcn && cb, false);
+	RListIter *iter;
+	RAnalBlock *bb;
+	r_list_foreach (fcn->bbs, iter, bb) {
+		if (!bb || !bb->switch_op) {
+			continue;
+		}
+		if (!cb (fcn, bb, bb->switch_op, user)) {
+			return false;
+		}
+	}
+	return true;
+}

@@ -1,0 +1,22 @@
+NAME=PE: corkami appsectableW7.exe - open
+FILE=bins/pe/appsectableW7.exe
+ARGS=-A
+CMDS=q!
+EXPECT=<<EOF
+EOF
+RUN
+
+# merged: PE: corkami appsectableW7.exe - pi 1
+NAME=PE: corkami appsectableW7.exe - entrypoint
+FILE=bins/pe/appsectableW7.exe
+CMDS=<<EOF
+s
+?e --
+pi 1
+EOF
+EXPECT=<<EOF
+0x401000
+--
+push 0x401018
+EOF
+RUN

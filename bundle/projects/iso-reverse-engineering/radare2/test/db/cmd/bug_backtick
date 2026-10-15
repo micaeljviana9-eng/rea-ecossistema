@@ -1,0 +1,7 @@
+NAME=t/bug_backtick
+FILE=-
+CMDS=p8 3`~`
+EXPECT=<<EOF
+000000
+EOF
+RUN

@@ -1,0 +1,61 @@
+NAME=loading an xbe file
+FILE=bins/xbe/default.xbe
+CMDS=q!
+EXPECT=<<EOF
+EOF
+RUN
+
+# merged: corrupted section data; decoding the thunk table
+NAME=entrypoint decoding
+FILE=bins/xbe/default.xbe
+CMDS=<<EOF
+ie=~addr
+?e --
+p8 16
+?e --
+is
+EOF
+EXPECT=<<EOF
+paddr=0x00001000 vaddr=0x00011000 haddr=-1 type=program
+--
+81ec08040000535556576a01e88f0100
+--
+nth paddr      vaddr      bind type size lib name       demangled
+-----------------------------------------------------------------
+0   0x000016c0 0x000116c0 NONE NONE 4        kt.sprintf
+EOF
+RUN
+
+NAME=section header decoding
+FILE=bins/xbe/default.xbe
+CMDS=iS
+EXPECT=<<EOF
+nth paddr         size vaddr          vsize perm flags type name
+----------------------------------------------------------------
+0   0x00001000   0x6c0 0x00011000     0x6c0 -r-x 0x0   ---- .0
+1   0x00002000    0x18 0x000116c0      0x18 -r-- 0x0   ---- .1
+2   0x00003000  0x6e78 0x000116e0  0x132ee4 -rw- 0x0   ---- .2
+3   0x0000a000    0x3c 0x001445e0      0x40 -rwx 0x0   ---- .3
+4   0x0000b000    0xa4 0x00144620     0x4a4 -r-- 0x0   ---- .4
+EOF
+RUN
+
+NAME=section header in r2
+FILE=bins/xbe/default.xbe
+CMDS=iS*
+EXPECT=<<EOF
+fs sections
+'f section..0 1 0x00011000
+'f section..1 1 0x000116c0
+'f section..2 1 0x000116e0
+'f section..3 1 0x001445e0
+'f section..4 1 0x00144620
+EOF
+RUN
+
+NAME=loading crashy xbe file
+FILE=bins/xbe/crash.xbe
+CMDS=q!
+EXPECT=<<EOF
+EOF
+RUN

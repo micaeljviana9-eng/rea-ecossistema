@@ -1,0 +1,21 @@
+NAME=PE: corkami virtrelocXP.exe - open
+FILE=bins/pe/virtrelocXP.exe
+CMDS=q!
+EXPECT=<<EOF
+EOF
+RUN
+
+# merged: PE: corkami virtrelocXP.exe - pi 1
+NAME=PE: corkami virtrelocXP.exe - entrypoint
+FILE=bins/pe/virtrelocXP.exe
+CMDS=<<EOF
+s
+?e --
+pi 1
+EOF
+EXPECT=<<EOF
+0x10138
+--
+push 0x150
+EOF
+RUN

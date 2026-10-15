@@ -1,0 +1,14 @@
+# merged: PE: corkami elf-nx - nx disabled
+NAME=PE: corkami elf-xnorelro - relro disabled
+FILE=bins/elf/analysis/elf-xnorelro
+CMDS=<<EOF
+ik info/*~relro
+?e --
+iI~^nx
+EOF
+EXPECT=<<EOF
+elf.relro=no
+--
+nx       false
+EOF
+RUN

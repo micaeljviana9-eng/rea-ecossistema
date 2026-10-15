@@ -1,0 +1,85 @@
+/* radare - LGPL - Copyright 2018-2025 - pancake */
+
+#include <r_flag.h>
+
+R_API RList *r_flag_tags_set(RFlag *f, const char *name, const char *words) {
+	R_RETURN_VAL_IF_FAIL (f && name && words, NULL);
+	sdb_setf (f->tags, words, -1, "tag.%s", name);
+	return NULL;
+}
+
+R_API RList *r_flag_tags_list(RFlag *f, const char * R_NULLABLE name) {
+	R_RETURN_VAL_IF_FAIL (f, NULL);
+	RList *res = r_list_newf (free);
+	if (name) {
+		const char *value = sdb_const_getf (f->tags, NULL, "tag.%s", name);
+		char *words = value? strdup (value): NULL;
+		if (R_STR_ISNOTEMPTY (words)) {
+			RListIter *iter;
+			char *word;
+			RList *list = r_str_split_list (words, " ", 0);
+			r_list_foreach (list, iter, word) {
+				if (*word) {
+					r_list_append (res, strdup (word));
+				}
+			}
+			r_list_free (list);
+		}
+		free (words);
+		return res;
+	}
+	SdbList *o = sdb_foreach_list (f->tags, false);
+	SdbListIter *iter;
+	SdbKv *kv;
+	ls_foreach (o, iter, kv) {
+		const char *tag = sdbkv_key (kv);
+		if (r_str_nlen (tag, 6) >= 5) {
+			r_list_append (res, strdup (tag + 4));
+		}
+	}
+	ls_free (o);
+	return res;
+}
+
+R_API void r_flag_tags_reset(RFlag *f, const char * R_NULLABLE name) {
+	R_RETURN_IF_FAIL (f);
+	if (name) {
+		r_strf_var (k, 64, "tag.%s", name);
+		sdb_unset (f->tags, k, 0);
+	} else {
+		sdb_reset (f->tags);
+	}
+}
+
+struct iter_glob_flag_t {
+	RList *res;
+	RList *words;
+};
+
+static bool iter_glob_flag(RFlagItem *fi, void *user) {
+	struct iter_glob_flag_t *u = (struct iter_glob_flag_t *)user;
+	RListIter *iter;
+	const char *word;
+
+	r_list_foreach (u->words, iter, word) {
+		if (r_str_glob (fi->name, word)) {
+			r_list_append (u->res, fi);
+		}
+	}
+	return true;
+}
+
+R_API RList *r_flag_tags_get(RFlag *f, const char *name) {
+	R_RETURN_VAL_IF_FAIL (f && name, NULL);
+	RList *res = r_list_newf (NULL);
+	const char *value = sdb_const_getf (f->tags, NULL, "tag.%s", name);
+	char *words = value? strdup (value): NULL;
+	if (words) {
+		RList *list = r_str_split_list (words, " ",  0);
+		struct iter_glob_flag_t u = { .res = res, .words = list };
+		r_flag_foreach (f, iter_glob_flag, &u);
+		r_list_free (list);
+		free (words);
+	}
+	return res;
+}

@@ -1,0 +1,250 @@
+#include <r_util.h>
+#include "minunit.h"
+
+static RNum *num;
+
+bool test_r_num_units(void) {
+	char humansz[8];
+	const struct {
+		const char *expected_res;
+		const char *message;
+		ut64 num;
+	} test_cases[] = {
+		{ "0",        "B", 0ULL },
+		{ "512",      "B", 512ULL },
+		{ "1K",       "K", 1ULL << 10 },
+		{ "1M",       "M", 1ULL << 20 },
+		{ "1G",       "G", 1ULL << 30 },
+		{ "1T",       "T", 1ULL << 40 },
+		{ "1P",       "P", 1ULL << 50 },
+		{ "1E",       "E", 1ULL << 60 },
+		/* Decimal test */
+		{ "1.0K",     "K", 1025 },
+		{ "994K",     "K", 994 * (1ULL << 10) },
+		{ "999K",     "K", 999 * (1ULL << 10) },
+		{ "1.0M",     "M", 1025 * (1ULL << 10) },
+		{ "1.5M",     "M", 1536 * (1ULL << 10) },
+		{ "1.9M",     "M", 1996 * (1ULL << 10) },
+		{ "2.0M",     "M", 1997 * (1ULL << 10) },
+		{ "2.0M",     "M", 2047 * (1ULL << 10) },
+		{ "2M",       "M", 2048 * (1ULL << 10) },
+		{ "2.0M",     "M", 2099 * (1ULL << 10) },
+		{ "2.1M",     "M", 2100 * (1ULL << 10) },
+		{ "9.9G",     "G", 10188 * (1ULL << 20) },
+		/* Biggest units */
+		{ "82P",      "P", 82 * (1ULL << 50) },
+		{ "16E",    "E", UT64_MAX }
+	};
+	size_t nitems = sizeof (test_cases) / sizeof (test_cases[0]);
+	size_t i;
+	for (i = 0; i < nitems; i++) {
+		r_num_units (humansz, sizeof (humansz), test_cases[i].num);
+		mu_assert_streq (humansz, test_cases[i].expected_res, test_cases[i].message);
+	}
+	mu_end;
+}
+
+bool test_r_num_minmax_swap(void) {
+	ut64 a = 1, b = 2;
+	r_num_minmax_swap (&a, &b);
+	mu_assert_eq (a == 1 && b == 2, 1, "a < b -> a < b");
+	a = 2, b = 1;
+	r_num_minmax_swap (&a, &b);
+	mu_assert_eq (a == 1 && b == 2, 1, "b < a -> a < b");
+	mu_end;
+}
+
+bool test_r_num_between(void) {
+	mu_assert_eq (r_num_between (num, "1 2 3"), 1, "1 <= 2 <= 3");
+	mu_assert_eq (r_num_between (num, "3 2 1"), 0, "3 <= 2 <= 1");
+	mu_assert_eq (r_num_between (num, "1 1 1"), 1, "1 <= 1 <= 1");
+	mu_assert_eq (r_num_between (num, "2 1 3"), 0, "2 <= 1 <= 3");
+	mu_assert_eq (r_num_between (num, "1 2 1+2"), 1, "1 <= 2 <= 1+2");
+	mu_assert_eq (r_num_between (num, "2 3 1+2+3"), 1, "2 <= 3 <= 1+2+3");
+	mu_assert_eq (r_num_between (num, "1+2 2 1+1"), 0, "1+2 <= 2 <= 1+1");
+	mu_assert_eq (r_num_between (num, "1 + 2 2 1 + 1"), 0, "1 + 2 <= 2 <= 1 + 1");
+	mu_end;
+}
+
+bool test_r_num_math_shifts(void) {
+	mu_assert_eq (r_num_math (num, "1<<63"), 0x8000000000000000ULL, "left shift by 63");
+	mu_assert_eq (r_num_math (num, "1<<64"), 0, "left shift by 64");
+	mu_assert_eq (r_num_math (num, "1<<200"), 0, "left shift by 200");
+	mu_assert_eq (r_num_math (num, "255<<255"), 0, "left shift by 255");
+	mu_assert_eq (r_num_math (num, "0x8000000000000000>>63"), 1, "right shift by 63");
+	mu_assert_eq (r_num_math (num, "0x8000000000000000>>64"), 0, "right shift by 64");
+	mu_assert_eq (r_num_math (num, "0x8000000000000000>>200"), 0, "right shift by 200");
+	mu_end;
+}
+
+bool test_r_num_math_rotates(void) {
+	mu_assert_eq (r_num_math (num, "0x0123456789abcdef<<<0"), 0x0123456789abcdefULL, "left rotate by 0");
+	mu_assert_eq (r_num_math (num, "0x0123456789abcdef<<<64"), 0x0123456789abcdefULL, "left rotate by 64");
+	mu_assert_eq (r_num_math (num, "0x0123456789abcdef<<<65"), 0x02468acf13579bdeULL, "left rotate by 65");
+	mu_assert_eq (r_num_math (num, "0x0123456789abcdef>>>0"), 0x0123456789abcdefULL, "right rotate by 0");
+	mu_assert_eq (r_num_math (num, "0x0123456789abcdef>>>64"), 0x0123456789abcdefULL, "right rotate by 64");
+	mu_assert_eq (r_num_math (num, "0x0123456789abcdef>>>65"), 0x8091a2b3c4d5e6f7ULL, "right rotate by 65");
+	mu_end;
+}
+
+bool test_r_num_str_len(void) {
+	mu_assert_eq (r_num_str_len ("1"), 1, "\"1\"");
+	mu_assert_eq (r_num_str_len ("1+1"), 3, "\"1+1\"");
+	mu_assert_eq (r_num_str_len ("1 + 1"), 5, "\"1 + 1\"");
+	mu_assert_eq (r_num_str_len ("1 + 1 "), 5, "\"1 + 1 \"");
+	mu_assert_eq (r_num_str_len ("1 + 1  "), 5, "\"1 + 1  \"");
+	mu_assert_eq (r_num_str_len ("1 + 1 1"), 5, "\"1 + 1 1\"");
+	mu_assert_eq (r_num_str_len ("1 + 1 1 + 1"), 5, "\"1 + 1 1 + 1\"");
+	mu_assert_eq (r_num_str_len ("1 + (1 + 1) 1"), 11, "\"1 + (1 + 1) 1\"");
+	mu_assert_eq (r_num_str_len ("1 + (1 + (1 + 1)) 1"), 17, "\"1 + (1 + (1 + 1)) 1\"");
+	mu_assert_eq (r_num_str_len ("1+(1+(1+1)) 1"), 11, "\"1+(1+(1+1)) 1\"");
+	mu_assert_eq (r_num_str_len ("(1 + 1) + (1 + 1) 1"), 17, "\"(1 + 1) + (1 + 1) 1\"");
+	mu_assert_eq (r_num_str_len ("(1+1)+(1+1) 1"), 11, "\"(1+1)+(1+1) 1\"");
+    mu_end;
+}
+
+bool test_r_num_str_split(void) {
+	char *str = malloc (0x20);
+	strcpy (str, "1 1 + 2 1 + (2 + 3) 4 ");
+	//expected "1\01 + 2\01 + (2 + 3)\04\0"
+	int count = r_num_str_split (str);
+	mu_assert_eq (count, 4, "r_num_str_split (str) == 4");
+	mu_assert_streq (str+0, "1", "1");
+	mu_assert_streq (str+2, "1 + 2", "1 + 2");
+	mu_assert_streq (str+8, "1 + (2 + 3)", "1 + (2 + 3)");
+	mu_assert_streq (str+20, "4", "4");
+	free (str);
+    mu_end;
+}
+
+bool test_r_num_str_split_list(void) {
+	char *s;
+	char *str = malloc (0x20);
+	strcpy (str, "1 1 + 2 1 + (2 + 3) 4 ");
+	//expected {"1", "1 + 2", "1 + (2 + 3)", "4"} as list
+	RList *list = r_num_str_split_list (str);
+	mu_assert_eq (r_list_length (list), 4, "r_list_length (list) == 4");
+	s = (char *)r_list_pop_head (list);
+	mu_assert_streq (s, "1", "1");
+	s = (char *)r_list_pop_head (list);
+	mu_assert_streq (s, "1 + 2", "1 + 2");
+	s = (char *)r_list_pop_head (list);
+	mu_assert_streq (s, "1 + (2 + 3)", "1 + (2 + 3)");
+	s = (char *)r_list_pop_head (list);
+	mu_assert_streq (s, "4", "4");
+	free (str);
+	r_list_free (list);
+    mu_end;
+}
+
+bool test_r_num_hex_unsigned(void) {
+	const char *valid[] = {
+		"0xffffffffffffffffU", "0xFFFFFFFFFFFFFFFFu",
+		"0xffff_ffff_ffff_ffffU", "0Xffff_ffff_ffff_ffffu"
+	};
+	size_t i;
+	for (i = 0; i < R_ARRAY_SIZE (valid); i++) {
+		const char *err = NULL;
+		mu_assert_eq (r_num_get_err (num, valid[i], &err), UT64_MAX, valid[i]);
+		mu_assert_null (err, "unsigned hex literal is valid");
+		mu_assert_eq (r_num_math_err (num, valid[i], &err), UT64_MAX, valid[i]);
+		mu_assert_null (err, "unsigned hex expression is valid");
+	}
+	const char *invalid[] = {
+		"0xU", "0x1UU", "0x1Ujunk", "0x1junk", "0x1_00U",
+		"0x1_0000_U", "0x10000000000000000U",
+		"0x0x123", "0x0_x123U", "0x0X1u", "0x"
+	};
+	for (i = 0; i < R_ARRAY_SIZE (invalid); i++) {
+		const char *err = NULL;
+		r_num_get_err (num, invalid[i], &err);
+		mu_assert_notnull (err, invalid[i]);
+		err = NULL;
+		r_num_math_err (num, invalid[i], &err);
+		mu_assert_notnull (err, invalid[i]);
+	}
+	mu_end;
+}
+
+static ut64 nested_reference_callback(RNum *user, const char *str, bool *ok) {
+	*ok = !strcmp (str, "[4:[8:0]+[1:2]]");
+	return *ok? 42: 0;
+}
+
+bool test_r_num_nested_reference_tokens(void) {
+	RNum *refnum = r_num_new (nested_reference_callback, NULL, NULL);
+	const char *err = NULL;
+	mu_assert_eq (r_num_math_err (refnum, "[4:[8:0]+[1:2]]+1", &err), 43, "nested reference is one token");
+	mu_assert_null (err, "balanced brackets are valid");
+	r_num_math_err (refnum, "[4:[8:0]", &err);
+	mu_assert_notnull (err, "missing outer closing bracket");
+	r_num_math_err (refnum, "[4:[8:0]+[1:2]]]", &err);
+	mu_assert_notnull (err, "extra closing bracket");
+	char longref[R_NUMCALC_STRSZ + 2];
+	memset (longref, '1', sizeof (longref) - 1);
+	longref[0] = '[';
+	longref[sizeof (longref) - 1] = 0;
+	r_num_math_err (refnum, longref, &err);
+	mu_assert_streq (err, "string too long", "oversized reference is rejected");
+	r_num_free (refnum);
+	mu_end;
+}
+
+static ut64 bounded_reference_callback(RNum *user, const char *str, bool *ok) {
+	int *calls = (int *)user;
+	(*calls)++;
+	*ok = true;
+	return 42;
+}
+
+bool test_r_num_reference_nesting_limit(void) {
+	int calls = 0;
+	RNum *refnum = r_num_new (bounded_reference_callback, NULL, &calls);
+	char expression[R_NUMCALC_STRSZ];
+	const int depths[] = {32, 33, 400};
+	size_t i;
+	for (i = 0; i < R_ARRAY_SIZE (depths); i++) {
+		const int depth = depths[i];
+		memset (expression, '[', depth);
+		expression[depth] = '0';
+		memset (expression + depth + 1, ']', depth);
+		expression[2 * depth + 1] = 0;
+		const char *err = NULL;
+		calls = 0;
+		ut64 value = r_num_math_err (refnum, expression, &err);
+		if (depth == 32) {
+			mu_assert_eq (value, 42, "nesting boundary is accepted");
+			mu_assert_null (err, "nesting boundary has no error");
+			mu_assert_eq (calls, 1, "one callback at the boundary");
+		} else {
+			mu_assert_eq (value, 0, "excessive nesting is rejected");
+			mu_assert_streq (err, "reference nesting too deep", "nesting limit diagnostic");
+			mu_assert_eq (calls, 0, "excessive nesting never invokes the callback");
+		}
+	}
+	const char *err = NULL;
+	mu_assert_eq (r_num_math_err (refnum, "[0]", &err), 42, "valid reference after rejection");
+	mu_assert_null (err, "nesting errors do not persist");
+	r_num_free (refnum);
+	mu_end;
+}
+
+bool all_tests(void) {
+	mu_run_test (test_r_num_reference_nesting_limit);
+	mu_run_test (test_r_num_nested_reference_tokens);
+	mu_run_test (test_r_num_hex_unsigned);
+	mu_run_test (test_r_num_units);
+	mu_run_test (test_r_num_minmax_swap);
+	mu_run_test (test_r_num_between);
+	mu_run_test (test_r_num_math_shifts);
+	mu_run_test (test_r_num_math_rotates);
+	mu_run_test (test_r_num_str_len);
+	mu_run_test (test_r_num_str_split);
+	mu_run_test (test_r_num_str_split_list);
+	return tests_passed != tests_run;
+}
+
+int main(int argc, char **argv) {
+	num = r_num_new (NULL, NULL, NULL);
+	return all_tests ();
+}

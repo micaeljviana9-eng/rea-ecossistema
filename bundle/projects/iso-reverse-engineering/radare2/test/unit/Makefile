@@ -1,0 +1,50 @@
+UNITS_BINDIR := bin
+BINS=$(patsubst %.c,$(UNITS_BINDIR)/%,$(wildcard *.c))
+# LDFLAGS+=$(shell pkg-config --libs r_core)
+-include ../../config-user.mk
+ifeq ($(USE_LIB_MAGIC),1)
+	BINS:=$(filter-out $(UNITS_BINDIR)/test_magic,$(BINS))
+endif
+CPPFLAGS+=-I$(INCLUDEDIR)
+CPPFLAGS+=-I../../libr/include
+CPPFLAGS+=-I../../subprojects/sdb/include
+CFLAGS+=-g
+LDLIBS+=-L$(LIBDIR)
+LDLIBS+=-lr_core -lr_main -lm -lr_config -lr_debug -lr_bin -lr_lang -lr_anal -lr_bp -lr_egg -lr_asm -lr_flag -lr_search -lr_syscall -lr_fs -lr_io -lr_socket -lr_cons -lr_magic -lr_muta -lr_arch -lr_esil -lr_reg -lr_util -ldl
+ifeq ($(ASAN),1)
+	ASAN_LD_PRELOAD=LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libasan.so.5
+else
+	ASAN_LD_PRELOAD=
+endif
+
+all: $(BINS)
+
+$(UNITS_BINDIR)/test_gdb: CPPFLAGS+=-I../../shlr/gdb/include
+$(UNITS_BINDIR)/test_gdb: LDLIBS:=../../shlr/gdb/lib/libgdbr.a $(LDLIBS)
+$(UNITS_BINDIR)/test_gdb: test_gdb.c ../../shlr/gdb/lib/libgdbr.a
+
+asan:
+	CFLAGS=-fsanitize=address $(MAKE) ASAN=1
+
+$(UNITS_BINDIR)/%: %.c
+	mkdir -p "$(UNITS_BINDIR)"
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< -o $@ $(LDFLAGS) $(LDLIBS)
+
+# keep the built-in %: %.c rule from dropping binaries next to the sources
+test_%: $(UNITS_BINDIR)/test_%
+	@:
+
+run: $(BINS)
+	@export R2_DEBUG_ASSERT=1 ; R=0 ; r=0 ; cd .. ; \
+	  for a in $(BINS) ; do \
+	  	echo "$$a" ; \
+		R=0 ; $(ASAN_LD_PRELOAD) ./unit/$$a || R=1; \
+		if [ "$$R" = 1 ]; then r=1; echo '[X''X]'; fi; \
+	  done ; \
+	echo unit$$r ; exit $$r
+
+clean:
+	rm -f $(BINS)
+	-rm -fd "$(UNITS_BINDIR)"
+
+.PHONY: all

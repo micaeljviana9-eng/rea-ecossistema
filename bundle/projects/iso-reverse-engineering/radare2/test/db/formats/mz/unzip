@@ -1,0 +1,20 @@
+# merged: MZ: unzip.exe - pi 1; MZ: unzip.exe segments
+NAME=MZ: unzip.exe - entrypoint
+FILE=bins/mz/unzip.exe
+CMDS=<<EOF
+s
+?e --
+pi 1
+?e --
+iS*
+EOF
+EXPECT=<<EOF
+0x156a0
+--
+mov bp, ax
+--
+fs sections
+'f section..mzhdr 1 0x00000000
+'f section..text 1 0x00000000
+EOF
+RUN
