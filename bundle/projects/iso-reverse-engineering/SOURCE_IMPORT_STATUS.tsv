@@ -28,3 +28,4 @@ winbindex	m417z/winbindex	aacec0c2e1c622127dc72123f60c9c986fc94a2f	bundle/projec
 windows-driver-samples	microsoft/Windows-driver-samples	2dc3fd3a0cc84a2933f2194e7ec0871584979071	bundle/projects/iso-reverse-engineering/windows-driver-samples	3747	1
 wine	wine-mirror/wine	5b6b85421c2a2161728b2a55e9f09271770a3eb0	bundle/projects/iso-reverse-engineering/wine	12465	0
 x64dbg	x64dbg/x64dbg	4fc92664f0ea63136c07c68ea848a994ea2749c6	bundle/projects/iso-reverse-engineering/x64dbg	2578	4
+ghidra	NationalSecurityAgency/ghidra	918acd744d17e3b95fbde44ec6ab3e59b6dbd45f	bundle/projects/iso-reverse-engineering/ghidra	20618	0
