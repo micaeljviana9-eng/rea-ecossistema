@@ -56,3 +56,22 @@ O script transforma os gitlinks correspondentes em arquivos reais, tenta materia
 - Código-fonte não significa que o programa já esteja compilado nem que rode no Android/Termux. Algumas ferramentas exigem Windows ou Linux de desktop, SDKs, drivers e dependências próprias.
 - Preserve e leia os arquivos `LICENSE`, `COPYING` e `NOTICE` de cada projeto antes de redistribuir ou modificar.
 - Para examinar ISOs, mantenha a imagem original intacta, registre hashes e teste alterações em uma cópia isolada.
+
+
+## Download completo para agentes de IA
+
+Para agentes que precisam ler a árvore inteira, inclusive arquivos ZIP rastreados por Git LFS, use Git + Git LFS (não baixe apenas arquivos individuais pelo navegador).
+
+**Windows (PowerShell):**
+```powershell
+git lfs install
+powershell -ExecutionPolicy Bypass -File .\\scripts\\download-for-agents.ps1 -Destination .\\rea-ecossistema
+```
+
+**Linux/macOS:**
+```bash
+git lfs install
+bash scripts/download-for-agents.sh ./rea-ecossistema
+```
+
+Para baixar também os snapshots compactados da release (38 assets, aproximadamente 547 MB), acrescente `-IncludeReleaseArchives` no PowerShell ou defina `INCLUDE_RELEASE_ARCHIVES=1` no Bash. Consulte [AGENTS.md](AGENTS.md) para instruções completas e regras de segurança/licença para agentes.
