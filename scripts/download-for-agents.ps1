@@ -10,7 +10,7 @@ $Branch = "main"
 foreach ($cmd in @("git")) {
     if (-not (Get-Command $cmd -ErrorAction SilentlyContinue)) { throw "Instale Git for Windows antes de continuar." }
 }
-try { git lfs version | Out-Null } catch { throw "Git LFS não está instalado. Instale Git LFS e execute novamente." }
+$lfsVersion = git lfs version 2>$null\nif ($LASTEXITCODE -ne 0) { throw "Git LFS não está instalado. Instale Git LFS e execute novamente." }
 
 $Parent = Split-Path -Parent $Destination
 if ($Parent) { New-Item -ItemType Directory -Force -Path $Parent | Out-Null }
