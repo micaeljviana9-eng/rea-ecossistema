@@ -65,7 +65,7 @@ Para agentes que precisam ler a árvore inteira, inclusive arquivos ZIP rastread
 **Windows (PowerShell):**
 ```powershell
 git lfs install
-powershell -ExecutionPolicy Bypass -File .\\scripts\\download-for-agents.ps1 -Destination .\\rea-ecossistema
+powershell -ExecutionPolicy Bypass -File .\scripts\download-for-agents.ps1 -Destination .\\rea-ecossistema
 ```
 
 **Linux/macOS:**
